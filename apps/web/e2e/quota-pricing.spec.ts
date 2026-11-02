@@ -34,9 +34,9 @@ test("待配置模型一次保存计价与路由，策略独立发布停用存�
   await page.getByLabel("规则版本", { exact: true }).fill("pricing-e2e-v1");
   await page.getByLabel("计价方式").selectOption("MULTIPLIER");
   await page.getByLabel("有效倍率（API 倍率模式 / 套餐扣减）").fill("3");
-  await page.getByLabel("缓存命中输入单价（币种/Token）").fill("0.000001");
-  await page.getByLabel("未命中输入单价（币种/Token）").fill("0.000002");
-  await page.getByLabel("输出单价（币种/Token）").fill("0.000004");
+  await page.getByLabel("缓存命中输入单价（CNY/百万 Token）").fill("1");
+  await page.getByLabel("未命中输入单价（CNY/百万 Token）").fill("2");
+  await page.getByLabel("输出单价（CNY/百万 Token）").fill("4");
   await expect(page.getByLabel("有效单价预览")).toContainText("输出 12");
   await page.screenshot({ path: testInfo.outputPath("pricing-form.png"), fullPage: true });
   const response = page.waitForResponse((r) => r.url().endsWith("/pricing-configurations") && r.request().method() === "POST");
@@ -44,6 +44,7 @@ test("待配置模型一次保存计价与路由，策略独立发布停用存�
   expect((await response).status()).toBe(201);
   const routes = await apiGet<{ routes: Array<{ id: string; enabled: boolean; priority: number; weight: number }> }>(page, `/unified-models/${modelId}/routes`);
   expect(routes.routes.find((r) => r.id === routeId)).toMatchObject({ enabled: true, priority: 80, weight: 2 });
+  await page.getByRole("button", { name: "明细表格视图" }).click();
   await expect(page.getByRole("row").filter({ hasText: "pricing-e2e-v1" })).toBeVisible();
   await page.getByRole("tab", { name: "调度策略", exact: true }).click();
   await page.getByRole("button", { name: "新建调度策略" }).click();

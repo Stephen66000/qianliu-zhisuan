@@ -27,6 +27,13 @@ export class GrantNotArchivableError extends Error {
   }
 }
 
+export class MonthlyQuotaRequiresPoolConfigurationError extends Error {
+  constructor() {
+    super("已配置月度额度的员工请使用厂商池接入配置，不再支持旧型号级授权创建");
+    this.name = "MonthlyQuotaRequiresPoolConfigurationError";
+  }
+}
+
 export class GrantRepository {
   constructor(private db: Kysely<Database>) {}
 
@@ -34,7 +41,7 @@ export class GrantRepository {
     return this.db.transaction().execute(async (trx) => {
       const principal = await trx
         .selectFrom("principal")
-        .select("id")
+        .select(["id", "type"])
         .where("enterprise_id", "=", input.enterprise_id)
         .where("id", "=", input.principal_id)
         .where("status", "=", "ACTIVE")
@@ -42,6 +49,11 @@ export class GrantRepository {
         .forKeyShare()
         .executeTakeFirst();
       if (!principal) throw new PrincipalNotActiveError();
+      if (principal.type === "EMPLOYEE") {
+        const policy = await trx.selectFrom("enterprise").select("employee_quota_monthly_from")
+          .where("id", "=", input.enterprise_id).executeTakeFirstOrThrow();
+        if (policy.employee_quota_monthly_from) throw new MonthlyQuotaRequiresPoolConfigurationError();
+      }
       const grant = await trx
         .insertInto("principal_grant")
         .values({

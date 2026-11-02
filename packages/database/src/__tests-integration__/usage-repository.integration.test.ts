@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -138,7 +139,8 @@ async function seedUsage(): Promise<SeededUsage> {
       enterprise_id: enterpriseId,
       principal_id: principalId,
       total_deducted_quota: 120n,
-      total_api_cost: "0",
+      total_api_cost: null,
+      api_cost_status: "NOT_APPLICABLE",
       overage: true,
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 2,
@@ -149,7 +151,8 @@ async function seedUsage(): Promise<SeededUsage> {
       enterprise_id: enterpriseId,
       principal_id: principalId,
       total_deducted_quota: 10n,
-      total_api_cost: "0",
+      total_api_cost: null,
+      api_cost_status: "NOT_APPLICABLE",
       overage: false,
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 0,
@@ -160,7 +163,8 @@ async function seedUsage(): Promise<SeededUsage> {
       enterprise_id: otherEnterpriseId,
       principal_id: otherPrincipalId,
       total_deducted_quota: 999n,
-      total_api_cost: "0",
+      total_api_cost: null,
+      api_cost_status: "NOT_APPLICABLE",
       overage: true,
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 0,
@@ -196,6 +200,7 @@ async function seedUsage(): Promise<SeededUsage> {
       provider_resource_id: resourceId,
       principal_id: principalId,
       resource_mode: "CODING_PLAN",
+      api_cost_status: "NOT_APPLICABLE",
       raw_input_tokens: 40n,
       raw_output_tokens: 20n,
       raw_cache_tokens: 0n,
@@ -309,4 +314,24 @@ describe("POOL-012 UsageRepository 数据库筛选", () => {
       latestVersion: "1.8.2",
     });
   });
+  it("期望 Agent 集合原子替换、去重、排序和清空，查询不跨企业", async () => {
+    const repo = new UsageRepository(db);
+    expect(await repo.replaceExpectedAgentFamilies(seeded.enterpriseId, seeded.principalId, ["WORKBUDDY", "CODEX", "CODEX"])).toEqual(["CODEX", "WORKBUDDY"]);
+    expect(await repo.listExpectedAgentFamilies(seeded.otherEnterpriseId, seeded.principalId)).toEqual([]);
+    await sql`
+      CREATE FUNCTION reject_expected_agent_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.agent_family = 'REJECTED_TEST' THEN RAISE EXCEPTION 'agent fixture rejected'; END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER reject_expected_agent_fixture BEFORE INSERT ON principal_agent_expectation
+      FOR EACH ROW EXECUTE FUNCTION reject_expected_agent_fixture();
+    `.execute(db);
+    await expect(repo.replaceExpectedAgentFamilies(seeded.enterpriseId, seeded.principalId, ["CODEX", "REJECTED_TEST"])).rejects.toThrow("agent fixture rejected");
+    expect(await repo.listExpectedAgentFamilies(seeded.enterpriseId, seeded.principalId)).toEqual(["CODEX", "WORKBUDDY"]);
+
+    expect(await repo.replaceExpectedAgentFamilies(seeded.enterpriseId, seeded.principalId, ["CLAUDE_CODE"])).toEqual(["CLAUDE_CODE"]);
+    expect(await repo.replaceExpectedAgentFamilies(seeded.enterpriseId, seeded.principalId, [])).toEqual([]);
+  });
+
 });

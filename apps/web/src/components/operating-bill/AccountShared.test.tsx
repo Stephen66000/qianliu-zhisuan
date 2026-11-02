@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { SubjectUsageCells, getSubjectUsageHeaders } from "./SubjectUsageCells";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -125,4 +127,32 @@ it("API money uses compact amounts for both full totals and available subtotals"
   expect(accountApiMoney({apiCost:"4.27"})).toBe("¥4.27");
   expect(accountApiMoney({apiCost:null,knownApiCost:"48.47156860"})).toBe("¥48.47");
   expect(accountApiMoney({apiCost:"112.91156860",knownApiCost:"112.91156860"})).toBe("¥112.91");
+});
+
+function quotaBoundaryTotals(allocated: string, used: string): OperatingBillMetricTotals {
+  return { inputTokens: used, outputTokens: "0", cacheTokens: "0", reasoningTokens: "0", totalTokens: used,
+    allocatedQuota: allocated, deductedQuota: "600", apiCost: "12.5", packageAllocatedCost: "2.5", totalAllocatedCost: "15",
+    activeDays: 2, requestCount: 3, lastUsedAt: "2026-10-31T15:59:00Z", usageQuality: "EXACT" };
+}
+it.each([["2200000000", "2709467730", "2,709,467,730"], ["0", "120", "120"]])("员工账不把%s跨池配置混算为预算或不限", (allocated, used, displayed) => {
+  const totals = quotaBoundaryTotals(allocated!, used!);
+  const row = { subjectId: "employee", subjectName: "额度边界员工", isUnassigned: false, allocatedQuota: allocated,
+    projectOwner: null, projectDepartments: [], providers: [], totals };
+  render(<MemoryRouter><MetricGrid totals={totals} quotaScope="EMPLOYEE" /><table aria-label="员工对照"><thead><tr>{getSubjectUsageHeaders([], "EMPLOYEE").map(header => <th key={header}>{header}</th>)}</tr></thead>
+    <tbody><tr><SubjectUsageCells row={row} providers={[]} quotaScope="EMPLOYEE" /></tr></tbody></table></MemoryRouter>);
+  const table = screen.getByRole("table", { name: "员工对照" });
+  expect(within(table).getAllByRole("cell")[0]).toHaveTextContent(displayed!);
+  expect(screen.getByRole("link", { name: "员工接入配置" })).toHaveAttribute("href", "/principals");
+  expect(screen.getByRole("link", { name: "额度边界员工按厂商池查看额度" })).toHaveAttribute("href", "/principals");
+  expect(screen.getAllByText("¥12.50").length).toBeGreaterThan(0);
+  for (const misleading of ["本月分配额度", "token使用率", "本月剩余额度", "不限", "2,200,000,000", "18.1 亿"]) expect(screen.queryByText(misleading, { exact: true })).toBeNull();
+});
+it("项目和部门调用点不传员工scope时保持原额度列与值", () => {
+  const totals = quotaBoundaryTotals("1000", "120");
+  const row = { subjectId: "project", subjectName: "项目对照", isUnassigned: false, projectOwner: null, projectDepartments: [], providers: [], totals };
+  render(<><MetricGrid totals={totals} /><table><tbody><tr><SubjectUsageCells row={row} providers={[]} /></tr></tbody></table></>);
+  expect(getSubjectUsageHeaders([]).slice(0, 4)).toEqual(["本月分配额度", "本月token使用量", "token使用率", "本月剩余额度"]);
+  expect(screen.getAllByText("12.0%")).toHaveLength(2);
+  expect(screen.getAllByText("880")).toHaveLength(2);
+  expect(screen.queryByRole("link", { name: "员工接入配置" })).toBeNull();
 });

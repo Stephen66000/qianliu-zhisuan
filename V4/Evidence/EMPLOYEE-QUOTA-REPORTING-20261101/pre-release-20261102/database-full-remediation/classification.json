@@ -1,0 +1,13 @@
+{
+  "baselineLog": "../full-bounded-tests.log",
+  "rootOwnedExcludedFiles": ["pool010-provider-operating.test.ts", "runtime-assurance-foundation.integration.test.ts"],
+  "classes": [
+    {"kind":"missing_required_monetary_status_fixture","files":["fixtures/operating-analysis.ts","project-allocation-invariance.integration.test.ts","provider-finance-cutover.integration.test.ts","w17-reconciliation.test.ts","w20-standard-capacity.integration.test.ts"],"action":"Declare original API priced facts explicitly; keep Plan API amount null/NOT_APPLICABLE; never infer unknown cost as known zero."},
+    {"kind":"obsolete_latest_migration_ledger_fixture","files":["exception-center-contract.integration.test.ts","kimi-allocation-migration.integration.test.ts"],"action":"Assert all originally tested migration names as a stable prefix while allowing later additive migrations; retain own recovery/cutover invariants."},
+    {"kind":"legacy_rollback_crosses_later_retained_foreign_keys","files":["billing-rule-multi-window-migration.integration.test.ts","principal-key-single-active-migration.integration.test.ts","pool046-zhipu-window-alias-migration.test.ts","w20-final-migration.integration.test.ts"],"action":"Use fresh per-file Postgres and the original reversible interval; preserve every original business/data assertion, never remove notification/report/monthly retained foreign keys."},
+    {"kind":"old_primary_cost_assertion_contradicts_explicit_unknown_fact","files":["operating-feedback.integration.test.ts"],"action":"Root-approved primary Bill apiCost null; retain Account and Department known subtotal 2.5 with incomplete marker, no production change."},
+    {"kind":"dependent_test_failed_after_fixture_failure","files":["w17-reconciliation.test.ts"],"action":"Repair preceding fixture so discrepancy exists before status-transition assertion; preserve all status assertions."}
+  ],
+  "skippedClassification":{"count":58,"intentionalEnvSkipsFound":0,"exception55":"beforeAll exact migration ledger assertion failed","capacity2":"beforeAll aggregate monetary status missing","invariance1":"beforeAll transaction monetary status missing","action":"Run all previously skipped cases after fixture repair, not count them as passed."},
+  "productionSourceChanges":[]
+}

@@ -5,7 +5,10 @@ import type { Database } from "./kysely.js";
 export const reportTypes = ["DAILY", "COMPANY_WEEKLY", "PERSONAL_WEEKLY", "COMPANY_MONTHLY", "PERSONAL_MONTHLY", "TOP1", "OVER50"] as const;
 export type ReportType = typeof reportTypes[number];
 export type ReportMessageStatus = "PENDING" | "SENDING" | "SENT" | "RETRYABLE_FAILED" | "PERMANENT_FAILED" | "UNKNOWN" | "SKIPPED";
-export interface ReportSnapshot { png: string; text: string; filename: string }
+export interface ReportSnapshot {
+  png: string; text: string; filename: string;
+  facts?: { factVersion: string; generatedAt: string; scope: 'EMPLOYEE'; timezone: string; quotaPeriodKey?: string; quotaAsOf?: string; provenance: string };
+}
 export interface ReportBundle {
   id: string; enterprise_id: string; report_type: ReportType; period_key: string;
   recipient_ref: string; target_user_id: string | null; endpoint_id: string | null;

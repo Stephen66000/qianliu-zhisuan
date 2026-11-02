@@ -5,6 +5,11 @@
  * 写操作同时断言 HTTP/持久化副作用，读操作同时断言 API 事实与页面结果。
  */
 import { readFile } from "node:fs/promises";
+import { verifyLegacyProjectAssignment } from "./legacy-project-assignment";
+import { verifyEmptyLegacyPrincipalCleanup } from "./legacy-principal-cleanup";
+import { updatePrincipalDepartment } from "./principal-department-flow";
+import { verifyLegacyOperatingBillApi } from "./operating-bill-legacy-api-flow";
+import { verifyFinancialSubscriptionHistory } from "./finance-subscription-flow";
 
 import { test, expect, login, apiGet, E2E_IDS } from "./fixtures";
 
@@ -34,16 +39,16 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.goto("/resources");
     await page.getByRole("button", { name: "登记资源" }).click();
     await page.getByRole("button", { name: "新建厂商" }).click();
-    await page.getByLabel("厂商代码").selectOption("deepseek");
+    await page.getByLabel("厂商代码 (首字母大写)").fill("DeepSeek");
     await page.getByLabel("显示名称").fill("E2E DeepSeek");
     const providerResponse = page.waitForResponse(
       (response) => response.url().endsWith("/providers") && response.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "确认", exact: true }).click();
+    await page.getByRole("button", { name: "确认创建厂商", exact: true }).click();
     expect((await providerResponse).status()).toBe(201);
 
     await expect(page.getByLabel("厂商", { exact: true })
-      .getByRole("option", { name: "E2E DeepSeek（deepseek）" })).toHaveCount(1);
+      .getByRole("option", { name: "E2E DeepSeek（DeepSeek）" })).toHaveCount(1);
     await page.getByLabel("厂商", { exact: true }).selectOption({ label: "智谱 E2E（zhipu）" });
     await expect(page.getByLabel("厂商", { exact: true }).locator("option:checked"))
       .toHaveText("智谱 E2E（zhipu）");
@@ -51,11 +56,35 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByLabel("模式").selectOption("CODING_PLAN");
     await page.getByLabel("凭证类型").selectOption("API_KEY");
     const secret = "sk-m5-e2e-plaintext-canary";
-    await page.getByLabel("上游凭证").fill(secret);
+    await page.getByLabel("上游凭证").fill("sk-e2e-invalid-synthetic-credential");
     await page.getByLabel("厂商总额度").fill("100000");
-    await page.getByLabel("生效时间").fill("2026-08-01T00:00");
+    await expect(page.getByText("订阅金额和服务周期在“充值与订阅”中登记。", { exact: true })).toBeVisible();
+    const deniedResponse = page.waitForResponse(response => response.url().endsWith("/provider-resources/model-discovery") && response.request().method() === "POST");
     await page.getByRole("button", { name: "检测可用模型" }).click();
-    await expect(page.getByText("glm-5.2", { exact: true })).toBeVisible();
+    const denied = await (await deniedResponse).json();
+    expect(denied.models.length).toBeGreaterThan(0);
+    expect(denied.models.every((model: { selectable: boolean; credential_validation: { status: string; http_status: number } }) =>
+      !model.selectable && model.credential_validation.status === "AUTH_FAILED" && model.credential_validation.http_status === 401)).toBe(true);
+    await page.getByRole("button", { name: "确认接入" }).click();
+    await expect(page.getByRole("alert")).toContainText("请先检测并选择至少一个兼容模型");
+    const providerId = await page.getByLabel("厂商", { exact: true }).inputValue();
+    const deniedOnboard = await page.evaluate(async (provider_id) => {
+      const response = await fetch("/api/provider-resources/onboard", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+        provider_id, name: "E2E invalid credential must not onboard", mode: "CODING_PLAN", credential_type: "API_KEY",
+        credential_plaintext: "sk-e2e-invalid-synthetic-credential", idempotency_key: crypto.randomUUID(), selected_model_ids: ["glm-5.3"],
+      }) });
+      return { status: response.status, body: await response.json() };
+    }, providerId);
+    expect(deniedOnboard).toMatchObject({ status: 409, body: { error: "model_selection_stale" } });
+    await page.getByLabel("上游凭证").fill(secret);
+    const allowedResponse = page.waitForResponse(response => response.url().endsWith("/provider-resources/model-discovery") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "检测可用模型" }).click();
+    const allowed = await (await allowedResponse).json();
+    expect(allowed.models.map((model: { id: string }) => model.id)).toEqual(["glm-5.3", "glm-5.3-flash"]);
+    expect(allowed.models.every((model: { selectable: boolean; credential_validation: { status: string; http_status: number } }) =>
+      model.selectable && model.credential_validation.status === "READY" && model.credential_validation.http_status === 200)).toBe(true);
+    await expect(page.getByText("glm-5.3", { exact: true })).toBeVisible();
+    await expect(page.getByText("glm-5.3-flash", { exact: true })).toBeVisible();
     const resourceResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/provider-resources/onboard") &&
@@ -72,25 +101,24 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       page,
       "/provider-resources",
     );
-    expect(result.resources.some((resource) => resource.name === "E2E 智谱 Plan")).toBe(true);
+    expect(result.resources.some((resource) => /^E2E 智谱 Plan-\d{6}$/.test(resource.name))).toBe(true);
     expect(JSON.stringify(result)).not.toContain(secret);
   });
 
-  test("POOL-010 Web 只录套餐规则，系统计算额度并保留历史配置", async ({ page }) => {
+  test("POOL-010 Web 只录套餐规则，系统计算额度并保留历史配置", async ({ page }, testInfo) => {
     await page.goto("/resources");
     const resourceRow = page.getByRole("row", {
-      name: /E2E 待恢复资源.*更新套餐配置/,
+      name: /E2E 待恢复资源.*更新额度配置/,
     });
-    await resourceRow.getByRole("button", { name: "更新套餐配置" }).click();
+    await resourceRow.getByRole("button", { name: "更新额度配置" }).click();
     await page.getByLabel("厂商总额度").fill("100000");
     await expect(page.getByLabel("厂商总额度")).toHaveValue("100,000");
     await expect(page.getByLabel("厂商已用额度")).toHaveCount(0);
     await expect(page.getByLabel("厂商剩余额度")).toHaveCount(0);
     await page.getByLabel("原生单位").fill("TOKEN");
     await page.getByLabel("套餐名称").fill("E2E 团队版");
-    await page.getByLabel("套餐费用").fill("299.4");
-    await page.getByLabel("套餐生效时间").fill("2026-07-01T00:00");
-    await expect(page.getByLabel("套餐费用")).toHaveValue("299.40");
+    await expect(page.getByLabel("套餐费用")).toHaveCount(0);
+    await expect(page.getByLabel("套餐生效时间")).toHaveCount(0);
     await expect(page.getByLabel("重置周期").getByRole("option", { name: "每季" }))
       .toHaveAttribute("value", "QUARTERLY");
     await expect(page.getByLabel("重置周期").getByRole("option", { name: "每年" }))
@@ -102,27 +130,26 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
         response.url().endsWith(`/provider-resources/${E2E_IDS.isolatedResource}`) &&
         response.request().method() === "PATCH",
     );
-    await page.getByRole("button", { name: "追加快照" }).click();
+    await page.getByRole("button", { name: "保存额度配置" }).click();
     expect((await firstPatch).status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "更新「E2E 待恢复资源」经营数据", exact: true })).toHaveCount(0);
 
-    await resourceRow.getByRole("button", { name: "更新套餐配置" }).click();
+    await resourceRow.getByRole("button", { name: "更新额度配置" }).click();
     await expect(page.getByText("v1 · ADMIN")).toBeVisible();
     await expect(page.getByLabel("重置周期")).toHaveValue("QUARTERLY");
     await expect(page.getByText(/每季 ·/)).toBeVisible();
-    await expect(page.getByText(/CNY 299\.40/)).toBeVisible();
-    await page.getByLabel("套餐费用").fill("399.001");
-    await page.getByRole("button", { name: "追加快照" }).click();
-    await expect(page.getByRole("alert")).toContainText("套餐费用：请输入非负金额，最多保留两位小数");
-    await page.getByLabel("套餐费用").fill("399");
+    await expect(page.getByLabel("套餐费用")).toHaveCount(0);
+    await page.getByLabel("套餐名称").fill("E2E 团队版更新");
     const secondPatch = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/provider-resources/${E2E_IDS.isolatedResource}`) &&
         response.request().method() === "PATCH",
     );
-    await page.getByRole("button", { name: "追加快照" }).click();
+    await page.getByRole("button", { name: "保存额度配置" }).click();
     expect((await secondPatch).status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "更新「E2E 待恢复资源」经营数据", exact: true })).toHaveCount(0);
 
-    await resourceRow.getByRole("button", { name: "更新套餐配置" }).click();
+    await resourceRow.getByRole("button", { name: "更新额度配置" }).click();
     await expect(page.getByText("v2 · ADMIN")).toBeVisible();
     await expect(page.getByText("v1 · ADMIN")).toBeVisible();
     await expect(page.getByText("系统已用额度")).toBeVisible();
@@ -144,21 +171,25 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       total_quota: "100000.00000000",
       used_quota: null,
       remaining_quota: null,
-      package_cost: "399.00000000",
+      package_cost: null,
       usage_calculation: "SYSTEM_LEDGER",
     });
     expect(history.snapshots[1]).toMatchObject({
       total_quota: "100000.00000000",
       used_quota: null,
       remaining_quota: null,
-      package_cost: "299.40000000",
+      package_cost: null,
       usage_calculation: "SYSTEM_LEDGER",
     });
 
     await page.goto("/resources?tab=usage-overview");
-    await expect(page.getByText("厂商总额度", { exact: true })).toBeVisible();
-    await expect(page.getByText("已分配给主体", { exact: true })).toBeVisible();
+    await expect(page.getByText("余额 / 剩余额度", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "展开智谱 E2E Coding Plan详情", exact: true }).click();
+    await expect(page.getByText("分配额度", { exact: true })).toBeVisible();
     await expect(page.getByText(/200,000 TOKEN/)).toBeVisible();
+    const overview = await apiGet<{ providerSummaries: Array<{ providerCode: string; mode: string; totalQuota: string }> }>(page, "/provider-resources/usage-overview");
+    expect(Number(overview.providerSummaries.find(item => item.providerCode === "zhipu" && item.mode === "CODING_PLAN")?.totalQuota)).toBe(200000);
+    await verifyFinancialSubscriptionHistory(page, testInfo);
   });
 
   test("POOL-042 用量总览展示 DeepSeek 余额、账本 Token、速度和模型明细", async ({ page }) => {
@@ -170,9 +201,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(row).toContainText("CNY 1,000.00");
     await expect(row).toContainText("8.00");
     await expect(row).toContainText("430");
-    await expect(row).toContainText("17.92 Token/小时");
-    await expect(page.getByText("ql-deepseek-v4-flash")).toBeVisible();
-    await expect(page.getByText("ql-deepseek-v4-pro")).toBeVisible();
+    await row.getByRole("button", { name: "展开DeepSeek Token E2E API详情", exact: true }).click();
+    await expect(providerSection.getByRole("region", { name: "DeepSeek Token E2E API详情", exact: true })).toContainText("17.92 Token/小时");
+    await expect(page.getByRole("button", { name: "展开ql-deepseek-v4-flash · DeepSeek Token E2E API详情", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "展开ql-deepseek-v4-pro · DeepSeek Token E2E API详情", exact: true })).toBeVisible();
     await expect(page.getByText("按模型查看")).toHaveCount(0);
 
     const overview = await apiGet<{
@@ -193,7 +225,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.goto("/principals");
     await page.getByRole("button", { name: "新建主体" }).click();
     await page.getByLabel("名称").fill("E2E 新员工");
-    await page.getByLabel("部门/标签（可选）").fill("产品部");
+    await page.getByLabel("所属部门", { exact: true }).fill("产品部");
     await page.getByRole("button", { name: "创建", exact: true }).click();
     const row = page.getByRole("row", { name: /E2E 新员工/ });
     await expect(row).toBeVisible();
@@ -211,12 +243,12 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     const plaintext = await keyDialog.locator("code").textContent();
     expect(plaintext).toMatch(/^sk-qianliu-/);
     await page.getByRole("button", { name: "继续配置" }).click();
-    await expect(page.getByText(plaintext!)).toBeVisible();
+    await expect(page.locator("code").filter({ hasText: plaintext! })).toBeVisible();
 
-    const zhipuProvider = page.getByRole("button", { name: "智谱 E2E 开通" });
-    await zhipuProvider.locator('input[type="checkbox"]').check();
-    await page.getByLabel("Token 额度").fill("88000");
-    await expect(page.getByLabel("Token 额度")).toHaveValue("88,000");
+    const zhipuProvider = page.getByRole("checkbox", { name: "智谱 E2E开通", exact: true });
+    await zhipuProvider.check();
+    await page.getByLabel("智谱 E2E 额度").fill("88000");
+    await expect(page.getByLabel("智谱 E2E 额度")).toHaveValue("88,000");
     const accessConfigResponse = page.waitForResponse(
       (response) =>
         /\/principals\/[^/]+\/access-configuration$/.test(new URL(response.url()).pathname) &&
@@ -225,11 +257,12 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByRole("button", { name: "保存并生效" }).click();
     expect((await accessConfigResponse).status()).toBe(200);
     await expect(page.getByText("已保存")).toBeVisible();
-    await expect(page.getByText(/88,000/).first()).toBeVisible();
+    await page.getByRole("button", { name: /智谱 E2E.*开通/ }).click();
+    await expect(page.getByLabel("智谱 E2E 额度")).toHaveValue("88,000");
     await expect(page.getByText("http://127.0.0.1:8787/v1")).toBeVisible();
     await expect(page.getByText("qianliu-glm").last()).toBeVisible();
     await page.getByRole("button", { name: "复制接入信息" }).click();
-    await expect(page.getByRole("status")).toHaveText("复制成功");
+    await expect(page.getByRole("status")).toHaveText("接入信息复制成功");
     const copiedConnectionInfo = await page.evaluate(() => navigator.clipboard.readText());
     expect(copiedConnectionInfo).toContain("Base URL: http://127.0.0.1:8787/v1");
     expect(copiedConnectionInfo).toContain(`API Key: ${plaintext}`);
@@ -278,14 +311,15 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByRole("button", { name: "新建主体" }).click();
     await page.getByLabel("类型").selectOption("PROJECT");
     await page.getByLabel("名称").fill("E2E 数据项目");
+    await page.getByRole("combobox", { name: "项目负责人", exact: true }).selectOption({ label: "E2E 新员工" });
     await page.getByRole("button", { name: "创建", exact: true }).click();
     const row = page.getByRole("row", { name: /E2E 数据项目/ });
     await row.getByRole("button", { name: "接入配置" }).click();
     await page.getByRole("button", { name: "生成 Key" }).click();
     await page.getByRole("button", { name: "继续配置" }).click();
-    const zhipuProvider = page.getByRole("button", { name: "智谱 E2E 开通" });
-    await zhipuProvider.locator('input[type="checkbox"]').check();
-    await page.getByLabel("Token 额度").fill("500000");
+    const zhipuProvider = page.getByRole("checkbox", { name: "智谱 E2E开通", exact: true });
+    await zhipuProvider.check();
+    await page.getByLabel("智谱 E2E 额度").fill("500000");
     await page.getByRole("button", { name: "保存并生效" }).click();
     await expect(page.getByText("已保存")).toBeVisible();
 
@@ -389,7 +423,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     const accessPanel = page.getByRole("region", { name: "接入配置" });
     const zhipuProvider = accessPanel.getByRole("button", { name: /智谱 E2E.*开通/ });
     await zhipuProvider.locator('input[type="checkbox"]').check();
-    await accessPanel.getByLabel("Token 额度").fill("100000");
+    await accessPanel.getByLabel("智谱 E2E 额度").fill("100000");
     let saveResponse = page.waitForResponse(
       (response) =>
         /\/principals\/[^/]+\/access-configuration$/.test(new URL(response.url()).pathname) &&
@@ -425,7 +459,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   test("WT-07/14 管理员可定位隔离资源、健康资源及 Provider 能力", async ({ page }) => {
     await page.goto("/resources");
     await expect(page.getByRole("row", {
-      name: /E2E 待恢复资源.*更新套餐配置/,
+      name: /E2E 待恢复资源.*更新额度配置/,
     })).toContainText("凭证失效");
     const healthyRow = page.getByRole("row", { name: /E2E 智谱主资源.*正常/ });
     await expect(healthyRow).toContainText("正常");
@@ -444,19 +478,18 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   });
 
   test("WT-08 首页异常可进入告警处置，写入 operation_log", async ({ page }) => {
-    await expect(page.getByText("厂商接入账号")).toBeVisible();
-    await expect(page.getByText("最早耗尽资源")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "接入资源", exact: true })).toBeVisible();
+    await expect(page.getByTestId("home-provider-attention-count")).toContainText("家需关注");
     await page.goto("/alerts");
     await expect(page.getByText("凭证失效：E2E 待恢复资源")).toBeVisible();
-    const alertCard = page.locator("div.rounded-xl", {
-      hasText: "凭证失效：E2E 待恢复资源",
-    });
+    await page.getByRole("combobox", { name: "凭证失效：E2E 待恢复资源 是否处理", exact: true }).selectOption("yes");
+    await page.getByLabel("处理说明", { exact: true }).fill("隔离验收已核对凭证异常，人工处理不替代后续轮换与恢复验证");
     const dispositionResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/alerts/disposition") &&
         response.request().method() === "POST",
     );
-    await alertCard.getByRole("button", { name: "标记已处理" }).click();
+    await page.getByRole("button", { name: "保存处理说明", exact: true }).click();
     expect((await dispositionResponse).status()).toBe(200);
     const logs = await apiGet<{
       logs: Array<{ action: string; change_summary: Record<string, unknown> }>;
@@ -502,68 +535,46 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     expect(JSON.stringify(after)).not.toContain(plaintext!);
   });
 
-  test("WT-10 管理页创建多窗口版本化计价规则、统一模型和 Model Route", async ({ page }) => {
+  test("WT-10 模型发现创建统一模型/路由后，多窗口版本化计价保存", async ({ page }) => {
+    // Current product creates unified models/routes through the validated onboarding flow (WT-01), not manual orphan forms.
+    const models = await apiGet<{ models: Array<{ id: string; alias: string; version: number }> }>(page, "/unified-models");
+    const discovered = models.models.find(item => item.alias === "ql-glm-5.3");
+    expect(discovered).toBeDefined();
+    const discoveredRoutes = await apiGet<{ routes: Array<{ upstream_model: string; provider_resource_id: string }> }>(page, `/unified-models/${discovered!.id}/routes`);
+    expect(discoveredRoutes.routes.some(route => route.upstream_model === "glm-5.3")).toBe(true);
+    const configured = await apiGet<{ routes: Array<{ id: string; provider_resource_id: string }> }>(page, `/unified-models/${E2E_IDS.model}/routes`);
+    const route = configured.routes.find(item => item.provider_resource_id === E2E_IDS.resource)!;
     await page.goto("/quota-rules");
-    await page.getByRole("button", { name: "新建规则" }).click();
-    await page.getByLabel("启用 Model Route").selectOption({ label: "E2E 智谱主资源 · glm-4.6" });
-    await page.getByLabel("规则版本").fill("e2e-web-v2");
-    await page.getByLabel("输出单价").fill("0.123");
-    await page.getByRole("button", { name: "添加窗口" }).click();
-    await page.getByRole("button", { name: "添加窗口" }).click();
+    await expect(page.getByRole("button", { name: "新建统一模型", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "新建路由", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "新建规则", exact: true }).click();
+    await page.getByLabel("模型", { exact: true }).selectOption(E2E_IDS.model);
+    await page.getByLabel("厂商资源", { exact: true }).selectOption(route.id);
+    await page.getByLabel("路由优先级", { exact: true }).fill("30");
+    await page.getByLabel("路由权重", { exact: true }).fill("3");
+    await page.getByLabel("规则版本", { exact: true }).fill("e2e-web-v2");
+    await page.getByLabel("缓存命中输入单价（CNY/百万 Token）").fill("0");
+    await page.getByLabel("未命中输入单价（CNY/百万 Token）").fill("0");
+    await page.getByLabel("输出单价（CNY/百万 Token）").fill("123000"); // same original 0.123 CNY / Token
+    await page.getByRole("button", { name: "添加窗口", exact: true }).click();
+    await page.getByRole("button", { name: "添加窗口", exact: true }).click();
     await page.getByLabel("开始（含）").nth(1).fill("14:00");
     await page.getByLabel("结束（不含）").nth(1).fill("18:00");
-    await page.getByRole("button", { name: "创建规则" }).click();
+    const saved = page.waitForResponse(response => response.url().endsWith("/pricing-configurations") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "保存并启用", exact: true }).click();
+    expect((await saved).status()).toBe(201);
+    await page.getByRole("button", { name: "明细表格视图", exact: true }).click();
     const ruleRow = page.getByRole("row", { name: /e2e-web-v2/ });
     await expect(ruleRow).toBeVisible();
-    await expect(ruleRow).toContainText("0.123");
+    await expect(ruleRow).toContainText("123000");
     await expect(ruleRow).toContainText("09:00–12:00");
     await expect(ruleRow).toContainText("14:00–18:00");
-
-    await page.getByRole("button", { name: "新建统一模型" }).click();
-    await page.getByLabel("模型别名").fill("qianliu-e2e-web");
-    await page.getByLabel("显示名称").fill("仟流 E2E Web");
-    await page.getByRole("button", { name: "创建模型" }).click();
-    const modelRow = page.getByRole("row", { name: /qianliu-e2e-web/ });
-    await expect(modelRow).toBeVisible();
-    await modelRow.getByRole("button", { name: "管理路由" }).click();
-    await page.getByRole("button", { name: "新建路由" }).click();
-    await page.getByLabel("厂商资源").last().selectOption(E2E_IDS.resource);
-    await page.getByLabel("上游模型").last().fill("glm-4.6");
-    await page.getByLabel("优先级").last().fill("30");
-    await page.getByLabel("权重").fill("3");
-    await page.getByRole("button", { name: "创建路由" }).click();
-    await expect(page.getByRole("row", { name: /glm-4.6.*30.*3/ })).toBeVisible();
-
-    const models = await apiGet<{
-      models: Array<{ id: string; alias: string; version: number }>;
-    }>(page, "/unified-models");
-    const model = models.models.find((item) => item.alias === "qianliu-e2e-web");
-    const routes = await apiGet<{
-      routes: Array<{ priority: number; weight: number; enabled: boolean }>;
-    }>(page, `/unified-models/${model!.id}/routes`);
-    expect(routes.routes).toEqual(
-      expect.arrayContaining([expect.objectContaining({ priority: 30, weight: 3, enabled: true })]),
-    );
-    const rules = await apiGet<{
-      rules: Array<{
-        rule_version: string;
-        output_price: string;
-        version: number;
-        time_windows: Array<{ start_time: string; end_time: string }>;
-      }>;
-    }>(page, "/billing-rules");
-    expect(rules.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          rule_version: "e2e-web-v2",
-          output_price: "0.123",
-          time_windows: [
-            expect.objectContaining({ start_time: "09:00", end_time: "12:00" }),
-            expect.objectContaining({ start_time: "14:00", end_time: "18:00" }),
-          ],
-        }),
-      ]),
-    );
+    const routes = await apiGet<{ routes: Array<{ priority: number; weight: number; enabled: boolean }> }>(page, `/unified-models/${E2E_IDS.model}/routes`);
+    expect(routes.routes).toEqual(expect.arrayContaining([expect.objectContaining({ priority: 30, weight: 3, enabled: true })]));
+    const rules = await apiGet<{ rules: Array<{ rule_version: string; output_price: string; time_windows: Array<{ start_time: string; end_time: string }> }> }>(page, "/billing-rules");
+    expect(rules.rules).toEqual(expect.arrayContaining([expect.objectContaining({ rule_version: "e2e-web-v2", output_price: "0.123",
+      time_windows: [expect.objectContaining({ start_time: "09:00", end_time: "12:00" }), expect.objectContaining({ start_time: "14:00", end_time: "18:00" })],
+    })]));
   });
 
   test("WT-12 流式已提交后中断只留下一个 Attempt，不发生跨上游拼接", async ({ page }) => {
@@ -616,7 +627,8 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   test("WT-15 页面展示速度、耗尽、恢复、覆盖时长与可信度", async ({ page }) => {
     await page.goto("/resources?tab=supply-health");
     const forecastRow = page.locator("#supply-forecasts")
-      .getByRole("row", { name: /E2E 智谱主资源.*100.*2400.*16800/ });
+      .getByRole("row", { name: /E2E 智谱主资源/ });
+    await expect(forecastRow).toContainText("100 / 2,400 / 16,800");
     await expect(forecastRow).toContainText("12h");
     await expect(forecastRow).toContainText("HIGH");
     const forecasts = await apiGet<{
@@ -665,7 +677,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
   test("WT-19 隔离资源经二次确认受控恢复，其他健康资源不受影响", async ({ page }) => {
     await page.goto("/resources");
     const isolatedRow = page.getByRole("row", {
-      name: /E2E 待恢复资源.*更新套餐配置/,
+      name: /E2E 待恢复资源.*更新额度配置/,
     });
     await isolatedRow.getByRole("button", { name: "恢复" }).click();
     await expect(page.getByRole("dialog")).toContainText("不轮换凭证");
@@ -675,8 +687,14 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
         response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "确认恢复" }).click();
-    expect((await recoverResponse).status()).toBe(200);
-    await expect(isolatedRow).toContainText("降级");
+    expect((await recoverResponse).status()).toBe(409);
+    await expect(isolatedRow).toContainText("凭证失效");
+    await page.getByRole("checkbox", { name: "同时轮换凭证（旧凭证立即失效）" }).check();
+    await page.getByPlaceholder("新凭证明文（仅一次提交）").fill("sk-m5-e2e-rotated-canary");
+    const rotated = page.waitForResponse(response => response.url().endsWith(`/provider-resources/${E2E_IDS.isolatedResource}/recover`) && response.request().method() === "POST");
+    await page.getByRole("button", { name: "确认恢复" }).click();
+    expect((await rotated).status()).toBe(200);
+    await expect(isolatedRow).toContainText("可用（降权）");
     await expect(page.getByRole("row", { name: /E2E 智谱主资源.*正常/ })).toContainText("正常");
     const resources = await apiGet<{
       resources: Array<{ id: string; status: string }>;
@@ -689,35 +707,29 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     );
   });
 
-  test("POOL-011 页面按真实依赖顺序展示并阻止无前置配置", async ({ page }) => {
+  test("POOL-011 页面按当前模型发现→计价→可用依赖阻止无前置配置", async ({ page }) => {
     await page.goto("/quota-rules");
-    const headings = {
-      model: page.getByRole("heading", { name: "统一模型" }),
-      route: page.getByRole("heading", { name: "Model Route" }),
-      rule: page.getByRole("heading", { name: "计价规则模板" }),
-      dispatch: page.getByRole("heading", { name: "调度策略" }),
-    };
-    const boxes = await Promise.all([
-      headings.model.boundingBox(),
-      headings.route.boundingBox(),
-      headings.rule.boundingBox(),
-      headings.dispatch.boundingBox(),
-    ]);
-    expect(boxes.every(Boolean)).toBe(true);
-    expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
-    expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
-    expect(boxes[2]!.y).toBeLessThan(boxes[3]!.y);
-    await expect(page.getByText(/第 1 步：先定义/)).toBeVisible();
-    await expect(page.getByText(/第 2 步：为统一模型绑定/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "新建路由" })).toBeEnabled();
-    await expect(page.getByRole("button", { name: "新建规则" })).toBeEnabled();
+    await expect(page.getByRole("tab", { name: "计价", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "调度策略", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "计价", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "新建统一模型", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "新建路由", exact: true })).toHaveCount(0);
+    await expect(page.getByText("选择已同步模型和资源，配置价格后保存并启用。", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "新建规则", exact: true }).click();
+    await expect(page.getByLabel("模型", { exact: true })).not.toHaveValue("");
+    await expect(page.getByLabel("厂商资源", { exact: true })).toHaveValue("");
+    await page.getByLabel("规则版本", { exact: true }).fill("e2e-missing-model-dependency");
+    await page.getByRole("button", { name: "保存并启用", exact: true }).click();
+    await expect(page.getByText("请选择资源", { exact: true }).last()).toBeVisible();
+    const rules = await apiGet<{ rules: Array<{ rule_version: string }> }>(page, "/billing-rules");
+    expect(rules.rules.some(rule => rule.rule_version === "e2e-missing-model-dependency")).toBe(false);
   });
 
   test("POOL-009 Web 完成主体编辑、安全删除与历史归档", async ({ page }) => {
     await page.goto("/principals");
     await page.getByRole("button", { name: "新建主体" }).click();
     await page.getByLabel("名称").fill("POOL009 E2E 可清理");
-    await page.getByLabel("部门/标签（可选）").fill("临时验收");
+    await page.getByLabel("所属部门", { exact: true }).fill("临时验收");
     await page.getByRole("button", { name: "创建", exact: true }).click();
 
     let transientRow = page.getByRole("row", { name: /POOL009 E2E 可清理/ });
@@ -725,25 +737,28 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     let dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "编辑主体" })).toBeVisible();
     await dialog.getByLabel("名称").fill("POOL009 E2E 已编辑");
-    await dialog.getByLabel("部门/标签（可选）").fill("待删除");
     await dialog.getByRole("button", { name: "保存修改" }).click();
-    transientRow = page.getByRole("row", { name: /POOL009 E2E 已编辑.*待删除/ });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    transientRow = page.getByRole("row", { name: /POOL009 E2E 已编辑/ });
+    await updatePrincipalDepartment(page, transientRow, "待删除");
     await expect(transientRow).toBeVisible();
     await transientRow.getByRole("button", { name: "清理" }).click();
     dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("heading", { name: "删除主体" })).toBeVisible();
-    await expect(dialog).toContainText("没有请求、Usage 或账本历史");
-    await dialog.getByRole("button", { name: "确认删除" }).click();
+    await expect(dialog.getByRole("heading", { name: "归档主体" })).toBeVisible();
+    await expect(dialog).toContainText("历史数据继续保留");
+    await dialog.getByRole("button", { name: "确认归档" }).click();
     await expect(transientRow).toHaveCount(0);
+    await verifyEmptyLegacyPrincipalCleanup(page);
 
     let historicalRow = page.getByRole("row", { name: /E2E 固定员工/ });
     await historicalRow.getByRole("button", { name: "编辑" }).click();
     dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "编辑主体" })).toBeVisible();
     await dialog.getByLabel("名称").fill("E2E 固定员工已归档");
-    await dialog.getByLabel("部门/标签（可选）").fill("历史保留");
     await dialog.getByRole("button", { name: "保存修改" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     historicalRow = page.getByRole("row", { name: /E2E 固定员工已归档/ });
+    await updatePrincipalDepartment(page, historicalRow, "历史保留");
     await historicalRow.getByRole("button", { name: "清理" }).click();
     dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "归档主体" })).toBeVisible();
@@ -767,7 +782,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       ["/usage", "用量账本"],
       ["/operating-bill", "经营账单"],
       ["/runtime-assurance", "运行保障"],
-      ["/admins", "管理员管理"],
+      ["/admins", "系统设置"],
       ["/settings", "系统设置"],
     ] as const;
     for (const [path, heading] of entries) {
@@ -790,7 +805,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
         credential_fingerprint: string;
       }>;
     }>(page, "/provider-resources");
-    const targetBefore = before.resources.find((resource) => resource.name === "E2E 智谱 Plan");
+    const targetBefore = before.resources.find((resource) => /^E2E 智谱 Plan-\d{6}$/.test(resource.name));
     expect(targetBefore).toBeDefined();
 
     const row = page.getByRole("row", { name: /E2E 智谱 Plan/ });
@@ -816,7 +831,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
           id: targetBefore!.id,
           name: "E2E 智谱 Z Plan",
           credential_fingerprint: targetBefore!.credential_fingerprint,
-          upstream_models: ["glm-5.2", "glm-4.7", "glm-4.6"],
+          upstream_models: ["glm-5.3", "glm-5.3-flash"],
           concurrency_limit: 8,
         }),
       ]),
@@ -825,11 +840,12 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("WT-22 调度策略经草稿、校验、确认发布、停用完整闭环", async ({ page }) => {
     await page.goto("/quota-rules");
+    await page.getByRole("tab", { name: "调度策略", exact: true }).click();
     await page.getByRole("button", { name: "新建调度策略" }).click();
     await page.getByLabel("策略版本").fill("e2e-zhipu-peak-v1");
     await page.locator("#policy-model").selectOption("qianliu-glm");
     await page.locator("#policy-resource").selectOption(E2E_IDS.resource);
-    await page.locator("#policy-mode").selectOption("CODING_PLAN");
+    await page.locator("#policy-mode").selectOption("API");
     await page.locator("#policy-start").fill("14:00");
     await page.locator("#policy-end").fill("18:00");
     await page.locator("#policy-action").selectOption("REJECT");
@@ -869,6 +885,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
   test("POOL-016 调度策略按名称选择主体并可编辑草稿为全部主体", async ({ page }) => {
     await page.goto("/quota-rules");
+    await page.getByRole("tab", { name: "调度策略", exact: true }).click();
     await page.getByRole("button", { name: "新建调度策略" }).click();
     await page.getByLabel("策略版本").fill("pool016-selected-v1");
     await page.getByLabel("指定主体").click();
@@ -915,21 +932,23 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     }, E2E_IDS.principal);
     expect(historicalCreated.status, historicalCreated.body).toBe(201);
     await page.reload();
+    await page.getByRole("tab", { name: "调度策略", exact: true }).click();
     const historicalRow = page.getByRole("row", { name: /pool016-history-v1/ });
     await expect(historicalRow).toContainText("E2E 固定员工已归档");
     await historicalRow.getByRole("button", { name: "编辑" }).click();
     const historicalCheckbox = page.getByLabel(/E2E 固定员工已归档/);
     await expect(historicalCheckbox).toBeChecked();
     await expect(historicalCheckbox).toBeDisabled();
-    await expect(page.getByText(/已停用\/归档，仅历史回显/)).toBeVisible();
+    await expect(historicalCheckbox.locator("..")).toContainText("已停用/归档，仅历史回显");
   });
 
-  test("RA-WT-18 运行保障五区可达，旧 /alerts 链接跳转异常中心", async ({ page }) => {
+  test("RA-WT-18 运行保障现有区可达、已撤Tabs不复现，旧 /alerts 链接跳转异常中心", async ({ page }) => {
     await page.goto("/runtime-assurance");
     await expect(page.getByRole("heading", { name: "运行保障" })).toBeVisible();
-    for (const tab of ["运行态势", "可用性规则", "熔断事件", "异常中心", "通知与人员"]) {
+    for (const tab of ["异常中心", "通知人员"]) {
       await expect(page.getByRole("tab", { name: tab })).toBeVisible();
     }
+    for (const tab of ["运行态势", "可用性规则", "熔断事件", "通知与人员"]) await expect(page.getByRole("tab", { name: tab, exact: true })).toHaveCount(0);
     await page.goto("/alerts");
     await expect(page).toHaveURL(/\/runtime-assurance\?tab=alerts$/);
     await expect(page.getByText("凭证失效：E2E 待恢复资源")).toBeVisible();
@@ -938,58 +957,42 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     }
   });
 
-  test("POOL-025 月度经营账单真实读写、价值确认与结账冻结闭环", async ({ page }) => {
+  test("POOL-025 已撤UI边界与后台价值确认/结账冻结真实闭环", async ({ page }, testInfo) => {
     await page.goto("/operating-bill?month=2026-07");
-    await expect(page.getByRole("heading", { name: "经营账单" })).toBeVisible();
-    for (const tab of ["月度总览", "员工账", "项目账", "套餐利用分析", "价值确认", "结账管理"]) {
-      await expect(page.getByRole("link", { name: tab })).toBeVisible();
-    }
+    await expect(page.getByRole("heading", { name: "经营账单", exact: true })).toBeVisible();
+    for (const tab of ["月度总览", "员工账", "项目账", "套餐利用率", "价值体现"]) await expect(page.getByRole("link", { name: tab, exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "结账管理", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "价值确认", exact: true })).toHaveCount(0);
     await expect(page.getByText("原型演示数据")).toHaveCount(0);
-
-    await page.getByRole("link", { name: "价值确认" }).click();
-    await page.getByPlaceholder("价值事项").fill("E2E 客户项目按期验收");
-    await page.getByPlaceholder("金额").fill("100000");
-    await page.getByPlaceholder("证据引用").fill("E2E-POOL-025-验收单");
-    await page.getByRole("button", { name: "保存待确认" }).click();
-    const valueRow = page.getByRole("row", { name: /E2E 客户项目按期验收/ });
-    await expect(valueRow).toBeVisible();
-    await valueRow.getByRole("button", { name: "确认" }).click();
-    await expect(valueRow).toContainText("已确认");
-
-    await page.getByRole("link", { name: "结账管理" }).click();
-    const confirmationSelectors = page.getByRole("combobox", { name: /确认状态/ });
-    await expect(confirmationSelectors.first()).toBeVisible();
-    const confirmationCount = await confirmationSelectors.count();
-    for (let index = 0; index < confirmationCount; index += 1) {
-      const selector = confirmationSelectors.nth(index);
-      await selector.selectOption("CONFIRMED");
-      const confirmationResponse = page.waitForResponse((response) =>
-        response.url().includes("/resource-confirmations/") && response.request().method() === "PUT");
-      await selector.locator("xpath=ancestor::tr").getByRole("button", { name: "保存确认" }).click();
-      expect((await confirmationResponse).status()).toBe(200);
-    }
-    const note = page.getByLabel("结账说明");
-    await note.fill("E2E 授权结账；测试夹具中缺失的厂商历史事实已作为例外冻结");
-    await page.getByRole("button", { name: "确认结账并冻结" }).click();
-    await expect(page.getByText("已结账 v1")).toBeVisible();
-
-    const frozen = await apiGet<{ status: string; version: number; values: Array<{ status: string }> }>(page, "/operating-bills/2026-07");
-    expect(frozen).toMatchObject({ status: "CLOSED", version: 1 });
-    expect(frozen.values).toEqual(expect.arrayContaining([expect.objectContaining({ status: "CONFIRMED" })]));
+    await page.getByRole("link", { name: "价值体现", exact: true }).click();
+    await expect(page.getByRole("region", { name: "价值体现", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "保存待确认", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "确认结账并冻结", exact: true })).toHaveCount(0);
+    await verifyLegacyOperatingBillApi(page, testInfo);
+    await page.reload();
+    await expect(page.getByRole("region", { name: "价值体现", exact: true })).toBeVisible();
+    await expect(page.getByText("E2E 客户项目按期验收", { exact: true })).toHaveCount(0);
   });
 
-  test("POOL-043 员工账按厂商／模型下钻请求，项目账为独立入口", async ({ page }) => {
+  test("POOL-043 员工账按厂商／模型下钻请求，项目账为独立入口", async ({ page }, testInfo) => {
     await page.goto("/operating-bill/employees?month=2026-08");
     await expect(page.getByRole("heading", { name: "经营账单" })).toBeVisible();
     await expect(page.getByRole("link", { name: "员工账" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("link", { name: "项目账" })).toBeVisible();
 
+    for (const misleading of ["本月分配额度", "本月剩余额度", "token使用率", "不限"]) await expect(page.getByText(misleading, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "员工接入配置", exact: true })).toHaveAttribute("href", "/principals");
+    await page.screenshot({ path: testInfo.outputPath("employee-account-list-desktop.png"), fullPage: true });
     await page.getByLabel("搜索员工").fill("于滔");
     const employeeRow = page.getByRole("row", { name: /于滔/ });
-    await expect(employeeRow).toContainText("DeepSeek");
-    await employeeRow.getByRole("link", { name: "于滔" }).click();
+    await expect(page.getByRole("columnheader", { name: "DeepSeek Token", exact: true }).first()).toBeVisible();
+    await expect(employeeRow).toContainText("430");
+    await employeeRow.getByRole("link", { name: "于滔", exact: true }).click();
     await expect(page).toHaveURL(/\/operating-bill\/employees\/[0-9a-f-]+\?month=2026-08/);
     await expect(page.getByRole("heading", { name: "于滔" })).toBeVisible();
+    const employeeDetailUrl = page.url();
+    for (const misleading of ["本月分配额度", "本月剩余额度", "token使用率", "不限"]) await expect(page.getByText(misleading, { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("employee-account-detail-desktop.png"), fullPage: true });
 
     await page.getByRole("button", { name: /DeepSeek/ }).click();
     const flashRow = page.getByRole("row", { name: /ql-deepseek-v4-flash/ });
@@ -1008,31 +1011,12 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
 
     await page.goto("/operating-bill/projects?month=2026-08");
     await expect(page.getByRole("link", { name: "项目账" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByText(/项目账 · 哪个项目产生了多少成本/)).toBeVisible();
-    await expect(page.getByRole("row", { name: /未归属项目/ })).toBeVisible();
-    const projectsBefore = await apiGet<{
-      rows: Array<{ subjectId: string | null; totals: { requestCount: number } }>;
-    }>(page, "/operating-bills/2026-08/projects");
-    const unassignedBefore = projectsBefore.rows.find((row) => row.subjectId === null)?.totals.requestCount;
-    expect(unassignedBefore).toBeGreaterThan(0);
-    await page.getByLabel("待归属请求 ID").fill(E2E_IDS.pool043FlashRequest);
-    await page.getByLabel("归属项目").selectOption(E2E_IDS.pool043Project);
-    const assignmentResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/operating-bills/2026-08/project-assignments")
-      && response.request().method() === "POST");
-    await page.getByRole("button", { name: "保存归属" }).click();
-    expect((await assignmentResponse).status()).toBe(204);
-    await expect(page.getByRole("row", { name: /POOL-043 星河项目/ })).toContainText("1 次");
-    await expect(page.getByRole("row", { name: /未归属项目/ }))
-      .toContainText(`${unassignedBefore! - 1} 次`);
-
-    const projectAccounts = await apiGet<{
-      rows: Array<{ subjectId: string | null; totals: { requestCount: number } }>;
-    }>(page, "/operating-bills/2026-08/projects");
-    expect(projectAccounts.rows.find((row) => row.subjectId === E2E_IDS.pool043Project)?.totals.requestCount)
-      .toBe(1);
-    expect(projectAccounts.rows.find((row) => row.subjectId === null)?.totals.requestCount)
-      .toBe(unassignedBefore! - 1);
+    await expect(page.getByRole("heading", { name: "项目账", exact: true })).toBeVisible();
+    await expect(page.getByText("没有项目账单记录", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("待归属请求 ID")).toHaveCount(0);
+    const projectsBefore = await apiGet<{ rows: unknown[]; allocationStatus: { enabled: boolean } }>(page, "/operating-bills/2026-08/projects");
+    expect(projectsBefore).toMatchObject({ rows: [], allocationStatus: { enabled: false } });
+    await verifyLegacyProjectAssignment(page);
     const logs = await apiGet<{
       logs: Array<{ action: string; target_id: string | null; result: string }>;
     }>(page, "/operation-logs?limit=100");
@@ -1042,6 +1026,16 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       result: "SUCCESS",
     })]));
 
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto(employeeDetailUrl);
+    await expect(page.getByRole("heading", { name: "于滔" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "员工接入配置", exact: true })).toBeVisible();
+    await expect(page.getByText("不限", { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("employee-account-detail-430.png"), fullPage: true });
+    await page.goto("/operating-bill/employees?month=2026-08");
+    await expect(page.getByRole("link", { name: "员工接入配置", exact: true })).toBeVisible();
+    await expect(page.getByText("不限", { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("employee-account-list-430.png"), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/operating-bill/employees?month=2026-08");
     await expect(page.getByLabel("主导航")).toBeVisible();
@@ -1053,6 +1047,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.getByLabel("管理员用户名").fill("e2e-ops");
     await page.getByLabel("管理员显示名称").fill("运维验收管理员");
     await page.getByLabel("管理员初始密码").fill("E2e-Initial-Admin!2026");
+    await page.getByLabel("角色", { exact: true }).first().selectOption("SUPER_ADMIN");
     await page.getByRole("button", { name: "创建管理员" }).click();
     await expect(page.getByText("E2e-Initial-Admin!2026")).toBeVisible();
 
@@ -1088,7 +1083,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.goto("/principals");
     await page.getByRole("button", { name: "新建主体" }).click();
     await page.getByLabel("名称").fill(principalName);
-    await page.getByLabel("部门/标签（可选）").fill("模型授权验收");
+    await page.getByLabel("所属部门", { exact: true }).fill("模型授权验收");
     await page.getByRole("button", { name: "创建", exact: true }).click();
     const principalRow = page.getByRole("row", { name: new RegExp(principalName) });
     await principalRow.getByRole("button", { name: "接入配置" }).click();
@@ -1103,7 +1098,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page).toHaveURL(/\/principals\?tab=batch-authorization/);
     await expect(page.getByRole("heading", { name: "批量模型授权", exact: true })).toBeVisible();
     await page.getByLabel("规则名称").fill(ruleName);
-    await page.getByLabel("Token 额度").fill("660000");
+    await page.getByLabel("分配额度", { exact: true }).fill("660000");
     await page.getByLabel(new RegExp(principalName)).check();
     await page.getByLabel(/仟流 GLM · E2E 智谱主资源/).check();
     const createResponse = page.waitForResponse((response) =>
@@ -1199,40 +1194,20 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.setViewportSize({ width: 1280, height: 720 });
 
     await page.goto("/quota-rules");
-    await page.getByRole("button", { name: "部门预算 · 2.0" }).click();
-    await expect(page.getByRole("heading", { name: /部门预算/ })).toBeVisible();
-    await page.getByLabel("部门预算月份").fill("2026-08");
-    const departmentRow = page.getByRole("row", { name: /E2E 研发部/ });
-    await departmentRow.getByLabel("E2E 研发部月度预算").fill("500");
-    await departmentRow.getByLabel("E2E 研发部警戒线").fill("0.75");
-    const budgetResponse = page.waitForResponse((response) =>
-      response.url().includes("/department-budgets/")
-      && response.url().endsWith("/2026-08")
-      && response.request().method() === "PUT");
-    await departmentRow.getByRole("button", { name: "保存" }).click();
-    const savedBudgetResponse = await budgetResponse;
-    expect(savedBudgetResponse.status()).toBe(201);
-    expect(await savedBudgetResponse.json()).toMatchObject({
-      budget: {
-        departmentName: "E2E 研发部",
-        amount: "500.00000000",
-        warningThreshold: "0.75000000",
-        version: 1,
-      },
-      replayed: false,
-    });
-    await expect(departmentRow.getByLabel("E2E 研发部月度预算")).toHaveValue("500.00000000");
-    await expect(departmentRow.getByLabel("E2E 研发部警戒线")).toHaveValue("0.75000000");
-    const savedBudget = await apiGet<{
-      budget: { amount: string; warningThreshold: string; version: number };
-    }>(page, `${new URL(savedBudgetResponse.url()).pathname.replace(/^\/api/, "")}`);
-    expect(savedBudget.budget).toMatchObject({
-      amount: "500.00000000", warningThreshold: "0.75000000", version: 1,
-    });
+    await expect(page.getByRole("button", { name: "部门预算 · 2.0", exact: true })).toHaveCount(0);
+    const savedBudgetResponse = await page.evaluate(async departmentId => {
+      const response = await fetch(`/api/department-budgets/${departmentId}/2026-08`, { method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount: "500", currency: "CNY", warning_threshold: "0.75", expected_version: 0, idempotency_key: crypto.randomUUID() }) });
+      return { status: response.status, body: await response.json() };
+    }, E2E_IDS.department);
+    expect(savedBudgetResponse.status).toBe(201);
+    expect(savedBudgetResponse.body).toMatchObject({ budget: { departmentName: "E2E 研发部", amount: "500.00000000", warningThreshold: "0.75000000", version: 1 }, replayed: false });
+    const savedBudget = await apiGet<{ budget: { amount: string; warningThreshold: string; version: number } }>(page, `/department-budgets/${E2E_IDS.department}/2026-08`);
+    expect(savedBudget.budget).toMatchObject({ amount: "500.00000000", warningThreshold: "0.75000000", version: 1 });
 
     await page.goto("/resources");
     await expect(page.getByRole("heading", { name: "资源利用事实" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "利用率" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "利用率 / 无调用", exact: true })).toBeVisible();
     await page.getByLabel("资源利用月份").fill("2026-08");
     const utilizationRow = page.locator("#resource-utilization")
       .getByRole("row", { name: /E2E 智谱主资源/ });
@@ -1243,23 +1218,21 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await expect(page.getByRole("heading", { name: "模型使用明细" })).toBeVisible();
 
     await page.goto("/operating-bill/departments?month=2026-08");
-    await expect(page.getByRole("heading", { name: "部门成本与预算" })).toBeVisible();
-    await expect(page.getByText("归集守恒", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "部门账", exact: true })).toBeVisible();
+    const departmentFacts = await apiGet<{ conservation: { tokenDifference: string } }>(page, "/operating-bills/2026-08/departments");
+    expect(departmentFacts.conservation.tokenDifference).toBe("0");
 
     await page.goto("/operating-bill?month=2026-08&tab=procurement");
-    await expect(page.getByRole("heading", { name: "采购利用复盘" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "采购复盘备注（人工填写）" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "年度采购实付", exact: true })).toBeVisible();
+    await expect(page.getByLabel("采购复盘备注")).toHaveCount(0);
     const reviewNote = `E2E 采购复盘 ${Date.now()}`;
-    await page.getByLabel("采购复盘备注").fill(reviewNote);
-    const noteResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/procurement-reviews/2026-08/note")
-      && response.request().method() === "PUT");
-    await page.getByRole("button", { name: "保存备注" }).click();
-    const savedNoteResponse = await noteResponse;
-    expect(savedNoteResponse.status()).toBe(200);
-    expect(await savedNoteResponse.json()).toMatchObject({ note: reviewNote, version: 1 });
-    await expect(page.getByLabel("采购复盘备注")).toHaveValue(reviewNote);
-    await expect(page.getByText("当前版本 v1", { exact: false })).toBeVisible();
+    const savedNoteResponse = await page.evaluate(async note => {
+      const response = await fetch("/api/procurement-reviews/2026-08/note", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ note, expected_version: 0, idempotency_key: crypto.randomUUID() }) });
+      return { status: response.status, body: await response.json() };
+    }, reviewNote);
+    expect(savedNoteResponse.status).toBe(200);
+    expect(savedNoteResponse.body).toMatchObject({ note: reviewNote, version: 1 });
+
     const savedReview = await apiGet<{
       note: { text: string; version: number; updatedAt: string; updatedBy: string | null };
     }>(page, "/procurement-reviews/2026-08");
@@ -1270,8 +1243,12 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
       updatedBy: "管理员",
     });
 
+    const unregisteredCalls: string[] = [];
+    const observe = (request: import("@playwright/test").Request) => { if (/\/api\/.*reconciliation/.test(request.url())) unregisteredCalls.push(request.url()); };
+    page.on("request", observe);
     await page.goto("/operating-bill?month=2026-08&tab=reconciliation");
-    await expect(page.getByText("Coming Soon", { exact: true })).toBeVisible();
-    await expect(page.getByText("不调用未注册 API", { exact: false })).toBeVisible();
+    await expect(page.getByRole("link", { name: "月度总览", exact: true })).toHaveAttribute("aria-current", "page");
+    expect(unregisteredCalls).toEqual([]);
+    page.off("request", observe);
   });
 });

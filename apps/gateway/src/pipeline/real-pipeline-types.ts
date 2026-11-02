@@ -121,6 +121,10 @@ export interface QuotaSettlement {
   grant_id: string;
   reserved_estimate: bigint;
   actual_deducted: bigint;
+  period_id?: string;
+  usage_id?: string;
+  usage_status?: "UNKNOWN" | "RELEASED";
+  usage_quality?: string;
 }
 
 /** Key 级额度预占记录（F-014）：请求结束时按实扣校正 used_tokens。 */

@@ -66,6 +66,7 @@ beforeAll(async () => {
     total_reasoning_tokens: 5n,
     total_deducted_quota: 100n,
     total_api_cost: "0.50000000",
+    api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     status: "SETTLED",

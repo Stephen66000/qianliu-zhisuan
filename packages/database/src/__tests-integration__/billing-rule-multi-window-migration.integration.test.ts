@@ -1,7 +1,8 @@
+import { migrateToPreMonthlyFixtureHead } from "./migration-pre-monthly-fixture.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "kysely";
 import { createKysely } from "../kysely.js";
-import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
+import { createMigrator, migrateDown } from "../migrator.js";
 import { GatewayLedgerRepository } from "../repositories/gateway-ledger-repository.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { rollbackTo } from "./migration-rollback.js";
@@ -42,7 +43,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         )
       `.execute(db);
 
-      const executed = await migrateToLatest(db);
+      const executed = await migrateToPreMonthlyFixtureHead(db);
       expect(executed).toContain("0021_billing_rule_multi_windows");
       const backfilled = await sql`
         SELECT time_windows
@@ -166,7 +167,7 @@ describe("0021 billing_rule 多时间窗迁移", () => {
         end_time: "12:00",
       });
 
-      const rebuilt = await migrateToLatest(db);
+      const rebuilt = await migrateToPreMonthlyFixtureHead(db);
       expect(rebuilt).toContain("0064_quota_pricing_and_policy_archive");
       expect(rebuilt).toContain("0021_billing_rule_multi_windows");
       expect(rebuilt).toContain("0022_principal_key_minimum_model_permissions");

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql, type Kysely, type Transaction } from "kysely";
 import { randomUUID } from "node:crypto";
 import { createKysely } from "../kysely.js";
-import { migrateDown, migrateToLatest } from "../migrator.js";
+import { createMigrator, migrateDown, migrateToLatest } from "../migrator.js";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import type { Database } from "../kysely.js";
 import { UsageOverviewRepository } from "../repositories/usage-overview-repository.js";
@@ -610,7 +610,9 @@ describe("Migration 0085: Historical Usage NOT_MIGRATED and Import Run", () => {
   it("fails closed on down migration when historical NOT_MIGRATED rows exist", async () => {
     const db = createKysely(pg.connectionString);
     try {
-      await migrateToLatest(db);
+      // Target 0085 explicitly: the following down must exercise its guard, not the current head.
+      const targeted = await createMigrator(db).migrateTo("0085_historical_usage_not_migrated");
+      expect(targeted.error).toBeUndefined();
       const f = await seedFixture(db);
       await db.insertInto("ai_request").values({
         id: randomUUID(),

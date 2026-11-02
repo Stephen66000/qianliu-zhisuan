@@ -1,3 +1,4 @@
+import { rollbackTo } from "./migration-rollback.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
@@ -24,7 +25,7 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   const source = await createMigrator(db).migrateTo("0069_auth_error_evidence");
   expect(source.error).toBeUndefined();
-  expect(await migrateToLatest(db)).toEqual([
+  expect((await migrateToLatest(db)).slice(0, 15)).toEqual([
     "0070_alert_recovery_evidence",
     "0071_enterprise_contact_details",
     "0072_admin_roles_security",
@@ -1442,8 +1443,9 @@ it("migration 0070 refuses rollback once any real recovery evidence exists", asy
     new Date("2026-08-20"),
     t.enterpriseId,
   );
+  const rolled = await rollbackTo(db, "0084_provider_finance_historical_usage_cost");
+  expect(rolled.at(-1)).toBe("0084_provider_finance_historical_usage_cost");
   for (const expected of [
-    "0084_provider_finance_historical_usage_cost",
     "0083_provider_finance_resource_opening_trigger",
     "0082_provider_finance_candidate_draft",
     "0081_provider_finance_activation",

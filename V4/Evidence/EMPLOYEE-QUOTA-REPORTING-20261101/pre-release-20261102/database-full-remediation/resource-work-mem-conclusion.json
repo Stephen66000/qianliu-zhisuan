@@ -1,0 +1,75 @@
+{
+  "status": "MEASURED_RELATIVE_BENEFIT_PENDING_ROOT_SOURCE_CHANGE_AND_ORIGINAL_SLA_RETEST",
+  "sourceSqlUnchanged": true,
+  "schemaIndexesUnchanged": true,
+  "seedCutoffAsOfUnchanged": true,
+  "diagnosticNotSla": true,
+  "samples": [
+    {
+      "workMem": "4MB",
+      "executionMs": 880.932,
+      "tempReadBlocks": 28633,
+      "tempWrittenBlocks": 28658,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "16MB",
+      "executionMs": 779.651,
+      "tempReadBlocks": 19086,
+      "tempWrittenBlocks": 19092,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "4MB",
+      "executionMs": 821.827,
+      "tempReadBlocks": 28633,
+      "tempWrittenBlocks": 28658,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "16MB",
+      "executionMs": 760.174,
+      "tempReadBlocks": 19086,
+      "tempWrittenBlocks": 19092,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "4MB",
+      "executionMs": 832.827,
+      "tempReadBlocks": 28633,
+      "tempWrittenBlocks": 28658,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "16MB",
+      "executionMs": 752.785,
+      "tempReadBlocks": 19086,
+      "tempWrittenBlocks": 19092,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    },
+    {
+      "workMem": "32MB",
+      "executionMs": 771.006,
+      "tempReadBlocks": 19083,
+      "tempWrittenBlocks": 19086,
+      "outputRowsEqual": true,
+      "afterTransactionWorkMem": "4MB"
+    }
+  ],
+  "median4Ms": 832.827,
+  "median16Ms": 760.174,
+  "medianImprovementPercent": 8.72,
+  "recommendation": "SET LOCAL work_mem=16MB only inside existing loadResourceUtilizationSnapshot transaction; no global/env/SQL change. 32MB did not reduce temp I/O further and was not faster.",
+  "memoryCost": {
+    "additionalBudgetPerSortMiB": 12,
+    "meaning": "work_mem is per sort/hash operation, not a transaction total or preallocated reservation. Concurrent operations/queries and parallel workers can each receive their own budget; hash operations may additionally use hash_mem_multiplier. Current measured bottleneck is a single wide sort, still spills at16MB.",
+    "transactionEnd": "All seven measurements read4MB after transaction completion."
+  },
+  "remainingAcceptance": "Original w20 capacity file, unchanged1M seed/2warmups/20samples/1000ms threshold, must run independently at G next scope boundary. Do not substitute EXPLAIN median for P95."
+}

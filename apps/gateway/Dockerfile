@@ -3,7 +3,7 @@
 #（与开发一致：node --import tsx src/main.ts）。故采用单阶段：装全量依赖 + 拷源码 + tsx 运行。
 # 架构无关（arm64/x86_64）。依据：工程规则 §2、§5（Secret 不入镜像）。
 
-FROM node:22.17.1-alpine
+FROM node:22.23.4-alpine
 RUN corepack enable && corepack prepare pnpm@11.11.0 --activate
 WORKDIR /app
 

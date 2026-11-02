@@ -75,3 +75,8 @@ export { projectAllocationTick, type AllocationScanResult } from "./repositories
 
 export const DATABASE_VERSION = "0.3.0" as const;
 export * from "./report-delivery-repository.js";
+
+export * from "./employee-quota-types.js";
+export * from "./repositories/employee-quota-repository.js";
+
+export { MonthlyQuotaRequiresPoolConfigurationError } from "./repositories/grant-repository.js";

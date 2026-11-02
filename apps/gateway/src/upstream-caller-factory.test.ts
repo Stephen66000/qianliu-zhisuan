@@ -19,6 +19,20 @@ const resource = (
 });
 
 describe("Gateway 生产上游 Caller 装配", () => {
+  it("真实生产装配对废弃覆盖发出脱敏警告，保持统一门限", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const caller = vi.fn() as unknown as UpstreamCaller;
+      const factory = vi.fn((_options: OpenAiCompatibleCallerOptions) => caller);
+      const runtime = createProductionUpstreamRuntime({ GATEWAY_KIMI_STREAM_IDLE_TIMEOUT_MS: "legacy-private-value" }, factory);
+      expect(runtime.caller).toBe(caller);
+      expect(factory.mock.calls[0]![0].streamIdleTimeoutMsForResource?.(resource("kimi"))).toBe(300_000);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0]![0]).toContain("GATEWAY_KIMI_STREAM_IDLE_TIMEOUT_MS");
+      expect(warn.mock.calls[0]![0]).toContain("300000");
+      expect(warn.mock.calls[0]![0]).not.toContain("legacy-private-value");
+    } finally { warn.mockRestore(); }
+  });
   it("冻结 main.ts 实际使用的厂商首字节门限、统一空闲门限和总门限", () => {
     const env = {
       GATEWAY_UPSTREAM_FIRST_BYTE_TIMEOUT_MS: "40000",
@@ -93,6 +107,8 @@ describe("Gateway 生产上游 Caller 装配", () => {
 
   it.each([
     ["GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", "1.5"],
+    ["GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", "0"],
+    ["GATEWAY_UPSTREAM_REQUEST_TIMEOUT_MS", "-1"],
   ])("启动时拒绝非法生产超时配置 %s", (name, value) => {
     expect(() => createProductionCallerOptions({ [name]: value }))
       .toThrow(`${name} 必须是正整数毫秒`);

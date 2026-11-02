@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-11-02T08:41:15.710617+00:00",
+  "priorScopedSourceSnapshot": "d8aae7f177591a0450f5d3562b721d810684e7e56cc7c16250405912ac3ff8f1",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "changedFilesSinceApiWebE2e": [
+    {
+      "path": "apps/control-api/src/resource-insights/token-utilization.ts",
+      "testedSourceSha256": "581b6c8b45a6cb409cf3ae47e01a8b821c63c4613ecd04b653e999ae1396dc1f",
+      "currentSourceSha256": "8d69dcaf88bbb2fbafb336cd01c5f616d337ead2a0de2ddb99b6de261ed8878f"
+    },
+    {
+      "path": "packages/database/vitest.pool043.mutation.config.ts",
+      "testedSourceSha256": "95ffc65a777baf72d935fa06d841960e1f239887ec6ab9acdeee06d2a1e4d1cb",
+      "currentSourceSha256": "cb6110811320efe52f894d4857ac5f0ce36eed5183188b52dd817e7c74c614ed"
+    },
+    {
+      "path": "package.json",
+      "testedSourceSha256": "a63f412c472e972a2da9135e2bff1d838dbfd43aa6101dbc855d8cd6bb4390e3",
+      "currentSourceSha256": "81ab4214ee322ba97361eee6fa2fe897b440cf199b200177b73fbcf1a6c8c969"
+    }
+  ],
+  "affectedValidationLog": "../database-full-remediation/resource-memory-fix-regression.log",
+  "affectedValidation": {
+    "files": 2,
+    "passed": 18
+  },
+  "fullRerunsNotRequiredByRoot": true,
+  "currentContainerBuild": "WAITING_CAPACITY_WINDOW",
+  "runtimeSourceChanges": [
+    {
+      "path": "apps/control-api/src/resource-insights/token-utilization.ts",
+      "testedSourceSha256": "581b6c8b45a6cb409cf3ae47e01a8b821c63c4613ecd04b653e999ae1396dc1f",
+      "currentSourceSha256": "8d69dcaf88bbb2fbafb336cd01c5f616d337ead2a0de2ddb99b6de261ed8878f"
+    }
+  ],
+  "nonRuntimeQualityConfigChanges": [
+    {
+      "path": "packages/database/vitest.pool043.mutation.config.ts",
+      "testedSourceSha256": "95ffc65a777baf72d935fa06d841960e1f239887ec6ab9acdeee06d2a1e4d1cb",
+      "currentSourceSha256": "cb6110811320efe52f894d4857ac5f0ce36eed5183188b52dd817e7c74c614ed"
+    },
+    {
+      "path": "package.json",
+      "testedSourceSha256": "a63f412c472e972a2da9135e2bff1d838dbfd43aa6101dbc855d8cd6bb4390e3",
+      "currentSourceSha256": "81ab4214ee322ba97361eee6fa2fe897b440cf199b200177b73fbcf1a6c8c969"
+    }
+  ],
+  "interpretation": "Only changed production module is transaction-local work_mem; scoped DB mutation config and root quality scripts also changed. Lock unchanged. Root affected 18-test regression covers production change; G/root own quality-config validation."
+}

@@ -1,0 +1,47 @@
+{
+  "runtime": {
+    "recordedAt": "2026-11-02T06:41:36.415Z",
+    "node": "v22.23.4",
+    "icu": "78.3",
+    "tz": "2026e",
+    "arch": "arm64",
+    "platform": "darwin",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "packageSha256": "a63f412c472e972a2da9135e2bff1d838dbfd43aa6101dbc855d8cd6bb4390e3",
+    "workspaceSha256": "e795547297f0655af3a41bd7c9639c02fa47fd35ed9aa18fc9789ca982ea1124",
+    "scope": "Current third candidate API/Web tests; extra unused WorkbookReader probe remains FAIL/UNCERTIFIED pending user scope decision",
+    "commands": {
+      "api": "PATH=<project-local-node22.23.4-bin>:$PATH node security-refresh/run-control-api.mjs",
+      "web": "PATH=<project-local-node22.23.4-bin>:$PATH corepack pnpm@11.11.0 --filter @qianliu/web test --maxWorkers=1 --minWorkers=1"
+    },
+    "systemNodeDefaultChanged": false,
+    "productionOperations": false
+  },
+  "checks": [
+    {
+      "package": "control-api",
+      "exitCode": 0,
+      "files": 63,
+      "passed": 457,
+      "failed": 0,
+      "skipped": 0,
+      "workers": 1,
+      "log": "control-api-full.log"
+    },
+    {
+      "package": "web",
+      "exitCode": 0,
+      "files": 95,
+      "passed": 734,
+      "failed": 0,
+      "skipped": 0,
+      "workers": 1,
+      "log": "web-full.log"
+    }
+  ],
+  "unusedStreamReaderProbe": "FAIL_UNCERTIFIED_UNCHANGED",
+  "candidateScopeAcceptance": "USER_ACCEPTED_ACTUAL_BUSINESS_PATHS_ONLY",
+  "productionAcceptance": false,
+  "extraWorkbookReader": "UNCERTIFIED_UNUSED_API_ORIGINAL_FAIL_PROBES_PRESERVED",
+  "productionBusinessAcceptance": false
+}

@@ -1,0 +1,85 @@
+{
+  "node": "v22.23.4",
+  "unzipper": "0.12.5",
+  "synthetic": true,
+  "productionChanges": false,
+  "checks": [
+    {
+      "name": "filename/default",
+      "result": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'sheets')",
+      "rows": [],
+      "modelPresent": false
+    },
+    {
+      "name": "stream/chunk1024",
+      "result": "PASS",
+      "rows": [
+        [
+          "name",
+          "value"
+        ],
+        [
+          "合成员工",
+          1200
+        ]
+      ]
+    },
+    {
+      "name": "stream/chunk64",
+      "result": "FAIL",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'name',\n      'value'\n    ],\n    [\n+     '���成员工',\n-     '合成员工',\n      1200\n    ]\n  ]\n",
+      "rows": [
+        [
+          "name",
+          "value"
+        ],
+        [
+          "���成员工",
+          1200
+        ]
+      ],
+      "modelPresent": true,
+      "sharedStrings": [
+        "name",
+        "value",
+        "���成员工"
+      ]
+    },
+    {
+      "name": "stream/chunk1",
+      "result": "FAIL",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'name',\n      'value'\n    ],\n    [\n+     '�����������',\n-     '合成员工',\n      1200\n    ]\n  ]\n",
+      "rows": [
+        [
+          "name",
+          "value"
+        ],
+        [
+          "�����������",
+          1200
+        ]
+      ],
+      "modelPresent": true,
+      "sharedStrings": [
+        "name",
+        "value",
+        "�����������"
+      ]
+    },
+    {
+      "name": "metadata-first-zip/filename",
+      "result": "PASS",
+      "rows": [
+        [
+          "name",
+          "value"
+        ],
+        [
+          "合成员工",
+          1200
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "previousEntrypoint": "corepack pnpm@11.11.0 --filter @qianliu/domain exec stryker run stryker.config.json && corepack pnpm@11.11.0 --filter @qianliu/worker exec stryker run stryker.config.json && corepack pnpm@11.11.0 --filter @qianliu/database exec stryker run stryker.pool029.config.json && corepack pnpm@11.11.0 run quality:mutation:pool039 && corepack pnpm@11.11.0 run quality:mutation:pool043 && corepack pnpm@11.11.0 run quality:mutation:pool021-r2 && corepack pnpm@11.11.0 --dir apps/gateway exec stryker run stryker.pool030.config.json && corepack pnpm@11.11.0 --dir packages/provider-adapters exec stryker run stryker.pool030.config.json && node scripts/check-mutation-disposition.mjs",
+  "previousGeneratedSuiteCount": 11,
+  "newGeneratedSuiteCount": 16,
+  "previousGateReportCount": 8,
+  "currentGateReportCount": 9,
+  "ciBudgetBeforeMinutes": 40,
+  "ciBudgetAfterMinutes": 240,
+  "businessTimeoutOrScoreThresholdChanged": false,
+  "remoteJobStarted": false
+}

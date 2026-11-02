@@ -1,3 +1,5 @@
+import type { PrincipalAccessQuotaView } from "./principal-access-quota-view.js";
+
 export interface PrincipalAccessModelRow {
   unified_model_id: string;
   display_name: string;
@@ -22,6 +24,7 @@ export interface PrincipalAccessPoolRow {
   valid_until: Date | null;
   used_value: bigint;
   source: string;
+  quota?: PrincipalAccessQuotaView;
 }
 
 /** 将仓储查询结果装配成按厂商分块的单主体接入读模型。 */
@@ -51,11 +54,14 @@ export function assemblePrincipalAccessReadModel(input: {
       pool: pool ? {
         grant_id: pool.id,
         quota_value: pool.quota_value.toString(),
-        quota_used: pool.used_value.toString(),
+        quota_used: pool.quota?.mode === "MONTHLY" ? pool.quota.used_value! : pool.used_value.toString(),
         allow_overage: pool.allow_overage,
         valid_until: pool.valid_until,
         source: pool.source,
-        over_limit: pool.used_value > pool.quota_value,
+        over_limit: pool.quota?.mode === "MONTHLY"
+          ? pool.quota.completeness === "COMPLETE" && BigInt(pool.quota.overage_value ?? "0") > 0n
+          : pool.used_value > pool.quota_value,
+        ...(pool.quota ? { quota: pool.quota } : {}),
       } : null,
       models: bucket.models.map((model) => ({
         unified_model_id: model.unified_model_id,
@@ -88,7 +94,9 @@ export function assemblePrincipalAccessReadModel(input: {
     } : null,
     providers,
     summary: {
-      total_quota: input.pools.reduce((total, pool) => total + pool.quota_value, 0n).toString(),
+      total_quota: input.pools.some((pool) => pool.quota)
+        ? null : input.pools.reduce((total, pool) => total + pool.quota_value, 0n).toString(),
+      ...(input.pools.some((pool) => pool.quota) ? { quota_aggregation: "PER_PROVIDER" as const } : {}),
       provider_count: input.pools.length,
       model_count: enabledModelCount,
     },

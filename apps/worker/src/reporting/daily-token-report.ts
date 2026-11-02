@@ -1,9 +1,9 @@
 import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
-import { UsageOverviewRepository } from "@qianliu/database";
+import { readEmployeeReportFacts } from "./report-facts.js";
 import { renderSvgToPng as renderSharedSvgToPng } from "./render-png.js";
 import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
-import { resolveWecomRecipients, queryModelUsageForRange } from "./report-jobs.js";
+import { resolveWecomRecipients } from "./report-jobs.js";
 import {
   formatNumber,
   formatTokenVolume,
@@ -139,13 +139,8 @@ export async function runDailyTokenReport(
   }).format(targetDate);
 
   // 2. 调用 UsageOverviewRepository 聚合全员昨日用量
-  const usageRepo = new UsageOverviewRepository(db, () => targetDate);
-  const overview = await usageRepo.getOverview({
-    enterpriseId,
-    subjectType: "EMPLOYEE",
-    period: "TODAY",
-    anchor: targetDate,
-  });
+  const facts = await readEmployeeReportFacts(db, { enterpriseId, period: "TODAY", timezone, anchor: targetDate, now });
+  const overview = facts.overview;
 
   const totalTokens = Number(overview.metrics.realTokens);
   const inputTokens = Number(overview.metrics.inputTokens);
@@ -166,8 +161,7 @@ export async function runDailyTokenReport(
   // 3. 统计模型分布 (昨天时间段，关联官方模型显示名)
   const rangeFrom = new Date(overview.range.from);
   const rangeTo = new Date(overview.range.to);
-
-  const modelUsage = await queryModelUsageForRange(db, enterpriseId, rangeFrom, rangeTo, undefined, 3);
+  const modelUsage = facts.models;
   const topModelsRaw = modelUsage.models;
   const topModels = topModelsRaw.map((m) => {
     const shareStr = totalTokens > 0 ? formatPercentage(m.tokens / totalTokens) : "0.0%";
@@ -278,6 +272,7 @@ export async function runDailyTokenReport(
     `⚡ 昨日总消耗：${formatTokenVolume(totalTokens)}`,
     `📈 请求调用量：${formatNumber(requestCount)} 次`,
     `👥 活跃员工数：${activeEmployees} 人`,
+    "成功且已结算的员工请求统计。",
     "━━━━━━━━━━━━━━━━━━",
     "详见上方高清长图 👆",
   ].join("\n");
@@ -286,7 +281,7 @@ export async function runDailyTokenReport(
   for (const recipient of recipients) deliveries.push(await deliverReport({ db, kekBase64, enterpriseId,
     type: "DAILY", periodKey: dateStr, recipientRef: await reportRecipientRef(db, enterpriseId, recipient), targetUserId: recipient, endpointId: endpoint?.id,
     periodStart: rangeFrom, periodEnd: rangeTo,
-    snapshot: { png: pngBuffer.toString("base64"), text: summaryText, filename: `token_daily_report_${dateStr}.png` },
+    snapshot: { facts: facts.snapshotMetadata, png: pngBuffer.toString("base64"), text: summaryText, filename: `token_daily_report_${dateStr}.png` },
     deliveryWindow: options.deliveryWindow, clock: options.clock,
   }));
   const deliveryStatus = deliveries.every(item => item.status === "SENT") ? "SENT"

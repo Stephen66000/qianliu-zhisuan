@@ -1,0 +1,217 @@
+[
+  {
+    "scope": "domain-core",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "packages/domain",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:16:09.719497+00:00",
+    "finishedAt": "2026-11-02T07:18:28.877848+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/domain/reports/mutation/mutation.json",
+    "mutate": [
+      "src/billing-rule.ts",
+      "src/quota-gate.ts",
+      "src/employee-quota-period.ts",
+      "src/reconciliation.ts",
+      "src/dispatch-policy.ts",
+      "src/routing-policy.ts"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 80,
+      "break": 70
+    },
+    "configSha256": "8734fd74c4a076640be11f688531c599f2fcc895bfa35528ae71f85d6c3f2ce7"
+  },
+  {
+    "scope": "worker-scheduler",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "apps/worker",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:18:28.891048+00:00",
+    "finishedAt": "2026-11-02T07:18:51.178123+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/worker/reports/mutation/mutation.json",
+    "mutate": [
+      "src/runtime-assurance/scheduler.ts:14-24"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 70,
+      "break": 70
+    },
+    "configSha256": "2e1fe955301cf39ced4106349f9e52f38dba4a96217d7197b69b82d0f54226be"
+  },
+  {
+    "scope": "gateway-pool030",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool030.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "apps/gateway",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:18:51.181514+00:00",
+    "finishedAt": "2026-11-02T07:19:15.276646+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/gateway/reports/mutation/pool030.json",
+    "mutate": [
+      "src/upstream-timeout-policy.ts",
+      "src/upstream-caller-factory.ts",
+      "src/upstream-failover-policy.ts"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 80,
+      "break": 80
+    },
+    "configSha256": "b19a5af661071eeee0084b01e64af195ccdee44500dbf098bf2e1657ea28fe5f"
+  },
+  {
+    "scope": "gateway-pool040",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool040.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "apps/gateway",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:19:15.279651+00:00",
+    "finishedAt": "2026-11-02T07:20:06.004264+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "apps/gateway/reports/mutation/pool040.json",
+    "mutate": [
+      "src/pipeline/revoked-attempt-settlement.ts"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 80,
+      "break": 80
+    },
+    "configSha256": "07f7218e2bc543115011dbd9fc02f18aa36f3a3a75c777de7d3731c6da742ec5"
+  },
+  {
+    "scope": "provider-pool030",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool030.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "packages/provider-adapters",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:20:06.006859+00:00",
+    "finishedAt": "2026-11-02T07:20:09.014266+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/provider-adapters/reports/mutation/pool030.json",
+    "mutate": [
+      "src/resource-timeout-policy.ts"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 80,
+      "break": 80
+    },
+    "configSha256": "2c9bbdb5a718a5d036531dcc184550d01ed3e4aba5c2cc53dff2ebf623a2eaf6"
+  },
+  {
+    "scope": "provider-pool021-r2",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool021-r2.config.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "packages/provider-adapters",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:20:09.015213+00:00",
+    "finishedAt": "2026-11-02T07:20:19.264879+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/provider-adapters/reports/mutation/pool021-r2.json",
+    "mutate": [
+      "src/adapters/kimi-adapter.ts:73:1-109:2"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 90,
+      "break": 80
+    },
+    "configSha256": "f0e7a118c1a1e4f5dade64c9f3921c2d33afab5eb7b04a799146aaefdce18e5d"
+  },
+  {
+    "scope": "provider-finance",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.provider-finance.json",
+      "--concurrency",
+      "1"
+    ],
+    "cwd": "packages/domain",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "startedAt": "2026-11-02T07:20:19.267600+00:00",
+    "finishedAt": "2026-11-02T07:23:58.984990+00:00",
+    "exitCode": 0,
+    "reportFresh": true,
+    "report": "packages/domain/reports/mutation/provider-finance-domain.json",
+    "mutate": [
+      "src/provider-finance-activation-projection.ts",
+      "src/provider-finance-activation-scope-openings.ts",
+      "src/provider-finance-activation-balances.ts",
+      "src/provider-finance-activation-conservation.ts",
+      "src/provider-finance-activation-draft.ts",
+      "src/provider-finance-activation-inputs.ts"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 80,
+      "break": 70
+    },
+    "configSha256": "8653b30e8d6b7011b72accc7b16a13437a0f80279e903ef9ac72f9ca6c19a495"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "label": "before",
+    "utc": "2026-11-02T05:19:08.504181+00:00",
+    "node": "v22.17.1",
+    "dockerInfo": "28.0.1|8|8218316800|Docker Desktop",
+    "testcontainers": "",
+    "dockerStats": "",
+    "validationProcesses": ""
+  },
+  {
+    "label": "during",
+    "utc": "2026-11-02T05:19:39.789149+00:00",
+    "node": "v22.17.1",
+    "dockerInfo": "28.0.1|8|8218316800|Docker Desktop",
+    "testcontainers": "9cb200168782 postgres:17-alpine Up 26 seconds (healthy)\nada6cb15bd0d testcontainers/ryuk:0.14.0 Up 27 seconds",
+    "dockerStats": "priceless_newton|100.59%|235.7MiB / 7.654GiB\ntestcontainers-ryuk-e238580a9e32|0.00%|11.3MiB / 7.654GiB",
+    "validationProcesses": "60272 60267    00:29   0.0  0.2 node (vitest)\n60279 60272    00:29   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n60280 60272    00:29   0.0  0.1 node (vitest 1)"
+  },
+  {
+    "label": "during",
+    "utc": "2026-11-02T05:20:12.988861+00:00",
+    "node": "v22.17.1",
+    "dockerInfo": "28.0.1|8|8218316800|Docker Desktop",
+    "testcontainers": "0468aa033f0b postgres:17-alpine Up 3 seconds (healthy)\n9cb200168782 postgres:17-alpine Up 59 seconds (healthy)\nada6cb15bd0d testcontainers/ryuk:0.14.0 Up About a minute",
+    "dockerStats": "goofy_shtern|102.40%|51.28MiB / 7.654GiB\npriceless_newton|159.82%|270.1MiB / 7.654GiB\ntestcontainers-ryuk-e238580a9e32|0.00%|11.32MiB / 7.654GiB",
+    "validationProcesses": "60272 60267    01:02   0.0  0.1 node (vitest)\n60279 60272    01:02   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n60280 60272    01:02   0.0  0.3 node (vitest 1)\n60439  1981    00:10   0.0  0.9 node (vitest)\n60447 60439    00:10   0.0  0.1 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n60493 60439    00:03   4.2  1.1 node (vitest 1)"
+  },
+  {
+    "label": "after",
+    "utc": "2026-11-02T05:20:19.374291+00:00",
+    "node": "v22.17.1",
+    "dockerInfo": "28.0.1|8|8218316800|Docker Desktop",
+    "testcontainers": "b072fb3c5075 postgres:17-alpine Up 2 seconds (healthy)\nada6cb15bd0d testcontainers/ryuk:0.14.0 Up About a minute",
+    "dockerStats": "testcontainers-ryuk-e238580a9e32|0.02%|11.57MiB / 7.654GiB",
+    "validationProcesses": "60439  1981    00:17   4.9  0.6 node (vitest)\n60447 60439    00:17   0.0  0.1 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n60524 60439    00:03  14.3  1.2 node (vitest 1)"
+  }
+]

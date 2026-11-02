@@ -1,0 +1,76 @@
+{
+  "node": "v22.23.4",
+  "unzipper": "0.12.5",
+  "runs": [
+    {
+      "events": [
+        "rels:start",
+        "rels:end:4",
+        "worksheet:1:model=false:strings=false"
+      ],
+      "rows": [],
+      "error": "TypeError: Cannot read properties of undefined (reading 'sheets')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'sheets')\n    at ObservedReader._parseWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:303:54)\n    at _parseWorksheet.next (<anonymous>)\n    at ObservedReader._parseWorksheet (file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:11:154)\n    at _parseWorksheet.next (<anonymous>)\n    at Async-from-Sync Iterator.next (<anonymous>)\n    at ObservedReader.parse (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:147:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async [Symbol.asyncIterator] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:72:39)\n    at async file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:14:22"
+    },
+    {
+      "events": [
+        "rels:start",
+        "rels:end:4",
+        "worksheet:1:model=false:strings=false"
+      ],
+      "rows": [],
+      "error": "TypeError: Cannot read properties of undefined (reading 'sheets')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'sheets')\n    at ObservedReader._parseWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:303:54)\n    at _parseWorksheet.next (<anonymous>)\n    at ObservedReader._parseWorksheet (file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:11:154)\n    at _parseWorksheet.next (<anonymous>)\n    at Async-from-Sync Iterator.next (<anonymous>)\n    at ObservedReader.parse (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:147:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async [Symbol.asyncIterator] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:72:39)\n    at async file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:14:22"
+    },
+    {
+      "events": [
+        "rels:start",
+        "rels:end:4",
+        "worksheet:1:model=false:strings=false"
+      ],
+      "rows": [],
+      "error": "TypeError: Cannot read properties of undefined (reading 'sheets')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'sheets')\n    at ObservedReader._parseWorksheet (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:303:54)\n    at _parseWorksheet.next (<anonymous>)\n    at ObservedReader._parseWorksheet (file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:11:154)\n    at _parseWorksheet.next (<anonymous>)\n    at Async-from-Sync Iterator.next (<anonymous>)\n    at ObservedReader.parse (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:147:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async [Symbol.asyncIterator] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-reader.js:72:39)\n    at async file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/reader-order-diagnostic.mjs:14:22"
+    }
+  ],
+  "physicalZipEntries": [
+    "[Content_Types].xml",
+    "_rels/",
+    "_rels/.rels",
+    "xl/",
+    "xl/_rels/",
+    "xl/_rels/workbook.xml.rels",
+    "xl/worksheets/",
+    "xl/worksheets/sheet1.xml",
+    "xl/sharedStrings.xml",
+    "xl/theme/",
+    "xl/theme/theme1.xml",
+    "xl/styles.xml",
+    "docProps/",
+    "docProps/app.xml",
+    "docProps/core.xml",
+    "xl/workbook.xml"
+  ],
+  "rawParseSequence": [
+    "[Content_Types].xml",
+    "_rels/",
+    "_rels/.rels",
+    "xl/",
+    "xl/_rels/",
+    "xl/_rels/workbook.xml.rels",
+    "xl/worksheets/",
+    "xl/worksheets/sheet1.xml",
+    "xl/sharedStrings.xml",
+    "xl/theme/",
+    "xl/theme/theme1.xml",
+    "xl/styles.xml",
+    "docProps/",
+    "docProps/app.xml",
+    "docProps/core.xml",
+    "xl/workbook.xml",
+    "EVENT:end",
+    "EVENT:close",
+    "EVENT:end",
+    "EVENT:close"
+  ]
+}

@@ -48,7 +48,7 @@ export async function p1Fixture(db: Db, options: {
 
 export async function p1App(db: Db, f: Awaited<ReturnType<typeof p1Fixture>>, options: {
   fault?: Fault; outcome?: (outcome: Outcome, attemptNo: number) => Outcome;
-  stub?: StubUpstream; maxAttempts?: number;
+  stub?: StubUpstream; maxAttempts?: number; now?: () => number;
 } = {}) {
   class Dispatch extends DispatchPolicyRepository {
     reads = 0; operatingReads = 0;
@@ -73,7 +73,7 @@ export async function p1App(db: Db, f: Awaited<ReturnType<typeof p1Fixture>>, op
   const stub = options.stub ?? new StubUpstream({ providerCode: "zhipu", default: { kind: "SUCCESS", usage: { input: 10, output: 4, cache: 0 } } });
   const app = buildGateway(db, f.pepper, createRealPipeline({ db, ledgerRepo: ledger,
     poolRepo: new ResourcePoolRepository(db), quotaRepo: new QuotaGateRepository(db), dispatchRepo: dispatch,
-    listCandidates: async () => f.candidates, maxAttempts: options.maxAttempts ?? 1,
+    now: options.now, listCandidates: async () => f.candidates, maxAttempts: options.maxAttempts ?? 1,
     resolveDispatchInput: (ent, _pid, _model, id, _mode, at, upstream) => dispatch.resolveResourceOperatingInput(ent, id, at, upstream),
     caller: async (resource, request, attemptNo) => {
       const outcome = await stub.invoke(resource, request, attemptNo);

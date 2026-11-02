@@ -1,0 +1,16 @@
+{
+  "oldExceptionHistoricalRecord": [
+    {
+      "advisory": "GHSA-qwww-vcr4-c8h2",
+      "dependency": "react-router",
+      "reason": "公告仅影响 React Server Components Mode；当前 Web 仅使用 BrowserRouter 客户端 SPA，不包含 RSC/server 路由入口。上游尚无可安装修复版本。",
+      "verification": "rg -n 'react-router/(rsc|dom/server)|createRequestHandler|RSCRouteConfig|decodeReply' apps/web/src",
+      "expires_on": "2026-09-01",
+      "action": "每次依赖审计复核上游修复版本；引入 SSR/RSC 前立即取消例外"
+    }
+  ],
+  "reason": "Upstream GHSA now lists patched react-router7.18.2; installed/direct react-router-dom already7.18.2, so old exception is obsolete. Remove ignore and verify actual audit.",
+  "upstream": "https://github.com/advisories/GHSA-qwww-vcr4-c8h2",
+  "dependencyVersionChangedByThisExceptionRemoval": false,
+  "newRiskAcceptance": false
+}

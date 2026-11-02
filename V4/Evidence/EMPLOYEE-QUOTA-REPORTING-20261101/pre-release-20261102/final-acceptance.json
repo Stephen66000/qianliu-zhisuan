@@ -1,0 +1,272 @@
+{
+  "status": "LOCAL_PRE_RELEASE_ORIGINAL_SCOPE_PASS",
+  "recordedAt": "2026-11-02T10:17:08.895565+00:00",
+  "sourceSnapshotSha256": "db9d1220ff802666fdb97a6ed8a9fb0d25ddd4ec31a532cc3d6322a282ac172f",
+  "baseHeadReferenceOnly": "2a2fdbe3c52b6853d12be476a6162221fc8163fe",
+  "newCommitCreated": false,
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "runtime": "Node22.23.4 / pnpm11.11.0",
+  "sourceSize": {
+    "passed": true,
+    "productionFiles": 667,
+    "defaultLogicalLineMaximumUnchanged": 400
+  },
+  "coverage": {
+    "passed": true,
+    "originalRatchetScopes": 13
+  },
+  "mutation": {
+    "passed": true,
+    "originalGeneratingScopes": 11,
+    "additionalGeneratorsForExistingDispositionReports": 3,
+    "nativeReports": [
+      {
+        "config": "packages/domain/stryker.config.json",
+        "nativeReport": "packages/domain/reports/mutation/mutation.json",
+        "nativeReportSha256": "eff1ce3637e541a3ce39915aa97c62c63bee74fe2abe8e122800f371b09a0f17",
+        "score": 90.47,
+        "minimumUnchanged": 70,
+        "counts": {
+          "NoCoverage": 11,
+          "Killed": 796,
+          "Survived": 73,
+          "Timeout": 1
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "apps/worker/stryker.config.json",
+        "nativeReport": "apps/worker/reports/mutation/mutation.json",
+        "nativeReportSha256": "910b76e790233b1b9676517dee2ec90378b497426c044deb6065e2974425c5ce",
+        "score": 100.0,
+        "minimumUnchanged": 70,
+        "counts": {
+          "Killed": 4
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/database/stryker.pool029.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool029.json",
+        "nativeReportSha256": "0280f105d0be89d44254343c47905875704172e595af72bc125d9f2149c11b32",
+        "score": 100.0,
+        "minimumUnchanged": 70,
+        "counts": {
+          "Killed": 18
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/database/stryker.pool039.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool039.json",
+        "nativeReportSha256": "c4b14ebba39940f11dfd2a6d4b5a4a4672d25c9bf710dcf831126d2a78f36fdb",
+        "score": 87.59,
+        "minimumUnchanged": 70,
+        "counts": {
+          "NoCoverage": 35,
+          "Killed": 755,
+          "Survived": 72
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "apps/gateway/stryker.pool039.config.json",
+        "nativeReport": "apps/gateway/reports/mutation/pool039.json",
+        "nativeReportSha256": "1642feb018fd5cdf361bcb82af1f8408b1d5b609e9b92045d1d26721a70cf945",
+        "score": 100.0,
+        "minimumUnchanged": 100,
+        "counts": {
+          "Killed": 4
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "apps/gateway/stryker.pool040.config.json",
+        "nativeReport": "apps/gateway/reports/mutation/pool040.json",
+        "nativeReportSha256": "59c947f303a771c2356555cd82b903f25d509a3dd35d2cd0ffd49ac801746a5e",
+        "score": 100.0,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 137
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/database/stryker.pool043.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool043.json",
+        "nativeReportSha256": "c0ec89874dc3cd56fd32d1c4f187af18926da1f4556538f710f77693643e41fe",
+        "score": 98.13,
+        "minimumUnchanged": 70,
+        "counts": {
+          "Killed": 1307,
+          "Survived": 21,
+          "Timeout": 3,
+          "NoCoverage": 4
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/database/stryker.pool043-v22.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool043-v22.json",
+        "nativeReportSha256": "414ede8f850d2c55b96a84170519dbaae406b2634e43f8a65ce06f15d451e61b",
+        "score": 100.0,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 328
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "apps/gateway/stryker.pool043.config.json",
+        "nativeReport": "apps/gateway/reports/mutation/pool043.json",
+        "nativeReportSha256": "e0107656ce4e4d0ba01f32f90ae4d1315c02e0bd3a90dc92b5076319e3d3eec9",
+        "score": 96.74,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 89,
+          "NoCoverage": 1,
+          "Survived": 2
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/database/stryker.pool039043-integration.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool039043-integration.json",
+        "nativeReportSha256": "61fa8d5a65057ca93056fbd7e3ad3b23660693f59e65ad5dac755edee099089a",
+        "score": 96.12,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 471,
+          "Survived": 18,
+          "NoCoverage": 1
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "stryker.resource-pool.config.json",
+        "nativeReport": "packages/database/reports/mutation/pool039043-resource.json",
+        "nativeReportSha256": "90ac6922a3b88253d7ae48c5d646736547594a2eac1dd55e0fb88910a40a8825",
+        "score": 100.0,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 29
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/provider-adapters/stryker.pool021-r2.config.json",
+        "nativeReport": "packages/provider-adapters/reports/mutation/pool021-r2.json",
+        "nativeReportSha256": "a6df4b546af8afc09f4af20d80556b253747d83991421f4ad87919662e5f9948",
+        "score": 100.0,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 44
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "apps/gateway/stryker.pool030.config.json",
+        "nativeReport": "apps/gateway/reports/mutation/pool030.json",
+        "nativeReportSha256": "4cedcf59a78c662e790b1a17818991b5b4e3b3d5d00ad15fc1c2e87d34951736",
+        "score": 99.09,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 109,
+          "Survived": 1
+        },
+        "sourceMatchesCurrent": true
+      },
+      {
+        "config": "packages/provider-adapters/stryker.pool030.config.json",
+        "nativeReport": "packages/provider-adapters/reports/mutation/pool030.json",
+        "nativeReportSha256": "300f7d322cc4a7788055bea062aa6acc73d6e4e4e8db217c05679dad3ac63988",
+        "score": 100.0,
+        "minimumUnchanged": 80,
+        "counts": {
+          "Killed": 6
+        },
+        "sourceMatchesCurrent": true
+      }
+    ],
+    "dispositionReports": 9,
+    "dispositionTrackedFiles": 21,
+    "newMonthlyEquivalents": "3 exact identities registered under existing EQUIVALENT policy, not TEST_DEBT"
+  },
+  "functional": {
+    "databaseNonCapacity": {
+      "passed": 772,
+      "failed": 0,
+      "skipped": 0
+    },
+    "databaseAddedRealPgCases": 2,
+    "capacity": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "dataRows": 1000000,
+      "warmups": 2,
+      "samples": 20,
+      "originalP95CapsMs": [
+        500,
+        800,
+        1000,
+        1000
+      ],
+      "allAssertionsPassed": true,
+      "exactP95NumbersNotPrinted": true
+    },
+    "controlApi": 457,
+    "web": 734,
+    "chromeE2E": 36,
+    "affectedResourceRegression": 18,
+    "remainingPackagesFullLog": "security/third-candidate/remaining-packages-full.log",
+    "addedAssertionsHaveTargetedEvidenceNotDoubleCounted": true
+  },
+  "containers": {
+    "passed": true,
+    "services": 4,
+    "platform": "linux/amd64",
+    "sourceContextSha256": "d619248548f227df9d1eddd12ebbf034918326400f22508e6677dd0a93208912",
+    "postContextChangesAreTestsConfigurationsOrGeneratedReportsOnly": [
+      "apps/gateway/reports/mutation/pool043.json",
+      "apps/gateway/src/__tests-integration__/employee-monthly-quota.test.ts",
+      "packages/database/reports/mutation/pool029.json",
+      "packages/database/reports/mutation/pool039.json",
+      "packages/database/reports/mutation/pool039043-integration.json",
+      "packages/database/reports/mutation/pool043-v22.json",
+      "packages/database/reports/mutation/pool043.json",
+      "packages/database/vitest.pool043.mutation.config.ts"
+    ],
+    "runtimeSourceAndDependenciesUnchanged": true,
+    "schema0092AndTrue0091WorkerCompatibility": true
+  },
+  "audit": {
+    "productionAdvisories": 0,
+    "ignoreCount": 0
+  },
+  "finalOriginalTypecheckAndLint": [
+    {
+      "check": "typecheck",
+      "exitCode": 0
+    },
+    {
+      "check": "lint",
+      "exitCode": 0
+    }
+  ],
+  "extraHighRiskThreeGroups": "NOT_EXECUTED_NOT_AN_ORIGINAL_GATE_NOT_REQUIRED_FOR_THIS_ACCEPTANCE",
+  "unusedExcelWorkbookReader": "UNCERTIFIED_DIAGNOSTIC_FAILURE_RETAINED_NOT_USED_BY_PRODUCT",
+  "production": {
+    "newMigration0092Executed": false,
+    "deployed": false,
+    "messagesSent": false,
+    "historicalLedgerChanged": false
+  },
+  "notClaimed": [
+    "remote GitHub CI execution",
+    "production deployment acceptance",
+    "real first month boundary",
+    "new natural report recipient confirmation",
+    "historical apply writer implementation"
+  ]
+}

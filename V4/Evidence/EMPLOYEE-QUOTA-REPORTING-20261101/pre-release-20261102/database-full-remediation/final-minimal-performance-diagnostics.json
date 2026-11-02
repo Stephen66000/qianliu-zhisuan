@@ -1,0 +1,49 @@
+{
+  "status": "NO_PROVEN_PRODUCTION_FIX",
+  "diagnosticOnly": true,
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "runtime": "Node22.23.4",
+  "jitOff": {
+    "originalMs": 1120.567,
+    "alternativeMs": 987.028,
+    "originalJitPresent": false,
+    "alternativeJitPresent": false,
+    "allRowsEqual": true,
+    "conclusion": "No JIT was compiled in either original or alternative plan, so observed variation cannot substantiate JIT setting as a fix.",
+    "artifact": "resource-query-explain-jit-off.json"
+  },
+  "singleScanPreaggregate": {
+    "originalMs": 1355.751,
+    "alternativeMs": 1706.309,
+    "actualStrategies": [
+      "Sorted Aggregate",
+      "Sorted Aggregate"
+    ],
+    "allRowsEqual": true,
+    "conclusion": "Planner selected sorted aggregates, not Hash; slower and no further SQL variant attempted.",
+    "artifact": "resource-query-explain-single-scan-hash.json"
+  },
+  "orderedCoveringIndex": {
+    "originalMs": 1003.273,
+    "alternativeMs": 1148.818,
+    "indexCreationMs": 2065.181166000002,
+    "indexBytes": 113442816,
+    "allVisiblePages": 0,
+    "heapPages": 27028,
+    "indexOnlyScanSelected": false,
+    "allRowsEqual": true,
+    "conclusion": "Planner retains sequential scan and 76408KB sort. Index has no demonstrated benefit in unchanged canonical seed.",
+    "artifact": "resource-query-explain-covering-index.json"
+  },
+  "unchanged": [
+    "Production SQL/source",
+    "Migration files",
+    "Global PostgreSQL settings",
+    "work_mem",
+    "Canonical seed",
+    "Cutoff/asOf and enterprise predicates",
+    "Count-distinct and currency/null propagation",
+    "SLA threshold/warmup/sample count"
+  ],
+  "pending": "Root decision; original resource P95 1141.722ms remains a real failure. No further variants started."
+}

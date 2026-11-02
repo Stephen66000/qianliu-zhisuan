@@ -22,6 +22,7 @@ export interface CompanyWeeklyModelRow {
 export interface CompanyWeeklyReportData {
   enterpriseName: string;
   reportMonth?: string;
+  reportTimezone?: string;
   dateRange: string;      // e.g. "9.7 - 9.13 (第37周)"
   monthQuotaTotal: string;   // e.g. "500.0"（本月总 Token 额度，万/亿）
   monthConsumedTokens: string; // e.g. "128.5"（本月 Token 消耗总量，万/亿）
@@ -30,6 +31,9 @@ export interface CompanyWeeklyReportData {
   totalTokens: string;    // e.g. "384.3"
   dailyAvgTokens: string; // e.g. "54.9"
   totalEmployees?: number; // e.g. 7
+  totalModels?: number;
+  quotaRows?: Array<{ provider: string; basis: string; detail: string }>;
+  quotaAsOf?: string;
   topUsers: CompanyWeeklyUserRow[];
   topModels: CompanyWeeklyModelRow[];
 }
@@ -50,7 +54,9 @@ export interface CompanyWeeklyReportData {
  */
 export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string {
   const cardWidth = 540;
-  const cardHeight = 760;
+  const quotaRows = data.quotaRows ?? [];
+  const quotaHeight = quotaRows.length ? 56 + quotaRows.length * 44 : 0;
+  const cardHeight = 776 + quotaHeight + Math.min(data.topUsers.length, 7) * 12 + Math.min(data.topModels.length, 3) * 12;
   const SAFE_MARGIN_Y = 56;
 
   const topSafe = SAFE_MARGIN_Y;
@@ -59,17 +65,17 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
   // 测量 4 大主区块的固有高度：
   // Block 1: 顶栏组合（标题 20px + 间距 40px + 2 行大数字 46px + 行距 26px + 46px）= 178px
-  const hBlock1 = 178;
+  const hBlock1 = 194;
   // Block 2: 全员使用量表格（区块标题 20px + 表头 16px + 用户数据行）
-  const userRowStep = 24;
+  const userRowStep = 36;
   const userRowCount = Math.min(data.topUsers.length, 7);
   const hBlock2 = 36 + userRowCount * userRowStep;
   // Block 3: 使用模型表格（区块标题 20px + 表头 16px + 模型数据行）
-  const modelRowStep = 24;
+  const modelRowStep = 36;
   const modelRowCount = Math.min(data.topModels.length, 3);
   const hBlock3 = 36 + modelRowCount * modelRowStep;
   // Block 4: 品牌底栏（38px）
-  const hBlock4 = 38;
+  const hBlock4 = 38 + quotaHeight;
 
   const totalContentHeight = hBlock1 + hBlock2 + hBlock3 + hBlock4;
   const remainingSpace = (bottomSafe - topSafe) - totalContentHeight;
@@ -78,7 +84,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
   const headerY = b1Top + 20;
-  const kpiTopY = headerY + 40; // 与标题拉开舒适开间
+  const kpiTopY = headerY + 56; // 与标题拉开舒适开间
   const kpiRowStep = 72; // 两行大数字的行距（单行槽位 46px + 行间呼吸 26px）
 
   // 分割线 1
@@ -104,7 +110,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
   // 4. Block 4: 品牌底栏
   const b4Top = b3Top + hBlock3 + majorGap;
-  const brandTitleY = b4Top + 16;
+  const brandTitleY = b4Top + quotaHeight + 16;
   const brandSubY = brandTitleY + 18;
   const logoTopY = brandSubY - 38;
 
@@ -143,8 +149,8 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     return `
       <!-- Row ${i + 1}: ${escapeXml(u.name)} -->
       ${rankBadgeSvg}
-      <text x="112" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(u.name)}</text>
-      <text x="${data.reportMonth ? 160 : 146}" y="${y}" font-size="9.5" font-weight="500" fill="#7D8FA4">${escapeXml(u.department || "-")}</text>
+      <text x="112" y="${y}" font-size="10.5" font-weight="700" fill="#172033"><title>${escapeXml(u.name)}</title>${escapeXml(u.name.length > 10 ? u.name.slice(0, 9) + "…" : u.name)}</text>
+      <text x="112" y="${y + 13}" font-size="9.5" font-weight="500" fill="#7D8FA4">${escapeXml((u.department || "-").length > 10 ? u.department.slice(0, 9) + "…" : u.department || "-")}</text>
       <text x="264" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(reqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
       <text x="330" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(tokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${tokensUnit}</tspan></text>
       <text x="405" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(dailyClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${dailyUnit}</tspan></text>
@@ -152,6 +158,16 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     `;
   }).join("\n");
 
+  const modelLines = (model: string) => {
+    const lines: string[] = []; let line = ""; let width = 0;
+    for (const char of model) {
+      const unit = /[A-Z]/.test(char) ? 0.75 : /[\u0000-\u007f]/.test(char) ? 0.55 : 1;
+      if (width + unit > 8.5 && line) { lines.push(line); line = ""; width = 0; }
+      line += char; width += unit;
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
   // 渲染使用模型数据行
   const modelRowsSvg = data.topModels.slice(0, 3).map((m, i) => {
     const y = modelRowStartY + i * modelRowStep;
@@ -163,7 +179,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
     return `
       <!-- Model Row ${i + 1}: ${escapeXml(m.model)} -->
-      <text x="87" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(m.model)}</text>
+      <text x="87" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${modelLines(m.model).length === 1 ? escapeXml(m.model) : modelLines(m.model).map((line, index) => `<tspan x="87" dy="${index === 0 ? 0 : 12}">${escapeXml(line)}</tspan>`).join("")}</text>
       <text x="220" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mTokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mTokensUnit}</tspan></text>
       <text x="306" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mDailyClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mDailyUnit}</tspan></text>
       <text x="390" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mReqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
@@ -179,7 +195,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
   const monthTotalClean = data.monthQuotaTotal.replace(/\s*万$/, "").replace(/\s*亿$/, "");
   const monthTotalUnit = data.monthQuotaTotal.includes("亿") ? "亿" : data.monthQuotaTotal.includes("万") ? "万" : "";
   const monthConsumedClean = data.monthConsumedTokens.replace(/\s*万$/, "").replace(/\s*亿$/, "");
-  const monthConsumedUnit = data.monthConsumedTokens.includes("亿") ? "亿" : "万";
+  const monthConsumedUnit = data.monthConsumedTokens.includes("亿") ? "亿" : data.monthConsumedTokens.includes("万") ? "万" : "";
   const monthRemainingClean = data.monthQuotaRemaining.replace(/\s*万$/, "").replace(/\s*亿$/, "");
   const monthRemainingUnit = data.monthQuotaRemaining.includes("亿") ? "亿" : data.monthQuotaRemaining.includes("万") ? "万" : "";
 
@@ -190,23 +206,23 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
-    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · 全员用量${data.reportMonth ? "月报" : "周报"}<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.reportMonth ? data.reportMonth : data.dateRange)}</tspan></text>
+    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · 全员用量${data.reportMonth ? "月报" : "周报"}</text>
 
-    ${data.reportMonth ? `<text x="87" y="${headerY + 18}" font-size="10" fill="#7D8FA4">${escapeXml(data.dateRange)}（北京时间完整自然月）</text>` : ""}
+    <text x="87" y="${headerY + 22}" font-size="12" fill="#417EE0">${escapeXml(data.dateRange)} · ${escapeXml(data.reportTimezone ?? "Asia/Shanghai")} 完整自然${data.reportMonth ? "月" : "周"}</text>
     <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
     <g transform="translate(87, ${kpiTopY})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "当月分配额度" : "本月总 Token"}</text>
-      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthTotalClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthTotalUnit}</tspan></text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">额度范围</text>
+      <text x="0" y="28" font-size="16" font-weight="700" fill="#172033">${escapeXml(monthTotalClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthTotalUnit}</tspan></text>
     </g>
 
     <g transform="translate(202, ${kpiTopY})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "额度扣减总量" : "Token 消耗总量"}</text>
-      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthConsumedClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthConsumedUnit}</tspan></text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">额度状态</text>
+      <text x="0" y="28" font-size="16" font-weight="700" fill="#172033">${monthConsumedClean.includes("，") ? monthConsumedClean.split("，").map((line, index) => `<tspan x="0" dy="${index === 0 ? 0 : 20}">${escapeXml(line)}</tspan>`).join("") : escapeXml(monthConsumedClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthConsumedUnit}</tspan></text>
     </g>
 
     <g transform="translate(320, ${kpiTopY})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "月末剩余额度" : "剩余 Token 总量"}</text>
-      <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthRemainingClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthRemainingUnit}</tspan></text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">超额策略</text>
+      <text x="0" y="28" font-size="16" font-weight="700" fill="#172033">${escapeXml(monthRemainingClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthRemainingUnit}</tspan></text>
     </g>
 
     <!-- 第 2 行：本周用量视角（全周总请求次数 / 全周 Token 消耗总量 / 团队日均使用量） -->
@@ -226,7 +242,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     </g>
 
     <!-- 分割线 1 -->
-    ${data.reportMonth ? `<text x="87" y="${kpiTopY + kpiRowStep + 46}" font-size="8.5" fill="#7D8FA4">额度按规则扣减；Token 为统计用量</text>` : ""}
+    <text x="87" y="${kpiTopY + kpiRowStep + 46}" font-size="10" fill="#7D8FA4">成功请求统计 · 真实 Token；额度按厂商单位分列</text>
     <line x1="87" y1="${div1Y}" x2="453" y2="${div1Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 2: 全员使用量表格 -->
@@ -235,8 +251,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
     <!-- 列标题：按比例精细重排，彻底消除长部门重叠 -->
     <text x="96" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="middle">排名</text>
-    <text x="112" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">成员</text>
-    <text x="${data.reportMonth ? 160 : 146}" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">所属团队</text>
+    <text x="112" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">成员 / 所属团队</text>
     <text x="264" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">请求数</text>
     <text x="330" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${data.reportMonth ? "全月总消耗" : "7天总消耗"}</text>
     <text x="405" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">日均使用量</text>
@@ -250,7 +265,7 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
 
     <!-- Block 3: 使用模型表格 -->
     <text x="87" y="${table2TitleY}" font-size="13" font-weight="700" fill="#172033">使用模型</text>
-    <text x="453" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${data.reportMonth ? "本月热门" : "本周调用"} ${data.topModels.length} 个模型</text>
+    <text x="453" y="${table2TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">共 ${data.totalModels ?? data.topModels.length} 个，展示 Top${data.topModels.length}</text>
 
     <text x="87" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4">模型</text>
     <text x="220" y="${table2HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${data.reportMonth ? "全月消耗" : "7天消耗"}</text>
@@ -264,6 +279,9 @@ export function generateCompanyWeeklySvg(data: CompanyWeeklyReportData): string 
     <!-- 分割线 3 -->
     <line x1="87" y1="${div3Y}" x2="453" y2="${div3Y}" stroke="#F1F5F9" stroke-width="1" />
 
+    ${quotaRows.length ? `<text x="87" y="${b4Top + 14}" font-size="13" font-weight="700" fill="#172033">厂商额度 · ${escapeXml(data.quotaAsOf ?? "")}</text>
+      ${quotaRows.map((row, i) => `<text x="87" y="${b4Top + 40 + i * 44}" font-size="11" font-weight="600" fill="#172033">${escapeXml(row.provider)} · ${escapeXml(row.basis)}</text>
+      <text x="87" y="${b4Top + 56 + i * 44}" font-size="10.5" fill="#7D8FA4">${escapeXml(row.detail)}</text>`).join("")}` : ""}
     <!-- Block 4: 品牌底栏 -->
     <text x="87" y="${brandTitleY}" font-size="15" font-weight="700" fill="#172033">仟流智算</text>
     <text x="87" y="${brandSubY}" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>

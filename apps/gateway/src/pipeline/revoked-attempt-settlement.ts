@@ -18,11 +18,7 @@ import {
   persistRejectedAttemptBeforeUpstreamEvidence,
 } from "./attempt-usage-settlement.js";
 
-interface QuotaSettlement {
-  grant_id: string;
-  reserved_estimate: bigint;
-  actual_deducted: bigint;
-}
+import type { QuotaSettlement } from "./real-pipeline-types.js";
 
 export type RevokedAttemptSettlementResult =
   | { kind: "FAILOVER"; remainingCandidates: RoutingCandidateInput[] }
@@ -54,6 +50,7 @@ export interface SettleRevokedAttemptInput {
   affinityResourceId: string | null;
   maxAttempts: number;
   grantId: string | null;
+  monthlyQuota?: { periodId: string; usageId: string };
   reservedEstimate: bigint;
   leaseId: string | null;
   pendingQuotaSettlements: QuotaSettlement[];
@@ -103,6 +100,7 @@ export async function settleRevokedAttempt(
         grant_id: input.grantId,
         reserved_estimate: input.reservedEstimate,
         actual_deducted: 0n,
+        ...(input.monthlyQuota ? { period_id: input.monthlyQuota.periodId, usage_id: input.monthlyQuota.usageId } : {}),
       }]
     : [];
   const currentLeaseIds = input.leaseId ? [input.leaseId] : [];

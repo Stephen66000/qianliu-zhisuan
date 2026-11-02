@@ -1,0 +1,51 @@
+[
+  {
+    "scope": "database-pool043",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool043.config.json",
+      "--incremental",
+      "--incrementalFile",
+      "/Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/database-pool043-resource-replay-incremental/native-cache.json"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-02T09:52:28.231122+00:00",
+    "finishedAt": "2026-11-02T09:54:07.127058+00:00",
+    "statusCounts": {
+      "Killed": 1307,
+      "Survived": 21,
+      "Timeout": 3,
+      "NoCoverage": 4
+    },
+    "report": "/Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/packages/database/reports/mutation/pool043.json",
+    "sha256": "c0ec89874dc3cd56fd32d1c4f187af18926da1f4556538f710f77693643e41fe"
+  },
+  {
+    "scope": "database-integration",
+    "command": [
+      "corepack",
+      "pnpm@11.11.0",
+      "exec",
+      "stryker",
+      "run",
+      "stryker.pool039043-integration.config.json",
+      "--incremental",
+      "--incrementalFile",
+      "/Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/database-integration-resource-replay-incremental/native-cache.json"
+    ],
+    "exitCode": 0,
+    "startedAt": "2026-11-02T09:54:07.130052+00:00",
+    "finishedAt": "2026-11-02T09:55:16.625556+00:00",
+    "statusCounts": {
+      "Killed": 471,
+      "Survived": 18,
+      "NoCoverage": 1
+    },
+    "report": "/Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/packages/database/reports/mutation/pool039043-integration.json",
+    "sha256": "61fa8d5a65057ca93056fbd7e3ad3b23660693f59e65ad5dac755edee099089a"
+  }
+]

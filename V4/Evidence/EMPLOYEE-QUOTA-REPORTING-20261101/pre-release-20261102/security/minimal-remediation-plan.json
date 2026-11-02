@@ -1,0 +1,319 @@
+{
+  "status": "READ_ONLY_PROPOSAL_WAITING_FOR_AUTHORIZATION",
+  "recordedAt": "2026-11-02T04:25:05.161373+00:00",
+  "auditInput": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/audit-prod.json",
+  "auditCounts": {
+    "info": 0,
+    "low": 12,
+    "moderate": 31,
+    "high": 24,
+    "critical": 0
+  },
+  "runtime": {
+    "current": "22.17.1",
+    "declaredRootContract": ">=22.17 <23",
+    "minimalExistingParentCandidate": ">=22.19 <23 with testcontainers12.0.4 retained",
+    "optionalLatestTestcontainersCandidate": ">=22.22 <23 if testcontainers and both @testcontainers siblings become12.2.1",
+    "node24Required": false,
+    "changesAuthorized": false,
+    "note": "Latest-package engines are verified registry facts, not proof of execution compatibility. No Node binary or runtime contract was changed."
+  },
+  "smallestSameMajorCandidates": [
+    {
+      "package": "undici",
+      "installed": "7.29.0",
+      "candidate": "7.30.1",
+      "actualParents": "apps/gateway and packages/provider-adapters direct dependencies",
+      "method": "direct same-major patch",
+      "engineAssessment": "Node >=20.18.1; current Node22.17.1 meets this branch",
+      "registryEvidence": "https://registry.npmjs.org/undici/7.30.1",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "undici",
+      "installed": "8.9.0",
+      "candidate": "8.12.2",
+      "actualParents": "testcontainers12.0.4 (^8.5.0)",
+      "method": "same-major transitive patch; runtime approval first",
+      "engineAssessment": "Node >=22.19.0; installed8.9.0 already declares this minimum",
+      "registryEvidence": "https://registry.npmjs.org/undici/8.12.2",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "fastify",
+      "installed": "5.12.4",
+      "candidate": "5.12.6",
+      "actualParents": "apps/control-api and apps/gateway direct dependencies",
+      "method": "direct same-major patch",
+      "engineAssessment": "No engines declaration in package metadata; Fastify5 Node22 validation still required",
+      "registryEvidence": "https://registry.npmjs.org/fastify/5.12.6",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "zod",
+      "installed": "4.1.11",
+      "candidate": "4.6.6",
+      "actualParents": "control-api/gateway/web/worker/config direct and hookform resolver",
+      "method": "direct same-major update",
+      "engineAssessment": "No engines declaration; validate all public schemas and resolver integration",
+      "registryEvidence": "https://registry.npmjs.org/zod/4.6.6",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "fast-uri",
+      "installed": "3.1.6",
+      "candidate": "3.1.9",
+      "actualParents": "ajv8.20.0 and @fastify/ajv-compiler4.0.5",
+      "method": "retain major3, no global major4 replacement",
+      "engineAssessment": "No engines declaration",
+      "registryEvidence": "https://registry.npmjs.org/fast-uri/3.1.9",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "fast-uri",
+      "installed": "4.1.3",
+      "candidate": "4.2.3",
+      "actualParents": "fast-json-stringify7.0.1",
+      "method": "retain major4",
+      "engineAssessment": "No engines declaration",
+      "registryEvidence": "https://registry.npmjs.org/fast-uri/4.2.3",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "installed": "1.1.18",
+      "candidate": "1.1.21",
+      "actualParents": "minimatch3.1.5",
+      "method": "retain major1 while old matcher chain remains",
+      "engineAssessment": "No engines declaration",
+      "registryEvidence": "https://registry.npmjs.org/brace-expansion/1.1.21",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "installed": "2.1.4",
+      "candidate": "2.1.7",
+      "actualParents": "minimatch5.1.9 and9.0.9",
+      "method": "retain major2 while old matcher chain remains",
+      "engineAssessment": "No engines declaration",
+      "registryEvidence": "https://registry.npmjs.org/brace-expansion/2.1.7",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "@grpc/grpc-js",
+      "installed": "1.14.4",
+      "candidate": "1.14.5",
+      "actualParents": "dockerode5.0.1 (^1.11.1) via testcontainers",
+      "method": "same-major patch; parent range already permits",
+      "engineAssessment": "Node >=12.10.0",
+      "registryEvidence": "https://registry.npmjs.org/%40grpc%2Fgrpc-js/1.14.5",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    },
+    {
+      "package": "@fastify/busboy",
+      "installed": "3.2.0",
+      "candidate": "3.2.2",
+      "actualParents": "@fastify/multipart10.1.0 (^3.0.0)",
+      "method": "same-major patch; optionally parent multipart10.1.6",
+      "engineAssessment": "No engines declaration",
+      "registryEvidence": "https://registry.npmjs.org/%40fastify%2Fbusboy/3.2.2",
+      "status": "PROPOSED_NOT_APPLIED_NOT_VALIDATED",
+      "validation": [
+        "typecheck/build/lint",
+        "original full regression and coverage/ratchet",
+        "package-specific protocol/schema/parser tests",
+        "pnpm audit --prod, all severities; no ignore"
+      ]
+    }
+  ],
+  "matcherChain": {
+    "advisory": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+    "fixed": "minimatch >=11.0.1",
+    "affectedOldMajors": [
+      3,
+      5,
+      9
+    ],
+    "globAdvisory": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
+    "globFixed": "14.0.2",
+    "parentOnlyLatestSufficient": false,
+    "evidence": [
+      "Latest ExcelJS remains4.4.0 and still declares archiver^5.0.0 and unzipper^0.10.11",
+      "Latest testcontainers12.2.1 still declares archiver^7.0.1; upgrading it alone retains vulnerable matchers",
+      "Latest archiver8.0.0 uses readdir-glob^3.0.0, whose current latest3.0.0 still declares minimatch^10.2.2 (<11.0.1)",
+      "Latest rimraf6.1.3 declares glob^13.0.3 (<14.0.2); latest parent alone does not guarantee patched glob"
+    ]
+  },
+  "actualApiBoundaries": [
+    {
+      "parent": "glob7.2.3",
+      "installedChild": "minimatch3.1.5",
+      "source": "node_modules/.pnpm/glob@7.2.3/node_modules/glob/common.js:15-17,116-129; glob.js:44-45,99,361",
+      "actualCalls": "require(minimatch).Minimatch; new Minimatch; reads set/globSet/options/negate; compares GLOBSTAR",
+      "candidateAssessment": "Minimatch11 retains named constructor and GLOBSTAR, but replacing major3 is NOT validated: internal set/globSet shape, brace/negation/matchBase/windows and pattern behavior require actual tests. Do not claim this prod parent directly calls minimatch as a function."
+    },
+    {
+      "parent": "readdir-glob1.1.3",
+      "installedChild": "minimatch5.1.9",
+      "source": "node_modules/.pnpm/readdir-glob@1.1.3/node_modules/readdir-glob/index.js:5,134-155",
+      "actualCalls": "destructured Minimatch constructor and instance.match, with dot/noglobstar/matchBase/nocase options",
+      "candidateAssessment": "Scoped minimatch11 candidate has compatible exported names at static level; behavior/performance not validated."
+    },
+    {
+      "parent": "glob10.5.0",
+      "installedChild": "minimatch9.0.9",
+      "source": "node_modules/.pnpm/glob@10.5.0/node_modules/glob/dist/commonjs/{glob,ignore,processor,pattern}.js",
+      "actualCalls": "named minimatch namespace, Minimatch and pattern traversal internals",
+      "candidateAssessment": "Prefer parent glob14.0.2 only where its namespace/sync API is actually used (archiver-utils5); still validate sync result/options and archive workflows."
+    },
+    {
+      "parent": "rimraf2.7.1",
+      "installedChild": "glob7.2.3",
+      "source": "node_modules/.pnpm/rimraf@2.7.1/node_modules/rimraf/rimraf.js:9,77,288",
+      "actualCalls": "glob(pattern,options,callback) and glob.sync",
+      "candidateAssessment": "Global glob14 override is incompatible: modern CJS export is a namespace, not the legacy callable module."
+    },
+    {
+      "parent": "exceljs4.4.0",
+      "installedChild": "archiver5.3.2",
+      "source": "node_modules/.pnpm/exceljs@4.4.0/node_modules/exceljs/lib/stream/xlsx/workbook-writer.js:2,50",
+      "actualCalls": "require(archiver), then Archiver(zip,zipOptions)",
+      "candidateAssessment": "Latest archiver8 exports ESM classes, not a compatible factory; do not blindly override archiver5→8."
+    },
+    {
+      "parent": "eslint-plugin-react7.37.4 (development/quality pipeline)",
+      "installedChild": "minimatch3.1.5",
+      "source": "lib/rules/forbid-component-props.js:158,182,196; jsx-pascal-case.js:66; jsx-handler-names.js:146; no-unstable-nested-components.js:42; no-danger.js:83",
+      "actualCalls": "require(minimatch) bound as a function and invoked directly with name/pattern/options",
+      "candidateAssessment": "A blanket minimatch11 namespace override is concretely incompatible with these existing consumers when the corresponding pattern rules execute. Keep development consumers in scope even when repairing the --prod audit graph."
+    }
+  ],
+  "conditionalMatcherCandidates": [
+    {
+      "selector": "archiver-utils@5.0.2>glob",
+      "candidate": "14.0.2",
+      "basis": "Parent only calls glob.sync; modern namespace retains sync alias and uses minimatch^11",
+      "requiredValidation": [
+        "archive directory traversal, sync ordering, dot/ignore patterns, symlinks",
+        "actual Testcontainers file/archive copy and PostgreSQL/Redis startup",
+        "no other glob10 consumers hidden in regenerated dependency graph"
+      ],
+      "status": "STATIC_CANDIDATE_HOLD_FOR_APPROVAL_AND_TESTS"
+    },
+    {
+      "selector": "readdir-glob@1.1.3>minimatch",
+      "candidate": "11.0.1",
+      "basis": "Parent imports named Minimatch and .match (not callable default)",
+      "requiredValidation": [
+        "include/ignore/skip patterns, hidden entries, globstar/matchBase, Windows paths",
+        "ExcelJS streaming ZIP generation and Testcontainers archiving"
+      ],
+      "status": "BREAKING_MAJOR_CHILD_CANDIDATE_NOT_SAFE_TO_APPLY_BLINDLY"
+    },
+    {
+      "selector": "glob@7.2.3>minimatch",
+      "candidate": "11.0.1",
+      "basis": "Keeps legacy glob callable API for rimraf/fstream; named constructor/GLOBSTAR exist in11 but glob internals must be checked",
+      "requiredValidation": [
+        "globSet/set cardinality and pattern token shape",
+        "async callback and sync behavior; braces, negation, literal/globstar, realpath/symlink behavior",
+        "ExcelJS read/load/write/stream plus unzipper/fstream extraction and rimraf cleanup"
+      ],
+      "status": "BREAKING_MAJOR_CHILD_CANDIDATE_NOT_SAFE_TO_APPLY_BLINDLY"
+    },
+    {
+      "selector": "exceljs4.4.0>unzipper",
+      "candidate": "0.12.5",
+      "basis": "Latest removes fstream/rimraf chain; ExcelJS uses unzipper.Parse({forceStream:true})",
+      "requiredValidation": [
+        "Parse/entry event and async iteration behavior",
+        "XLSX buffered and streaming read, malformed ZIP rejection, cleanup/backpressure",
+        "no change to import numbering, cell types, dates and formula values"
+      ],
+      "status": "ALTERNATIVE_PARENT_UPGRADE_OUTSIDE_DECLARED_MINOR_RANGE_NOT_VALIDATED"
+    }
+  ],
+  "rejectedShortcuts": [
+    "Do not use blanket minimatch=11 override without checking every callable/namespace and internal-property consumer. Old3/5 module exports are callable;11 CJS exports are a namespace.",
+    "Do not use blanket glob=14: rimraf2 uses the old callable callback API.",
+    "Do not use blanket archiver=8: ExcelJS4 expects a CommonJS factory.",
+    "Do not claim latest parents alone clean this audit; current latest parents still retain <11 minimatch or <14.0.2 glob.",
+    "Do not treat testcontainers branches as waived merely because they are test infrastructure; the current workspace --prod audit includes packages/testing dependencies.",
+    "No audit ignore, risk acceptance, gate threshold change, or fabricated passing audit."
+  ],
+  "executionOrderAfterSeparateApproval": [
+    "Select a supported Node22.x runtime and explicitly reconcile root/CI/container/local engine contracts (minimum22.19 for retained testcontainers,22.22 for latest testcontainers).",
+    "Apply direct/same-major patch candidates with major-scoped transitive selectors, preserving7/8 Undici and3/4 fast-uri lines.",
+    "Resolve matcher chain via the individually reviewed parent/scoped candidates; no blind global override.",
+    "Regenerate lock and inspect exact resulting graph/engines; execute full parser/HTTP/XLSX/archive/Testcontainers regressions under approved Node22.x.",
+    "Rerun typecheck/build/lint/full tests/coverage/ratchet/mutation/production audit/license checks on the resulting dependency candidate.",
+    "Declare resolved only when the actual audit is clean and compatibility evidence exists; current plan is not an implementation or acceptance result."
+  ],
+  "evidenceFiles": [
+    "npm-metadata.json",
+    "dependency-why.json",
+    "upstream-api-shapes.json",
+    "callable-minimatch-consumers.json",
+    "read-only-input-fingerprint.json"
+  ],
+  "officialReferences": [
+    "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+    "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4",
+    "https://github.com/nodejs/undici/releases/tag/v8.12.2"
+  ],
+  "changesPerformed": []
+}

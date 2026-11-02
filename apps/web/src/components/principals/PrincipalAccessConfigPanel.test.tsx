@@ -60,6 +60,12 @@ function configuration(): AccessConfiguration {
         valid_until: null,
         source: "MANAGED_SINGLE",
         over_limit: false,
+        quota: {
+          mode: "LEGACY_PENDING_RECONCILIATION", period_key: null, period_start: null, period_end: null,
+          timezone: "Asia/Shanghai", quota_basis: null, policy_effective_from: null,
+          limit_value: null, used_value: null, reserved_value: null, available_value: null,
+          overage_value: null, completeness: "LEGACY_PENDING_RECONCILIATION",
+        },
       },
       models: [{
         unified_model_id: "model-deepseek",
@@ -106,6 +112,43 @@ describe("接入配置暂不可用存量授权", () => {
     putMock.mockResolvedValue({ config_version: 9, changes: {}, takeover: {} });
   });
 
+  it("legacy额度显示待核账，不把不同厂商池混成总Token", () => {
+    render(<PrincipalAccessConfigPanel principalId="compass" />);
+    expect(screen.getByText("历史额度待核账")).toBeInTheDocument();
+    expect(screen.getByText("各厂商额度按对应计量口径分别展示")).toBeInTheDocument();
+    expect(screen.queryByText(/总额度 .*Token/)).not.toBeInTheDocument();
+  });
+
+  it("月度额度显示月份、单位、预占与真实超额，并保留允许超额", async () => {
+    const value = configuration();
+    value.providers[0]!.pool!.allow_overage = true;
+    value.providers[0]!.pool!.quota = {
+      mode: "MONTHLY", period_key: "2026-12", period_start: "2026-11-30T16:00:00Z",
+      period_end: "2026-12-31T16:00:00Z", timezone: "Asia/Shanghai", quota_basis: "PLAN_QUOTA",
+      policy_effective_from: "2026-11-30T16:00:00Z", limit_value: "1000", used_value: "1200",
+      reserved_value: "100", available_value: "0", overage_value: "200", completeness: "COMPLETE",
+    };
+    useAccessConfigurationMock.mockReturnValue({ isLoading: false, isError: false, data: value });
+    render(<PrincipalAccessConfigPanel principalId="compass" />);
+    expect(screen.getByText(/2026-12 · 套餐折算额度 · 已用 1,200 · 可用 0 · 预占 100 · 超额 200/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText("DeepSeek"));
+    expect(screen.getByText(/每月 1 日零点重置/)).toHaveTextContent("当前允许超额，超额用量仍记录。");
+  });
+
+  it("未知实耗不展示精确可用或超额", () => {
+    const value = configuration();
+    value.providers[0]!.pool!.quota = {
+      mode: "MONTHLY", period_key: "2026-12", period_start: "2026-11-30T16:00:00Z",
+      period_end: "2026-12-31T16:00:00Z", timezone: "Asia/Shanghai", quota_basis: "RAW_TOKEN",
+      policy_effective_from: "2026-11-30T16:00:00Z", limit_value: "1000", used_value: "400",
+      reserved_value: "100", available_value: null, overage_value: null, completeness: "UNKNOWN",
+    };
+    useAccessConfigurationMock.mockReturnValue({ isLoading: false, isError: false, data: value });
+    render(<PrincipalAccessConfigPanel principalId="compass" />);
+    expect(screen.getByText(/用量待核账 · 未结清预占 100/)).toBeInTheDocument();
+    expect(screen.queryByText(/可用 0/)).not.toBeInTheDocument();
+  });
+
   it("保存 K3 时原样携带已配置但耗尽的 DeepSeek 型号", async () => {
     const user = userEvent.setup();
     render(<PrincipalAccessConfigPanel principalId="compass" />);
@@ -116,7 +159,7 @@ describe("接入配置暂不可用存量授权", () => {
     expect(screen.getByRole("checkbox", { name: "DeepSeek V3（暂不可用）" })).toBeDisabled();
 
     await user.click(screen.getByRole("checkbox", { name: "Kimi开通" }));
-    await user.type(screen.getByRole("textbox", { name: "Kimi Token 额度" }), "50000000");
+    await user.type(screen.getByRole("textbox", { name: "Kimi 额度" }), "50000000");
     await user.click(screen.getByRole("button", { name: "保存并生效" }));
 
     await waitFor(() => expect(putMock).toHaveBeenCalledWith(

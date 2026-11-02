@@ -1,0 +1,517 @@
+[
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "712",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 95,
+        "line": 188
+      },
+      "start": {
+        "column": 72,
+        "line": 188
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (lines.length > 1) throw new GatewayLedgerSettlementConflictError(\"duplicate_ledger_line\");"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "796",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 6,
+        "line": 270
+      },
+      "start": {
+        "column": 47,
+        "line": 268
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "    if (Number(updated.numUpdatedRows) !== 1) {",
+      "      throw new GatewayLedgerSettlementConflictError(\"settlement_status_conflict\");",
+      "    }"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "797",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 269
+      },
+      "start": {
+        "column": 54,
+        "line": 269
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "      throw new GatewayLedgerSettlementConflictError(\"settlement_status_conflict\");"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "637",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 20,
+        "line": 140
+      },
+      "start": {
+        "column": 7,
+        "line": 140
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "  if (attemptResult) attemptQuery = attemptQuery.forUpdate();"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "638",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 20,
+        "line": 140
+      },
+      "start": {
+        "column": 7,
+        "line": 140
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (attemptResult) attemptQuery = attemptQuery.forUpdate();"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "709",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 23,
+        "line": 188
+      },
+      "start": {
+        "column": 7,
+        "line": 188
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (lines.length > 1) throw new GatewayLedgerSettlementConflictError(\"duplicate_ledger_line\");"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "794",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 45,
+        "line": 268
+      },
+      "start": {
+        "column": 9,
+        "line": 268
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    if (Number(updated.numUpdatedRows) !== 1) {"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "857",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 318
+      },
+      "start": {
+        "column": 47,
+        "line": 318
+      }
+    },
+    "replacement": "[\"Stryker was here\"]",
+    "original": [
+      "  const monthly = (input.quota_settlements ?? []).filter(item => item.period_id || item.usage_id);"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "867",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 40,
+        "line": 322
+      },
+      "start": {
+        "column": 9,
+        "line": 322
+      }
+    },
+    "replacement": "item.period_id && item.usage_id",
+    "original": [
+      "    if (item.period_id || item.usage_id) continue;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "906",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 34,
+        "line": 345
+      },
+      "start": {
+        "column": 22,
+        "line": 345
+      }
+    },
+    "replacement": "used >= quota",
+    "original": [
+      "      overage_value: used > quota ? used - quota : 0n,"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "943",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 372
+      },
+      "start": {
+        "column": 13,
+        "line": 372
+      }
+    },
+    "replacement": "[]",
+    "original": [
+      "    .select([\"resource_mode\", \"api_cost_status\"])"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "960",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 66,
+        "line": 377
+      },
+      "start": {
+        "column": 7,
+        "line": 377
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (lines.some(line => line.api_cost_status === \"UNKNOWN_COST\")) return \"UNKNOWN_COST\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "961",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 66,
+        "line": 377
+      },
+      "start": {
+        "column": 7,
+        "line": 377
+      }
+    },
+    "replacement": "lines.every(line => line.api_cost_status === \"UNKNOWN_COST\")",
+    "original": [
+      "  if (lines.some(line => line.api_cost_status === \"UNKNOWN_COST\")) return \"UNKNOWN_COST\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "962",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 65,
+        "line": 377
+      },
+      "start": {
+        "column": 18,
+        "line": 377
+      }
+    },
+    "replacement": "() => undefined",
+    "original": [
+      "  if (lines.some(line => line.api_cost_status === \"UNKNOWN_COST\")) return \"UNKNOWN_COST\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "964",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 65,
+        "line": 377
+      },
+      "start": {
+        "column": 26,
+        "line": 377
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (lines.some(line => line.api_cost_status === \"UNKNOWN_COST\")) return \"UNKNOWN_COST\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "966",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 65,
+        "line": 377
+      },
+      "start": {
+        "column": 51,
+        "line": 377
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (lines.some(line => line.api_cost_status === \"UNKNOWN_COST\")) return \"UNKNOWN_COST\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "982",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 379
+      },
+      "start": {
+        "column": 8,
+        "line": 379
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    || line.api_cost_status === \"NOT_APPLICABLE\")) return \"NOT_APPLICABLE\";"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement.ts",
+    "id": "984",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 379
+      },
+      "start": {
+        "column": 33,
+        "line": 379
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    || line.api_cost_status === \"NOT_APPLICABLE\")) return \"NOT_APPLICABLE\";"
+    ]
+  },
+  {
+    "file": "src/repositories/operating-bill-write-barrier.ts",
+    "id": "1334",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 43,
+        "line": 171
+      },
+      "start": {
+        "column": 38,
+        "line": 171
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "  return pending.rows[0]?.pending ?? false;"
+    ]
+  },
+  {
+    "file": "src/repositories/operating-bill-write-barrier.ts",
+    "id": "1333",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 34,
+        "line": 171
+      },
+      "start": {
+        "column": 10,
+        "line": 171
+      }
+    },
+    "replacement": "pending.rows[0].pending",
+    "original": [
+      "  return pending.rows[0]?.pending ?? false;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+    "id": "473",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 50,
+        "line": 101
+      },
+      "start": {
+        "column": 7,
+        "line": 101
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    : expected !== null && expected !== undefined && BigInt(actual) === expected;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+    "id": "474",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 50,
+        "line": 101
+      },
+      "start": {
+        "column": 7,
+        "line": 101
+      }
+    },
+    "replacement": "expected !== null || expected !== undefined",
+    "original": [
+      "    : expected !== null && expected !== undefined && BigInt(actual) === expected;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+    "id": "475",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 24,
+        "line": 101
+      },
+      "start": {
+        "column": 7,
+        "line": 101
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    : expected !== null && expected !== undefined && BigInt(actual) === expected;"
+    ]
+  },
+  {
+    "file": "src/repositories/gateway-ledger-settlement-assertions.ts",
+    "id": "477",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 50,
+        "line": 101
+      },
+      "start": {
+        "column": 28,
+        "line": 101
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    : expected !== null && expected !== undefined && BigInt(actual) === expected;"
+    ]
+  },
+  {
+    "file": "src/repositories/operating-bill-account-aggregate.ts",
+    "id": "1052",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 60,
+        "line": 99
+      },
+      "start": {
+        "column": 29,
+        "line": 99
+      }
+    },
+    "replacement": "fact.usedAt >= target.lastUsedAt",
+    "original": [
+      "  if (!target.lastUsedAt || fact.usedAt > target.lastUsedAt) target.lastUsedAt = fact.usedAt;"
+    ]
+  },
+  {
+    "file": "src/repositories/operating-bill-account-aggregate.ts",
+    "id": "1131",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 47,
+        "line": 147
+      },
+      "start": {
+        "column": 17,
+        "line": 147
+      }
+    },
+    "replacement": "target.lastUsedAt.toISOString",
+    "original": [
+      "    lastUsedAt: target.lastUsedAt?.toISOString() ?? null,"
+    ]
+  },
+  {
+    "file": "src/repositories/operating-bill-account-aggregate.ts",
+    "id": "1175",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 62,
+        "line": 182
+      },
+      "start": {
+        "column": 36,
+        "line": 182
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (part.totalTokens === null || whole.totalTokens === null) return null;"
+    ]
+  }
+]

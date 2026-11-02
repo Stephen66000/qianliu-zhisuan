@@ -97,6 +97,24 @@ describe("POOL20-048 0055 上游错误证据", () => {
         request_shape_summary: safeShape,
       });
 
+      // A later non-diagnostic partial update must retain the already-frozen safe metadata.
+      await repository.updateAttemptResult(attempt.id, { finished_at: new Date() });
+      expect(await db.selectFrom("upstream_attempt").select(["upstream_error_evidence", "request_shape_summary"])
+        .where("id", "=", attempt.id).executeTakeFirstOrThrow()).toEqual(stored);
+      // One-sided metadata must clear the pair, never join new data with an older counterpart.
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, upstream_error_evidence: safeEvidence });
+      expect(await db.selectFrom("upstream_attempt").select(["upstream_error_evidence", "request_shape_summary"])
+        .where("id", "=", attempt.id).executeTakeFirstOrThrow()).toEqual({ upstream_error_evidence: null, request_shape_summary: null });
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, upstream_error_evidence: safeEvidence, request_shape_summary: safeShape });
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, request_shape_summary: safeShape });
+      expect(await db.selectFrom("upstream_attempt").select(["upstream_error_evidence", "request_shape_summary"])
+        .where("id", "=", attempt.id).executeTakeFirstOrThrow()).toEqual({ upstream_error_evidence: null, request_shape_summary: null });
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, upstream_error_evidence: safeEvidence, request_shape_summary: safeShape });
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, upstream_error_evidence: { message: "discard this body" }, request_shape_summary: safeShape });
+      expect(await db.selectFrom("upstream_attempt").select(["upstream_error_evidence", "request_shape_summary"])
+        .where("id", "=", attempt.id).executeTakeFirstOrThrow()).toEqual({ upstream_error_evidence: null, request_shape_summary: null });
+      await repository.updateAttemptResult(attempt.id, { http_status: 400, upstream_error_evidence: safeEvidence, request_shape_summary: safeShape });
+
       const authEvidence = {
         ...safeEvidence,
         httpStatus: 401,

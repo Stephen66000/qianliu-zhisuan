@@ -1,0 +1,60 @@
+[
+  {
+    "file": "node_modules/.pnpm/eslint-plugin-react@7.37.4_eslint@9.18.0_jiti@1.21.7_/node_modules/eslint-plugin-react/lib/rules/forbid-component-props.js",
+    "binding": "minimatch",
+    "calls": [
+      [
+        158,
+        "const propNamePattern = propNamePatternArray.find((propPatternVal) => minimatch(prop, propPatternVal[0]));"
+      ],
+      [
+        182,
+        "(pattern) => !minimatch(tagName, pattern)"
+      ],
+      [
+        196,
+        "(pattern) => minimatch(tagName, pattern)"
+      ]
+    ]
+  },
+  {
+    "file": "node_modules/.pnpm/eslint-plugin-react@7.37.4_eslint@9.18.0_jiti@1.21.7_/node_modules/eslint-plugin-react/lib/rules/jsx-pascal-case.js",
+    "binding": "minimatch",
+    "calls": [
+      [
+        66,
+        "(entry) => name === entry || minimatch(name, entry, { noglobstar: true })"
+      ]
+    ]
+  },
+  {
+    "file": "node_modules/.pnpm/eslint-plugin-react@7.37.4_eslint@9.18.0_jiti@1.21.7_/node_modules/eslint-plugin-react/lib/rules/jsx-handler-names.js",
+    "binding": "minimatch",
+    "calls": [
+      [
+        146,
+        "const isComponentNameIgnored = ignoreComponentNames.some((ignoredComponentNamePattern) => minimatch("
+      ]
+    ]
+  },
+  {
+    "file": "node_modules/.pnpm/eslint-plugin-react@7.37.4_eslint@9.18.0_jiti@1.21.7_/node_modules/eslint-plugin-react/lib/rules/no-unstable-nested-components.js",
+    "binding": "minimatch",
+    "calls": [
+      [
+        42,
+        "return typeof text === 'string' && minimatch(text, pattern);"
+      ]
+    ]
+  },
+  {
+    "file": "node_modules/.pnpm/eslint-plugin-react@7.37.4_eslint@9.18.0_jiti@1.21.7_/node_modules/eslint-plugin-react/lib/rules/no-danger.js",
+    "binding": "minimatch",
+    "calls": [
+      [
+        83,
+        "const enableCheckingCustomComponent = customComponentNames.some((name) => minimatch(functionName, name));"
+      ]
+    ]
+  }
+]

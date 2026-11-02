@@ -1,0 +1,67 @@
+{
+  "status": "PASS_ORIGINAL_CAPACITY_FULL_FILE",
+  "exitCode": 0,
+  "filesPassed": 1,
+  "testsPassed": 2,
+  "failed": 0,
+  "skipped": 0,
+  "durationSeconds": 75.1,
+  "runtime": "Node22.23.4",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+  "testSha256": "c0d7e10f7c0b09d6e35a65c8e085e182022ee39544485901b96266773cc43a2f",
+  "testUnchangedFromFailedCandidate": true,
+  "modifiedSnapshotSourceSha256": "8d69dcaf88bbb2fbafb336cd01c5f616d337ead2a0de2ddb99b6de261ed8878f",
+  "command": "PATH=local-node22.23.4 corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=1 src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+  "cwd": "packages/database",
+  "canonicalScope": {
+    "ledgerRows": 1000000,
+    "warmupsPerOperation": 2,
+    "samplesPerOperation": 20,
+    "allDataAndMoneyAssertionsPreserved": true
+  },
+  "p95Assertions": [
+    {
+      "operation": "commonAdmin",
+      "maximumMs": 500,
+      "passed": true,
+      "exactMeasuredMs": null
+    },
+    {
+      "operation": "subjectUsage",
+      "maximumMs": 800,
+      "passed": true,
+      "exactMeasuredMs": null
+    },
+    {
+      "operation": "resourceUtilization",
+      "maximumMs": 1000,
+      "passed": true,
+      "exactMeasuredMs": null
+    },
+    {
+      "operation": "departmentBill",
+      "maximumMs": 1000,
+      "passed": true,
+      "exactMeasuredMs": null
+    }
+  ],
+  "metricsLimitation": "Existing W20_CAPACITY_EVIDENCE=true stdout switch was not enabled in this invocation; no four exact P95 values were printed. No values are reconstructed or claimed from HTTP responseTime logs. Original assertions actually executed and passed. Per root instruction do not rerun a passed SLA merely to collect optional output.",
+  "isolation": {
+    "G": "DB043 ended naturally, no mutation/PG/CPU runner; integration HOLD",
+    "R": "All4 amd64 builds ended naturally, paused=true, no runtime PG/Canvas",
+    "dockerContainersBeforeStart": 0,
+    "dockerServer": "28.0.1",
+    "dockerCpuLimit": 8,
+    "dockerMemoryBytes": 8218316800,
+    "hostLogicalCpu": 8,
+    "hostMemoryBytes": 17179869184,
+    "ownedContainersAfterEnd": 0
+  },
+  "sourceChange": "Only existing snapshot transaction-local work_mem16MB; query/seed/units/COUNT DISTINCT/lock/schema unchanged.",
+  "preservedFailure": "capacity-third-lock.log / resourceP951141.722084ms >1000ms",
+  "resultDoesNotProve": [
+    "Production deployment",
+    "Online business acceptance"
+  ],
+  "log": "capacity-third-lock-final-work-mem16.log"
+}

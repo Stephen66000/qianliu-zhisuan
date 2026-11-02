@@ -24,6 +24,8 @@ export interface PersistAttemptUsageEvidenceInput {
   resourceMode: "API" | "CODING_PLAN";
   upstreamModel: string;
   billingRule: BillingRule;
+  monthlyAccounting?: { grantId: string; periodId: string; usageId: string; reservedEstimate: bigint; leaseId: string | null; attemptResult: PersistAttemptUsageAccountingInput["attempt_result"] };
+  onPersistedQuotaUsage?: (usage: { raw: bigint; quality: string }) => void;
 }
 
 export interface FinalizeRejectedAttemptInput {
@@ -75,7 +77,7 @@ export async function persistAttemptUsageEvidence(
   const billing = await resolveBilling(input, usage);
   const pricedApi = input.resourceMode === "API" && billing.apiCost !== null
     && (billing.currency === "CNY" || billing.currency === "USD");
-  const settlement = await input.ledgerRepo.createUsageAndLedgerLineIfAbsent({
+  const evidence: CreateUsageLedgerLineInput = {
     usage: {
       ai_request_id: input.requestId,
       enterprise_id: input.enterpriseId,
@@ -113,6 +115,27 @@ export async function persistAttemptUsageEvidence(
         pricingAt: new Date(input.attemptStartedAt).toISOString(), apiCost: billing.apiCost,
         deductedQuota: billing.deductedQuota, usageQuality: usage.quality } : null,
     },
+  };
+  const monthly = input.monthlyAccounting;
+  const actual = input.resourceMode === "API" ? BigInt(usage.input) + BigInt(usage.output)
+    : BigInt(billing.deductedQuota ?? 0);
+  const unknown = usage.quality === "UNKNOWN"
+    || (!hasMeasuredTokens(input.outcome) && usage.quality !== "PROVIDER_REPORTED")
+    || (input.resourceMode === "CODING_PLAN" && billing.deductedQuota === null);
+  const settlement = monthly
+    ? await input.ledgerRepo.persistAttemptUsageAccountingIfAbsent({ ...evidence,
+      attempt_result: monthly.attemptResult,
+      quota_settlements: [{ grant_id: monthly.grantId, period_id: monthly.periodId, usage_id: monthly.usageId,
+        reserved_estimate: monthly.reservedEstimate, actual_deducted: actual,
+        usage_status: unknown ? "UNKNOWN" : undefined, usage_quality: usage.quality }],
+      release_lease_ids: monthly.leaseId ? [monthly.leaseId] : [],
+    })
+    : await input.ledgerRepo.createUsageAndLedgerLineIfAbsent(evidence);
+  input.onPersistedQuotaUsage?.({
+    raw: BigInt(settlement.line.raw_input_tokens) + BigInt(settlement.line.raw_output_tokens),
+    quality: settlement.line.usage_quality === "UNKNOWN"
+      || (BigInt(settlement.line.raw_input_tokens) + BigInt(settlement.line.raw_output_tokens) === 0n
+        && settlement.line.usage_quality !== "PROVIDER_REPORTED") ? "UNKNOWN" : settlement.line.usage_quality,
   });
   return settlement.line.deducted_quota === null
     ? null
@@ -196,7 +219,7 @@ export async function finalizeRejectedAttemptBeforeUpstream(
     ...rejectedAttemptEvidence(input),
     attempt_result: input.attemptResult,
     overage: input.overage ?? false,
-    error_classification: input.attemptResult.error_classification,
+    error_classification: input.attemptResult.error_classification ?? "DOWNSTREAM_AUTH_OR_QUOTA",
     error_code: input.errorCode,
     quota_settlements: input.quotaSettlements,
     release_lease_ids: input.releaseLeaseIds,

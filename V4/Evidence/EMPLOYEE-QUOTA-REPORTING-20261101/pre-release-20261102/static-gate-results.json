@@ -1,0 +1,32 @@
+[
+  {
+    "gate": "architecture",
+    "exitCode": 0,
+    "log": "architecture.log"
+  },
+  {
+    "gate": "size",
+    "exitCode": 0,
+    "log": "size.log"
+  },
+  {
+    "gate": "duplication",
+    "exitCode": 0,
+    "log": "duplication.log"
+  },
+  {
+    "gate": "audit-prod",
+    "exitCode": 1,
+    "log": "audit-prod.log"
+  },
+  {
+    "gate": "licenses",
+    "exitCode": 0,
+    "log": "licenses.log"
+  },
+  {
+    "gate": "canary-framework",
+    "exitCode": 0,
+    "log": "canary-framework.log"
+  }
+]

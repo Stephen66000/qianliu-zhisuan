@@ -406,3 +406,18 @@ describe("POOL-040 mutation：上游前拒绝清算合同", () => {
     );
   });
 });
+
+it("revocation releases the original monthly usage reference without converting it to a legacy counter adjustment", async () => {
+  const { input, ledger } = revokedInput({ grantCurrent: false });
+  input.monthlyQuota = { periodId: "period-2026-11", usageId: "usage-reserved-in-november" };
+  const result = await settleRevokedAttempt(input);
+  expect(result).toMatchObject({ kind: "REJECT", errorCode: "principal_grant_required" });
+  expect(ledger.finalizeRejectedAttemptSettlementIfAbsent).toHaveBeenCalledWith(expect.objectContaining({
+    quota_settlements: [
+      { grant_id: "old-grant", reserved_estimate: 10n, actual_deducted: 5n },
+      { grant_id: "grant-1", reserved_estimate: 321n, actual_deducted: 0n,
+        period_id: "period-2026-11", usage_id: "usage-reserved-in-november" },
+    ],
+  }));
+  expect(ledger.persistAttemptUsageAccountingIfAbsent).not.toHaveBeenCalled();
+});

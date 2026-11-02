@@ -1,21 +1,36 @@
 {
   "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "I1 复审 R3 整改：资金核心路径（domain 激活投影五模块）增量变异测试。覆盖草稿规范化、期初解析、守恒窗口、余额公式、缺口发射——即 PFH-01~06 唯一公式与失败关闭语义的载体。阈值沿用 GAP-MUT-1 惯例 ≥80%。",
+  "_comment": "I1 \u590d\u5ba1 R3 \u6574\u6539\uff1a\u8d44\u91d1\u6838\u5fc3\u8def\u5f84\uff08domain \u6fc0\u6d3b\u6295\u5f71\u4e94\u6a21\u5757\uff09\u589e\u91cf\u53d8\u5f02\u6d4b\u8bd5\u3002\u8986\u76d6\u8349\u7a3f\u89c4\u8303\u5316\u3001\u671f\u521d\u89e3\u6790\u3001\u5b88\u6052\u7a97\u53e3\u3001\u4f59\u989d\u516c\u5f0f\u3001\u7f3a\u53e3\u53d1\u5c04\u2014\u2014\u5373 PFH-01~06 \u552f\u4e00\u516c\u5f0f\u4e0e\u5931\u8d25\u5173\u95ed\u8bed\u4e49\u7684\u8f7d\u4f53\u3002\u9608\u503c\u6cbf\u7528 GAP-MUT-1 \u60ef\u4f8b \u226580%\u3002",
   "packageManager": "pnpm",
-  "reporters": ["clear-text", "json"],
-  "jsonReporter": { "fileName": "reports/mutation/provider-finance-domain.json" },
-  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": [
+    "clear-text",
+    "json",
+    "progress-append-only"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation/provider-finance-domain.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
   "testRunner": "vitest",
-  "vitest": { "configFile": "vitest.provider-finance.mutation.config.ts" },
+  "vitest": {
+    "configFile": "vitest.provider-finance.mutation.config.ts"
+  },
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/provider-finance-activation-projection.ts",
+    "src/provider-finance-activation-scope-openings.ts",
     "src/provider-finance-activation-balances.ts",
     "src/provider-finance-activation-conservation.ts",
     "src/provider-finance-activation-draft.ts",
     "src/provider-finance-activation-inputs.ts"
   ],
-  "thresholds": { "high": 100, "low": 80, "break": 70 },
+  "thresholds": {
+    "high": 100,
+    "low": 80,
+    "break": 70
+  },
   "timeoutMS": 60000,
   "concurrency": 2,
   "disableTypeChecks": true,

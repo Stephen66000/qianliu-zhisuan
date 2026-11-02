@@ -406,7 +406,7 @@ describe("provider finance cutover rehearsal", () => {
       await db.insertInto("ledger_transaction").values({ ai_request_id: requestId,
         enterprise_id: enterpriseId, principal_id: principalId, total_input_tokens: 1_000n,
         total_output_tokens: 0n, total_cache_tokens: 0n, total_deducted_quota: 0n,
-        total_api_cost: "1.0000", usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+        total_api_cost: "1.0000", api_cost_status: "PRICED_USAGE", usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
         status: "SETTLED", created_at: at }).execute();
 
       await enableProjectAllocation(db, { enterpriseId, startMonth: "2026-09", actorAdminId: adminId });

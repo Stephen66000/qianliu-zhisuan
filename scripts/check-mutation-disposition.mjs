@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 const gate = JSON.parse(await readFile("V3/仟流智算-质量门禁-v1.0.json", "utf8"));
 const defaultReport = "packages/domain/reports/mutation/mutation.json";
@@ -15,8 +16,44 @@ const reportPaths = new Set([
 const violations = [];
 let timeoutCount = 0;
 
+const fingerprint = (mutant) => JSON.stringify({
+  id: mutant.id, status: mutant.status, mutatorName: mutant.mutatorName,
+  replacement: mutant.replacement, location: mutant.location,
+});
+for (const item of gate.mutation.survivor_dispositions) {
+  if (!item.equivalence_binding) continue;
+  const binding = item.equivalence_binding;
+  for (const [file, expected] of Object.entries(binding.source_sha256)) {
+    const actual = createHash("sha256").update(await readFile(file)).digest("hex");
+    if (actual !== expected) violations.push(`${item.file}: 等价证明来源已变化 ${file}，必须重审`);
+  }
+  if (binding.runtime) {
+    for (const [key, expected] of Object.entries(binding.runtime)) {
+      if (process.versions[key] !== expected) violations.push(`${item.file}: 等价证明运行时 ${key} 不匹配，必须重审`);
+    }
+  }
+}
+
 for (const reportPath of reportPaths) {
   const report = JSON.parse(await readFile(reportPath, "utf8"));
+  for (const item of gate.mutation.survivor_dispositions) {
+    if ((item.report ?? defaultReport) !== reportPath || !item.equivalence_binding) continue;
+    const data = report.files[item.file];
+    if (!data || typeof data.source !== "string") {
+      violations.push(`${reportPath}:${item.file}: 等价证明绑定的报告源码缺失`);
+      continue;
+    }
+    const binding = item.equivalence_binding;
+    if (createHash("sha256").update(data.source).digest("hex") !== binding.report_source_sha256) {
+      violations.push(`${reportPath}:${item.file}: 实际被测源码与等价证明不一致`);
+    }
+    const actual = data.mutants.filter((mutant) => ["Survived", "NoCoverage"].includes(mutant.status))
+      .map(fingerprint).sort();
+    const expected = binding.mutants.map(fingerprint).sort();
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      violations.push(`${reportPath}:${item.file}: 未解决变异身份与等价证明不一致，必须重审`);
+    }
+  }
   for (const [file, data] of Object.entries(report.files)) {
     const survived = data.mutants.filter((mutant) => mutant.status === "Survived").length;
     const noCoverage = data.mutants.filter((mutant) => mutant.status === "NoCoverage").length;

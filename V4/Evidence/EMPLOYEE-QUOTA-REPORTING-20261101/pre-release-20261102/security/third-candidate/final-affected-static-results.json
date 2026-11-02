@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "check": "control-api typecheck",
+      "exitCode": 0
+    },
+    {
+      "check": "control-api lint",
+      "exitCode": 0
+    },
+    {
+      "check": "control-api build",
+      "exitCode": 0
+    },
+    {
+      "check": "quality:architecture",
+      "exitCode": 0
+    },
+    {
+      "check": "quality:size",
+      "exitCode": 0
+    }
+  ],
+  "changedRuntimeFile": "apps/control-api/src/resource-insights/token-utilization.ts",
+  "changedFileSha256": "8d69dcaf88bbb2fbafb336cd01c5f616d337ead2a0de2ddb99b6de261ed8878f",
+  "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+}

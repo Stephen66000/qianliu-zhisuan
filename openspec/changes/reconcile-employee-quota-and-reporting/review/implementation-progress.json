@@ -1,0 +1,10 @@
+{
+  "progress": {
+    "total": 29,
+    "complete": 21,
+    "remaining": 8
+  },
+  "authorization": "LOCAL_IMPLEMENTATION_AUTHORIZED",
+  "productionStatus": "UNPUBLISHED_NO_PRODUCTION_MUTATIONS",
+  "notEquivalentToBusinessAcceptance": true
+}

@@ -1,5 +1,11 @@
-import { OperatingBillClosedError, type UpstreamAttempt } from "@qianliu/database";
-import { parseQuotaBlockState, QUOTA_DECISION, ROUTING_POLICY, type RoutingCandidateInput } from "@qianliu/domain";
+import {
+  reserveAttemptQuota,
+  releaseAttemptReservations,
+  frozenMonthlyAuthorization,
+  type MonthlyAttemptQuota,
+} from "./attempt-quota-reservation.js";
+import { EmployeeQuotaRepository, OperatingBillClosedError, type UpstreamAttempt } from "@qianliu/database";
+import { parseQuotaBlockState, ROUTING_POLICY, type RoutingCandidateInput } from "@qianliu/domain";
 import {
   getCurrentInvocationAuthorization,
   type CurrentInvocationAuthorization,
@@ -21,9 +27,6 @@ import {
   presentationFromStoredBlock,
 } from "./quota-window-presentation.js";
 import {
-  acquireConcurrencyLeaseWithWait,
-  estimateRawTokens,
-  latestProviderQuotaResetAt,
   runBestEffort,
 } from "./runtime-controls.js";
 import {
@@ -40,6 +43,7 @@ export interface PreparedAttempt {
   resourceConfig: RouteCandidateRow | undefined;
   invocationAuthorization: CurrentInvocationAuthorization;
   attempt: UpstreamAttempt;
+  monthlyQuota?: MonthlyAttemptQuota;
   leaseId: string | null;
   grantId: string | null;
   reservedEstimate: bigint;
@@ -52,16 +56,6 @@ export interface PreparedAttempt {
 export type AttemptPreparationResult =
   | { kind: "READY"; value: PreparedAttempt }
   | { kind: "STOP"; result: AttemptStepResult };
-
-type QuotaReservationResult =
-  | { kind: "STOP"; result: AttemptStepResult }
-  | {
-      kind: "READY_QUOTA";
-      leaseId: string;
-      grantId: string | null;
-      reservedEstimate: bigint;
-      reservedProjectedRemaining: bigint;
-    };
 
 export async function prepareSelectedAttempt(
   context: PipelineContext,
@@ -88,12 +82,15 @@ export async function prepareSelectedAttempt(
   let grantId: string | null = null;
   let reservedEstimate = 0n;
   let reservedProjectedRemaining = 0n;
-  if (candidate.mode === "CODING_PLAN") {
-    const reserved = await reserveCodingPlanQuota(context, state, probeLease);
+  let monthlyQuota: PreparedAttempt["monthlyQuota"];
+  {
+    const reserved = await reserveAttemptQuota(context, state, probeLease);
     if (reserved.kind === "STOP") return reserved;
-    ({ leaseId, grantId, reservedEstimate, reservedProjectedRemaining } = reserved);
+    ({ leaseId, grantId, reservedEstimate, reservedProjectedRemaining, monthlyQuota } = reserved);
   }
 
+  const currentQuotaSettlements = grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate,
+    actual_deducted: 0n, ...(monthlyQuota ? { period_id: monthlyQuota.periodId, usage_id: monthlyQuota.usageId } : {}) }] : [];
   let attempt: UpstreamAttempt;
   try {
     attempt = await deps.ledgerRepo.createAttempt({
@@ -103,8 +100,11 @@ export async function prepareSelectedAttempt(
       provider_resource_id: candidate.resourceId,
       upstream_model: candidate.upstreamModel,
     });
+    if (monthlyQuota) await new EmployeeQuotaRepository(deps.db).bindEmployeeQuotaAttempt({
+      enterpriseId: principal.enterpriseId, usageId: monthlyQuota.usageId, upstreamAttemptId: attempt.id,
+    });
   } catch (error) {
-    await releaseAttemptReservations(context, candidate.resourceId, probeLease, grantId, reservedEstimate, leaseId);
+    await releaseAttemptReservations(context, candidate.resourceId, probeLease, grantId, reservedEstimate, leaseId, monthlyQuota);
     if (!(error instanceof OperatingBillClosedError)) throw error;
     await publishFailedRequest(context, state, "OPERATING_BILL_CLOSED", "operating_bill_closed");
     reply.code(409).header("x-request-id", traceId).send({
@@ -144,7 +144,7 @@ export async function prepareSelectedAttempt(
       },
       quotaSettlements: [
         ...state.pendingQuotaSettlements,
-        ...(grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : []),
+        ...currentQuotaSettlements,
       ],
       releaseLeaseIds: [...state.pendingLeaseIds, ...(leaseId ? [leaseId] : [])],
       overage: state.requestOverage,
@@ -199,6 +199,7 @@ export async function prepareSelectedAttempt(
       affinityResourceId: context.affinityResourceId,
       maxAttempts: context.maxAttempts,
       grantId,
+      monthlyQuota,
       reservedEstimate,
       leaseId,
       pendingQuotaSettlements: state.pendingQuotaSettlements,
@@ -227,7 +228,7 @@ export async function prepareSelectedAttempt(
     dispatchBlock = await attemptDispatchGuard(context, state, candidate,
       invocationAuthorization.billingRule, invocationAuthorization.pricingAt, attempt.id);
   } catch {
-    await finalizeDispatchCheckFailure(context, state, { candidate, attempt, grantId, reservedEstimate, leaseId, probeLease });
+    await finalizeDispatchCheckFailure(context, state, { candidate, attempt, grantId, reservedEstimate, leaseId, probeLease, monthlyQuota });
     return { kind: "STOP", result: "RETURNED" };
   }
   if (dispatchBlock?.finalAction === "SWITCH" && dispatchBlock.switchTargetResourceId && state.attemptNo < context.maxAttempts) {
@@ -237,7 +238,7 @@ export async function prepareSelectedAttempt(
       attemptResult: { http_status: 409, response_committed: false, finished_at: new Date(),
         error_classification: "DOWNSTREAM_AUTH_OR_QUOTA", error_code: "dispatch_reselected_before_upstream",
         switch_reason: dispatchBlock.reasonCode },
-      quotaSettlements: grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : [],
+      quotaSettlements: currentQuotaSettlements,
       releaseLeaseIds: leaseId ? [leaseId] : [],
     });
     if (probeLease) await runBestEffort(request.log, "release reselected probe", () =>
@@ -257,7 +258,7 @@ export async function prepareSelectedAttempt(
       attemptResult: { http_status: statusCode, response_committed: false, finished_at: new Date(),
         error_classification: "DOWNSTREAM_AUTH_OR_QUOTA", error_code: "dispatch_changed_before_upstream", switch_reason: null },
       quotaSettlements: [...state.pendingQuotaSettlements,
-        ...(grantId ? [{ grant_id: grantId, reserved_estimate: reservedEstimate, actual_deducted: 0n }] : [])],
+        ...currentQuotaSettlements],
       releaseLeaseIds: [...state.pendingLeaseIds, ...(leaseId ? [leaseId] : [])], overage: state.requestOverage,
     });
     if (probeLease) await runBestEffort(request.log, "release dispatch rejected probe", () =>
@@ -274,10 +275,11 @@ export async function prepareSelectedAttempt(
       candidate,
       probeLease,
       resourceConfig,
-      invocationAuthorization,
+      invocationAuthorization: frozenMonthlyAuthorization(invocationAuthorization, monthlyQuota),
       attempt,
       leaseId,
       grantId,
+      monthlyQuota,
       reservedEstimate,
       reservedProjectedRemaining,
       resourceVersion,
@@ -309,75 +311,6 @@ async function freezeRouteCandidates(
       reason_code: scored.reasonCode,
     });
   }
-}
-
-async function reserveCodingPlanQuota(
-  context: PipelineContext,
-  state: PipelineExecutionState,
-  probeLease: PreparedAttempt["probeLease"],
-): Promise<QuotaReservationResult> {
-  const { deps, principal, body } = context;
-  const candidate = state.winner!.input;
-  const leaseId = await acquireConcurrencyLeaseWithWait({
-    quotaRepo: deps.quotaRepo,
-    enterpriseId: principal.enterpriseId,
-    providerResourceId: candidate.resourceId,
-    aiRequestId: context.requestId,
-    waitMs: context.capacityWaitMs,
-    pollMs: context.capacityPollMs,
-    leaseTtlMs: context.concurrencyLeaseTtlMs,
-    cancelled: () => context.downstreamAbort.signal.aborted,
-  });
-  if (leaseId === null) {
-    state.capacityWaitTimedOut = true;
-    state.capacityRetryAfterMs = context.capacityPollMs;
-    state.triedResourceIds.add(candidate.resourceId);
-    if (probeLease) await deps.poolRepo.releaseHalfOpenProbe(candidate.resourceId, probeLease.acquiredAt);
-    return { kind: "STOP", result: "CONTINUE" };
-  }
-  const reserve = await deps.quotaRepo.reserveQuota({
-    enterpriseId: principal.enterpriseId,
-    principalId: context.principalId,
-    provider: candidate.providerCode,
-    modelAlias: body.model,
-    estimatedCost: estimateRawTokens(context.effectiveBody),
-  });
-  if (reserve.decision !== QUOTA_DECISION.ALLOW && reserve.decision !== QUOTA_DECISION.ALLOW_OVERAGE) {
-    if (reserve.decision === QUOTA_DECISION.REJECT_EXHAUSTED) {
-      state.quotaExhaustedDuringDispatch = true;
-      state.quotaExhaustedProviderCode = candidate.providerCode;
-      state.quotaExhaustedResetAt = await latestProviderQuotaResetAt(
-        deps.db, principal.enterpriseId, candidate.resourceId, new Date(context.requestStartedAt),
-      );
-    }
-    await deps.quotaRepo.releaseLease(leaseId);
-    if (probeLease) await deps.poolRepo.releaseHalfOpenProbe(candidate.resourceId, probeLease.acquiredAt);
-    state.triedResourceIds.add(candidate.resourceId);
-    return {
-      kind: "STOP",
-      result: reserve.decision === QUOTA_DECISION.REJECT_EXHAUSTED ? "BREAK" : "CONTINUE",
-    };
-  }
-  return {
-    kind: "READY_QUOTA",
-    leaseId,
-    grantId: reserve.grantId,
-    reservedEstimate: reserve.reservedEstimate,
-    reservedProjectedRemaining: reserve.gate.projectedRemaining,
-  };
-}
-
-async function releaseAttemptReservations(
-  context: PipelineContext,
-  resourceId: string,
-  probeLease: PreparedAttempt["probeLease"],
-  grantId: string | null,
-  reservedEstimate: bigint,
-  leaseId: string | null,
-): Promise<void> {
-  if (grantId) await context.deps.quotaRepo.releaseQuota(grantId, reservedEstimate);
-  if (leaseId) await context.deps.quotaRepo.releaseLease(leaseId);
-  if (probeLease) await context.deps.poolRepo.releaseHalfOpenProbe(resourceId, probeLease.acquiredAt);
 }
 
 /**

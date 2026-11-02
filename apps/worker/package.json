@@ -24,7 +24,7 @@
     "decimal.js": "10.6.0",
     "kysely": "0.28.17",
     "redis": "5.8.2",
-    "zod": "4.1.11"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@qianliu/testing": "workspace:*",

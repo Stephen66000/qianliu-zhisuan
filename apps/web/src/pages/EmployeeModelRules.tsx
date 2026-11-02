@@ -77,10 +77,10 @@ function formatPoolQuotaSummary(
   const pools = rule.pool_quotas ?? [];
   if (pools.length > 0) {
     return pools.map((quota) =>
-      `${providerNameOf(quota.provider_code)} ${formatIntegerAmountInput(quota.quota_value)} Token${quota.allow_overage ? "（可超额）" : ""}`,
+      `${providerNameOf(quota.provider_code)} ${formatIntegerAmountInput(quota.quota_value)} 额度${quota.allow_overage ? "（可超额）" : ""}`,
     ).join(" / ");
   }
-  return `${formatIntegerAmountInput(rule.quota_value)} Token${rule.allow_overage ? "（可超额）" : ""}`;
+  return `${formatIntegerAmountInput(rule.quota_value)} 额度${rule.allow_overage ? "（可超额）" : ""}`;
 }
 
 function PermissionChangeSummary({
@@ -243,7 +243,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
         </div>
         <div className="grid gap-4 md:grid-cols-4">
           <label className="text-sm">规则名称<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, name: event.target.value }))} required value={form.name} /></label>
-          <label className="text-sm" htmlFor="employee-rule-quota">Token 额度<IntegerAmountInput className={`${INPUT} mt-1`} id="employee-rule-quota" onChange={(quotaValue) => setForm((old) => ({ ...old, quotaValue }))} value={form.quotaValue} /></label>
+          <label className="text-sm" htmlFor="employee-rule-quota">分配额度<IntegerAmountInput className={`${INPUT} mt-1`} id="employee-rule-quota" onChange={(quotaValue) => setForm((old) => ({ ...old, quotaValue }))} value={form.quotaValue} /></label>
           <label className="text-sm">生效时间<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, validFrom: event.target.value }))} required type="datetime-local" value={form.validFrom} /></label>
           <label className="text-sm">失效时间（可选）<input className={`${INPUT} mt-1`} onChange={(event) => setForm((old) => ({ ...old, validUntil: event.target.value }))} type="datetime-local" value={form.validUntil} /></label>
         </div>
@@ -253,7 +253,7 @@ export function EmployeeModelRulesPage({ embedded = false }: { embedded?: boolea
         {selectedProviders.length > 0 ? (
           <div className="mt-4 rounded-xl border border-ql-border p-4">
             <legend className="px-2 text-sm font-semibold">厂商级池额度（可选）</legend>
-            <p className="mb-3 mt-1 text-[13px] text-ql-fg-tertiary">为每个厂商单独设置池额度；未填或留空的厂商回退上方版本级 Token 额度。</p>
+            <p className="mb-3 mt-1 text-[13px] text-ql-fg-tertiary">为每个厂商单独设置额度；未填的厂商使用上方分配额度。实际 Token 与套餐折算额度分别计量，月度策略生效后每月 1 日重置，允许超额单独设置。</p>
             <div className="space-y-3">
               {selectedProviders.map((provider) => {
                 const draft = form.poolQuotas[provider.code];

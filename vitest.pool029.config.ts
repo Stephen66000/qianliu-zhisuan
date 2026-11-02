@@ -10,6 +10,7 @@ export default defineConfig({
       "packages/database/src/repositories/employee-model-rule-lifecycle.mutation.test.ts",
       "packages/database/src/repositories/principal-access-read-model.mutation.test.ts",
       "packages/database/src/__tests-integration__/pool029-authorization-rule-migration.test.ts",
+      "packages/database/src/__tests-integration__/pre-release-key-contract.integration.test.ts",
       "apps/control-api/src/__tests-integration__/pool029-employee-model-rules.test.ts",
       "apps/control-api/src/__tests-integration__/w03-key-grant.test.ts",
       "apps/gateway/src/__tests-integration__/w05-northbound.test.ts",

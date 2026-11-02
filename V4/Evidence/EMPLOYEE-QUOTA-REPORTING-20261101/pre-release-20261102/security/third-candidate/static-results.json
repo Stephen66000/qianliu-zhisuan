@@ -1,0 +1,42 @@
+[
+  {
+    "check": "typecheck",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "lint",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "build",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "quality:architecture",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "quality:size",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "quality:duplication",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "quality:licenses",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  },
+  {
+    "check": "evidence:canary",
+    "exitCode": 0,
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90"
+  }
+]

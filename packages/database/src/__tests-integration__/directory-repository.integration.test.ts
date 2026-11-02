@@ -1,3 +1,4 @@
+import { employeeQuotaMonth } from "@qianliu/domain";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -231,10 +232,10 @@ describe("DirectoryRepository", () => {
     }
   });
 
-  it("开通主体时继承当前已发布的 ALL 批量授权规则，导入阶段不建主体不配额（Scenario 2.1）", async () => {
+  it.each([false, true])("开通主体时继承当前已发布的 ALL 批量授权规则，导入阶段不建主体不配额（Scenario 2.1 monthly=%s）", async (monthly) => {
     const db = createKysely(pg.connectionString);
     try {
-      const enterprise = await db.insertInto("enterprise").values({ name: "已发布规则导入企业" })
+      const enterprise = await db.insertInto("enterprise").values({ name: "已发布规则导入企业", employee_quota_monthly_from: monthly ? employeeQuotaMonth(new Date(), "Asia/Shanghai").periodStart : null })
         .returning("id").executeTakeFirstOrThrow();
       const admin = await db.insertInto("admin_user").values({
         enterprise_id: enterprise.id,
@@ -379,6 +380,12 @@ describe("DirectoryRepository", () => {
         authorization_rule_version_id: ruleVersion.id,
       });
       expect(BigInt(importedGrants[0]!.quota_value)).toBe(800_000n);
+      expect(importedGrants[0]!.quota_basis).toBe(monthly ? "RAW_TOKEN" : null);
+      const periods = await db.selectFrom("principal_quota_period").selectAll()
+        .where("enterprise_id", "=", enterprise.id).where("principal_id", "=", importedPrincipal.id).execute();
+      expect(periods).toHaveLength(monthly ? 1 : 0);
+      if (monthly) { expect(BigInt(periods[0]!.limit_value)).toBe(800_000n); expect(periods[0]!.allow_overage).toBe(true); }
+
       expect(await db.selectFrom("quota_counter").select("id")
         .where("grant_id", "=", importedGrants[0]!.id).execute()).toHaveLength(1);
       expect(await db.selectFrom("employee_model_rule_assignment").selectAll()

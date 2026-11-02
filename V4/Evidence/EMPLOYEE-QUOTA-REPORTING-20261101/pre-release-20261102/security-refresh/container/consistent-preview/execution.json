@@ -1,0 +1,25 @@
+{
+  "image": "qianliu-acceptance-d619248548f2-worker:local",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--platform=linux/amd64",
+    "--network=none",
+    "-v",
+    "/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/container/consistent-preview:/fixture:ro",
+    "-v",
+    "/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/container/consistent-preview:/output",
+    "-v",
+    "/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/container/consistent-preview/render-consistent.ts:/app/render-consistent.ts:ro",
+    "qianliu-acceptance-d619248548f2-worker:local",
+    "node",
+    "--import",
+    "tsx",
+    "/app/render-consistent.ts"
+  ],
+  "exitCode": 0,
+  "network": "none",
+  "pgOrBusinessServicesStarted": false,
+  "sourceContextRebuilt": false
+}

@@ -1,0 +1,6 @@
+{
+  "label": "Database all non-capacity files only",
+  "exitCode": 1,
+  "files": 102,
+  "capacityPendingIsolatedWindow": true
+}

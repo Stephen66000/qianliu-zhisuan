@@ -200,6 +200,7 @@ function finalizationFor(
     total_reasoning_tokens: 0n,
     total_deducted_quota: 0n,
     total_api_cost: "0.4",
+    api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED",
     attempt_count: 1,
     request_status: "SUCCEEDED",
@@ -434,6 +435,7 @@ async function insertLegacyTransactionDirectly(
     total_reasoning_tokens: input.total_reasoning_tokens ?? 0n,
     total_deducted_quota: input.total_deducted_quota,
     total_api_cost: input.total_api_cost,
+    api_cost_status: input.api_cost_status ?? (input.total_api_cost === null ? "UNKNOWN_COST" : "PRICED_USAGE"),
     overage: input.overage ?? false,
     usage_quality: input.usage_quality,
     attempt_count: input.attempt_count,
@@ -513,7 +515,7 @@ beforeAll(async () => {
   await db.insertInto("ledger_transaction").values({
     ai_request_id: requestId, enterprise_id: enterpriseId, principal_id: employeeId,
     total_input_tokens: 30n, total_output_tokens: 3n, total_cache_tokens: 2n,
-    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0.3",
+    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0.3", api_cost_status: "PRICED_USAGE",
     usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED", created_at: usedAt,
   }).execute();
 });
@@ -807,6 +809,7 @@ describe("POOL-043 结账与项目归属并发边界", () => {
         total_reasoning_tokens: 0n,
         total_deducted_quota: 0n,
         total_api_cost: "0.4",
+    api_cost_status: "PRICED_USAGE",
         usage_quality: "PROVIDER_REPORTED",
         attempt_count: 1,
         request_status: "SUCCEEDED",
@@ -851,6 +854,7 @@ describe("POOL-043 结账与项目归属并发边界", () => {
       total_cache_tokens: 3n,
       total_deducted_quota: 0n,
       total_api_cost: "0.4",
+    api_cost_status: "PRICED_USAGE",
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1,
       request_status: "SUCCEEDED",
@@ -956,19 +960,19 @@ describe("POOL-043 结账与项目归属并发边界", () => {
     )).rejects.toThrow("settlement_usage_without_line");
   });
 
-  it("API 成本未知时以零占位结算，但保留 Ledger Line 的 null 事实", async () => {
+  it("API 成本未知时汇总与 Ledger Line 均保留 null，而非伪造零费用", async () => {
     const fixture = await seedSettlementFixture(
       "unknown-api-cost", { status: "IN_PROGRESS", createUsage: false },
     );
     const repository = new GatewayLedgerRepository(db);
     const result = await repository.createUsageAndLedgerLineIfAbsent({
       usage: { ...fixture.atomic.usage },
-      ledger_line: { ...fixture.atomic.ledger_line, api_cost: null },
+      ledger_line: { ...fixture.atomic.ledger_line, api_cost: null, api_cost_status: "UNKNOWN_COST" },
     });
     expect(result.line.api_cost).toBeNull();
     await expect(repository.finalizeLedgerSettlementIfAbsent(finalizationFor(fixture, {
-      total_api_cost: "0",
-    }))).resolves.toMatchObject({ total_api_cost: "0", status: "SETTLED" });
+      total_api_cost: null, api_cost_status: "UNKNOWN_COST",
+    }))).resolves.toMatchObject({ total_api_cost: null, api_cost_status: "UNKNOWN_COST", status: "SETTLED" });
   });
 
   it("finalize 的 terminal 重放仅允许状态与错误身份完全一致", async () => {
@@ -1952,4 +1956,41 @@ describe("POOL-043 结账与项目归属并发边界", () => {
       await blocker;
     }
   });
+  it("missing facts for a finished upstream Attempt cannot be finalized as invented zero consumption", async () => {
+    const fixture = await seedSettlementFixture("missing-facts", {status:"IN_PROGRESS",createUsage:false});
+    const repo = new GatewayLedgerRepository(db);
+    await expect(repo.finalizeLedgerSettlementIfAbsent(finalizationFor(fixture, {
+      total_input_tokens:0n,total_output_tokens:0n,total_cache_tokens:0n,total_reasoning_tokens:0n,
+      total_deducted_quota:0n,total_api_cost:"0",api_cost_status:"CONFIRMED_ZERO_NO_UPSTREAM",usage_quality:"UNKNOWN",
+    }))).rejects.toThrow("settlement_attempt_fact_missing");
+    expect(await db.selectFrom("ledger_transaction").select("id").where("ai_request_id","=",fixture.requestId).execute()).toEqual([]);
+    expect((await db.selectFrom("ai_request").select("status").where("id","=",fixture.requestId).executeTakeFirstOrThrow()).status).toBe("IN_PROGRESS");
+  });
+
+  it("terminal replay rejects each contradictory stored Attempt fact without recharging or releasing twice", async () => {
+    const scenario=await seedTerminalRejectedAccounting("replay-evidence");const repo=new GatewayLedgerRepository(db);
+    await repo.finalizeRejectedAttemptSettlementIfAbsent(scenario.input);
+    const original=await db.selectFrom("upstream_attempt").selectAll().where("id","=",scenario.currentAttemptId).executeTakeFirstOrThrow();
+    for(const patch of [
+      {finished_at:null}, {response_committed:true}, {error_classification:"UPSTREAM_ERROR"},
+      {error_code:"different_stored_error"}, {switch_reason:"unexpected_retry"},
+    ]) {
+      await db.updateTable("upstream_attempt").set(patch).where("id","=",scenario.currentAttemptId).execute();
+      await expect(repo.finalizeRejectedAttemptSettlementIfAbsent(scenario.input)).rejects.toThrow("settlement_attempt_result_conflict");
+      await db.updateTable("upstream_attempt").set({finished_at:original.finished_at,response_committed:original.response_committed,error_classification:original.error_classification,error_code:original.error_code,switch_reason:original.switch_reason}).where("id","=",scenario.currentAttemptId).execute();
+    }
+    await expect(repo.finalizeRejectedAttemptSettlementIfAbsent({...scenario.input,usage:{...scenario.input.usage,dedup_key:`missing-${randomUUID()}`}})).rejects.toThrow("settlement_usage_missing");
+    await expect(repo.finalizeRejectedAttemptSettlementIfAbsent({...scenario.input,ledger_line:{...scenario.input.ledger_line,resource_mode:"CODING_PLAN",api_cost:null,api_cost_status:"NOT_APPLICABLE"}})).rejects.toThrow("settlement_attempt_result_conflict");
+    const missing=randomUUID();
+    await expect(repo.finalizeRejectedAttemptSettlementIfAbsent({...scenario.input,usage:{...scenario.input.usage,upstream_attempt_id:missing},ledger_line:{...scenario.input.ledger_line,upstream_attempt_id:missing}})).rejects.toThrow("settlement_attempt_result_conflict");
+    expect(await db.selectFrom("ledger_transaction").select("id").where("ai_request_id","=",scenario.fixture.requestId).execute()).toHaveLength(1);
+    expect(BigInt((await db.selectFrom("quota_counter").select("used_value").where("grant_id","=",scenario.grantId).executeTakeFirstOrThrow()).used_value)).toBe(0n);
+  });
+  it.each([undefined,false,true])("terminal rejection preserves the caller's frozen overage flag %s", async overage => {
+    const scenario=await seedTerminalRejectedAccounting(`flag-${String(overage)}`);
+    const tx=await new GatewayLedgerRepository(db).finalizeRejectedAttemptSettlementIfAbsent({...scenario.input,overage});
+    expect(tx.overage).toBe(overage??false);
+    expect((await db.selectFrom("ledger_transaction").select("overage").where("id","=",tx.id).executeTakeFirstOrThrow()).overage).toBe(overage??false);
+  });
+
 });

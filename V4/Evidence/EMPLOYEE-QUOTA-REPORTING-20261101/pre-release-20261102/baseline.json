@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-11-02T02:33:50.287699+00:00",
+  "scope": "Six source-size remediations and all executable pre-release tests/acceptance",
+  "authorizations": {
+    "developmentAndRemediation": true,
+    "localAndIsolatedTests": true,
+    "liveReadOnlyPreflight": true,
+    "productionMigration": false,
+    "deployment": false,
+    "historicalDeduction": false,
+    "resend": false,
+    "commitPushMerge": false
+  },
+  "quota": {
+    "ordinaryUsageAllowed": true,
+    "primaryUsedPercent": 8
+  },
+  "baseHead": "2a2fdbe3c52b6853d12be476a6162221fc8163fe",
+  "branch": "codex/employee-quota-monthly-reporting"
+}

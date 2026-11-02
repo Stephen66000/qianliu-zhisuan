@@ -10,7 +10,7 @@ import { WecomAppClient } from "../../runtime-assurance/wecom-client.js";
 let pg:PostgresTestInstance;let db:ReturnType<typeof createKysely>;let enterpriseId:string;let personId:string;
 beforeAll(async()=>{
   pg=await startPostgresContainer("monthly_report");db=createKysely(pg.connectionString);await migrateToLatest(db);
-  enterpriseId=(await db.insertInto("enterprise").values({name:"合成企业",timezone:"UTC"}).returning("id").executeTakeFirstOrThrow()).id;
+  enterpriseId=(await db.insertInto("enterprise").values({name:"合成企业",timezone:"Asia/Shanghai"}).returning("id").executeTakeFirstOrThrow()).id;
   personId=(await db.insertInto("person").values({enterprise_id:enterpriseId,name:"测试成员",department_label:"技术部"}).returning("id").executeTakeFirstOrThrow()).id;
   await db.insertInto("person_external_identity").values({enterprise_id:enterpriseId,person_id:personId,provider:"WECOM",provider_user_id:"synthetic-member",status:"ACTIVE"}).execute();
   const principal=(await db.insertInto("principal").values({enterprise_id:enterpriseId,person_id:personId,type:"EMPLOYEE",name:"测试成员"}).returning("id").executeTakeFirstOrThrow()).id;
@@ -36,9 +36,9 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
       const result=await runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true});
       expect(result).toMatchObject({status:"DRY_RUN",totalTokens:150000,requestCount:2});
       expect(result.svg).toContain("全员用量月报");expect(result.svg).toContain("2026 年 9 月 · 9.1 - 9.30");
-      expect(result.svg).toContain("20.0");expect(result.svg).toMatch(/额度扣减总量<\/text>[\s\S]*?>5\.0 /);expect(result.svg).toContain("15.0");
-      expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("全周");expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("7天");expect(result.svg).toContain('viewBox="0 0 540 760"');
-      expect([result.pngBuffer!.readUInt32BE(16),result.pngBuffer!.readUInt32BE(20)]).toEqual([1080,1520]);expect(sizes[0]).toEqual([1080,1520]);
+      expect(result.svg).toContain("历史余额待核账");expect(result.svg).not.toContain("额度扣减总量</text>");expect(result.svg).toContain("15.0");
+      expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("全周");expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("7天");expect(result.svg).toContain('viewBox="0 0 540 900"');
+      expect([result.pngBuffer!.readUInt32BE(16),result.pngBuffer!.readUInt32BE(20)]).toEqual([1080,1800]);expect(sizes[0]).toEqual([1080,1800]);
     }finally{spy.mockRestore();}
   });
   it("renders and delivers a personal month card using the existing font, crop and recipient",async()=>{
@@ -47,7 +47,7 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     expect(preview[0]!.svg).toContain("月度小结 2026 年 9 月");expect(preview[0]!.svg).toContain("月消耗 Token 总量");
     expect(preview[0]!.svg).toContain("9月30日 23:59");
     expect(preview[0]!.svg).toContain("0.5 万 /天");expect(preview[0]!.svg).toContain("15.0 万");
-    const png=await renderSvgToPng(preview[0]!.svg!,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1538]);
+    const png=await renderSvgToPng(preview[0]!.svg!,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1867]);
     const upload=vi.spyOn(WecomAppClient.prototype,"uploadMedia").mockResolvedValue("synthetic-media");
     const image=vi.spyOn(WecomAppClient.prototype,"sendReportMessage").mockResolvedValue({status:"SENT",providerMessageId:"synthetic-message"});
     const sent=vi.fn();await runPersonalMonthlyReports({db,enterpriseId,kekBase64:"unused",month:"2026-09",userPersonId:personId,onSent:sent,deliveryWindow:{start:new Date(Date.now()-1000),end:new Date(Date.now()+60_000)}});

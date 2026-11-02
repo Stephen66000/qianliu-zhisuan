@@ -31,7 +31,13 @@ const currentMonth = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
 }).format(new Date()).slice(0, 7);
 const currentMonthStart = `${currentMonth}-01`;
-const recentUsageAt = new Date(Date.now() - 36 * 60 * 60_000);
+const [currentYear, currentMonthNumber] = currentMonth.split("-").map(Number);
+const nextMonthStart = new Date(Date.UTC(currentYear!, currentMonthNumber!, 1)).toISOString().slice(0, 10);
+const serviceStart = new Date(`${currentMonthStart}T00:00:00+08:00`);
+const serviceEnd = new Date(`${nextMonthStart}T00:00:00+08:00`);
+// A recent fixture must remain in the asserted current month on its first two days.
+const recentUsageAt = new Date(Math.max(new Date(`${currentMonthStart}T00:00:00+08:00`).getTime(),
+  Date.now() - 36 * 60 * 60_000));
 
 async function insertLedgerFact(resourceId: string): Promise<string> {
   const requestId = randomUUID();
@@ -194,9 +200,9 @@ beforeAll(async () => {
       (${enterpriseId}::uuid, ${apiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
        'CNY', 87.5, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
       (${enterpriseId}::uuid, ${kimiResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
-       'CNY', NULL, 300, 100, 35, 65, 'POINT', '2026-08-01T00:00:00+08:00', '2026-09-01T00:00:00+08:00'),
+       'CNY', NULL, 300, 100, 35, 65, 'POINT', ${serviceStart}, ${serviceEnd}),
       (${enterpriseId}::uuid, ${zhipuResourceId}::uuid, 1, 'PROVIDER_SYNC', now(),
-       'CNY', NULL, 500, 100, 90, 10, 'POINT', '2026-06-26T00:00:00+08:00', '2026-09-26T00:00:00+08:00')
+       'CNY', NULL, 500, 100, 90, 10, 'POINT', ${serviceStart}, ${serviceEnd})
   `.execute(db);
   await sql`
     INSERT INTO provider_quota_window
@@ -288,8 +294,8 @@ describe("W20-08 逐资源利用、耗尽与无调用事实", () => {
     expect(kimi).toMatchObject({
       utilizationRate: "0.35000000",
       utilizationBasis: "CODING_PLAN_SUBSCRIPTION_PERIOD",
-      servicePeriodStart: expect.stringContaining("2026-08-01"),
-      servicePeriodEnd: expect.stringContaining("2026-09-01"),
+      servicePeriodStart: expect.stringContaining(currentMonthStart),
+      servicePeriodEnd: expect.stringContaining(nextMonthStart),
     });
     expect(kimi.quotaWindows).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: "FIVE_HOUR", usedValue: "40.00000000", ratio: "0.400000" }),
@@ -753,8 +759,8 @@ describe("W20-09 轻量采购复盘", () => {
       reviewLabel: "利用不足",
       reviewReason: expect.stringMatching(/套餐|无调用|没有已结算请求/),
       idleStatus: "UNASSESSED",
-      servicePeriodStart: expect.stringContaining("2026-06-26"),
-      servicePeriodEnd: expect.stringContaining("2026-09-26"),
+      servicePeriodStart: expect.stringContaining(currentMonthStart),
+      servicePeriodEnd: expect.stringContaining(nextMonthStart),
     });
     expect(byId.get(kimiResourceId).reviewLabel).not.toBe("闲置");
     expect(byId.get(zhipuResourceId).reviewLabel).not.toBe("闲置");

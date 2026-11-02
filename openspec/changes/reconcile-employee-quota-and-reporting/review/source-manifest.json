@@ -1,0 +1,22 @@
+{
+  "createdAt": "2026-11-01T14:13:51.860007+00:00",
+  "localSourceHead": "2a2fdbe3c52b6853d12be476a6162221fc8163fe",
+  "openspecVersion": "1.15.0",
+  "officialWorkflow": "https://github.com/Fission-AI/OpenSpec",
+  "files": {
+    "V4/员工额度与企业微信报表口径统一开发方案-v1.0-20261101.md": "0f05522ec88c8512a760359ca1cb2da967b70ed05919838a8ee4c22ae055307a",
+    "openspec/changes/reconcile-employee-quota-and-reporting/.openspec.yaml": "108f7b3dae33488206672f31b510275110c0194c93062eb1970e19ca60c08722",
+    "openspec/changes/reconcile-employee-quota-and-reporting/design.md": "372b63176b0c67b948b8d4b34442becc50d14f430628c112f2fe80d4bb9ec132",
+    "openspec/changes/reconcile-employee-quota-and-reporting/proposal.md": "25d603b36dc38697410f70bda2073d4f34276a893386e689aeea631db1fe5c07",
+    "openspec/changes/reconcile-employee-quota-and-reporting/review/artifact-status.json": "be5fbed82757253ff52e84f697c1dacb0be27053e949186ba6ae0d0cd2a0940e",
+    "openspec/changes/reconcile-employee-quota-and-reporting/review/document-checks.json": "43af29424e5f378a71e597627d86af4082b970ab5da7e2d33e1fe9878301b2eb",
+    "openspec/changes/reconcile-employee-quota-and-reporting/review/implementation-progress.json": "44b60a0e9df31b936bf161866bd72423e16592d60923a82450a6a5af9adecc0d",
+    "openspec/changes/reconcile-employee-quota-and-reporting/review/spec-review.md": "65d801e45bd423a3134658300c7eaa406d1f1a3abc541fad18c0c2a0778a46c8",
+    "openspec/changes/reconcile-employee-quota-and-reporting/review/strict-validation.json": "e53b9b8e38fb1106fd42179315e4c4fa8e738ba84fafddbac919995a5cbde734",
+    "openspec/changes/reconcile-employee-quota-and-reporting/specs/employee-quota-accounting/spec.md": "40b22e9dc7790ae1b5e0e321488662521758a857f45d8238d08d9be708738dff",
+    "openspec/changes/reconcile-employee-quota-and-reporting/specs/employee-report-consistency/spec.md": "bca5ead2cd522c77252f0f3bcd07e295fe0e99d0221c16a8ff7d8901fa9c0579",
+    "openspec/changes/reconcile-employee-quota-and-reporting/specs/quota-history-reconciliation/spec.md": "c63eea7afcf356a9d62c1814dea6f9b2af27d11a2cb77582e95c8af83fde1891",
+    "openspec/changes/reconcile-employee-quota-and-reporting/tasks.md": "2623f31a9f2dca32d356c32d786801d88358c0a8920f12aa9ed8a2a3f5caeff4"
+  },
+  "phase": "PLANNING_ONLY"
+}

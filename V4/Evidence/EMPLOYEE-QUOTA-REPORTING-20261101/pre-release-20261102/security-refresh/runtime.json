@@ -1,0 +1,7 @@
+Scope: all 12 workspace projects
+✓ Lockfile passes supply-chain policies (verified 15m ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 654ms using pnpm v11.11.0
+{"node":"v22.23.4","icu":"78.3","tz":"2026e","execPath":"/Users/mac/Projects/仟流智算/.local-runtime/node-v22.23.4-darwin-arm64/bin/node"}

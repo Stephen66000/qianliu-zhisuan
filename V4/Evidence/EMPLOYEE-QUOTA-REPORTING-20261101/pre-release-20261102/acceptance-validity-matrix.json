@@ -1,0 +1,470 @@
+{
+  "status": "ACTUAL_PATH_SCOPE_ACCEPTED_API_WEB_E2E_CONTAINER_CAPACITY_PASS_REMAINING_ROOT_G_GATES_PENDING",
+  "testCases": [
+    {
+      "id": "T01",
+      "target": "月初建独立月账，新月零已用/预占，旧月保留；不按30天、不结转",
+      "evidence": "AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "独立月份、零起账与旧月保留为固定时钟/隔离PG工程证明；真实月界仍T29"
+    },
+    {
+      "id": "T02",
+      "target": "Worker 暂停/重复 tick，首个新月请求与页面只得到一份新月额度",
+      "evidence": "AQ/RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "重复初始化/首请求/查询幂等；Worker暂停为受控场景"
+    },
+    {
+      "id": "T03",
+      "target": "月中开通、SET/ADD、调低总额不清已用，未来生效不提前加量",
+      "evidence": "AQ/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "SET/ADD/下调/未来生效；旧API池管理+UI测试，最终依赖重验待绑定"
+    },
+    {
+      "id": "T04",
+      "target": "23:59 预占、00:02 完成回原月；同请求新月新 Attempt 分月",
+      "evidence": "AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "受控跨月Attempt，非真实跨月流量"
+    },
+    {
+      "id": "T05",
+      "target": "API 1000输入+200输出计内部1200；套餐0.5倍计600；真实Token均不改",
+      "evidence": "AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "真实隔离PG原始1200和套餐600；API deducted_quota保持null，费用独立"
+    },
+    {
+      "id": "T06",
+      "target": "allow_overage true继续且记超额；false预占不足零上游访问；真实超过估计如实记",
+      "evidence": "AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "允许超额/禁止时零上游/真实实耗超估计；合成HTTP上游不是真厂商"
+    },
+    {
+      "id": "T07",
+      "target": "停用/再启用不重送额度，策略变化有前后事实，撤权仍即时生效",
+      "evidence": "AQ/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "停启/即时撤权/策略before审计；当前grant不能伪历史"
+    },
+    {
+      "id": "T08",
+      "target": "重复结算、failover、失败实耗只记一次；上游前拒绝释放未消费预占",
+      "evidence": "AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "重复/失败实耗/failover/上游前释放有用例，最终账本源修与新lock复验待B/G"
+    },
+    {
+      "id": "T09",
+      "target": "未知实耗保留待核预占；结算事务失败无部分成功",
+      "evidence": "AQ/RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "UNKNOWN保留预占、事务回滚和历史策略UNKNOWN"
+    },
+    {
+      "id": "T10",
+      "target": "员工22亿、项目3亿不混；员工活动归集到项目仍不重复算",
+      "evidence": "RC/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "员工/项目隔离及三个员工预算入口不混算；不是22亿历史月初分配证明"
+    },
+    {
+      "id": "T11",
+      "target": "10月北京时间半开月界，月初/月末临界请求归属正确",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "半开自然月边界的固定时钟证明，非真实月界"
+    },
+    {
+      "id": "T12",
+      "target": "11/2 周报覆盖10/26—11/1，额度明确截至11/1的11月，不读今天余额",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "10/26—11/1周报、11月截至11/1；不取今天余额"
+    },
+    {
+      "id": "T13",
+      "target": "日报头部和模型均员工，10/19项目3次4095Token不漏入",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "员工头部/模型同域，合成项目污染排除；生产精确1980/3记录来自既有审计而非本轮查询"
+    },
+    {
+      "id": "T14",
+      "target": "四模型Top3按全量分母，前三项不人为凑成100%，真实总数为4",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "完整4模型分母Top3；前三不归一化"
+    },
+    {
+      "id": "T15",
+      "target": "GLM 5.3 Flash/GLM 5.3名称、请求和用量分别保留",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "GLM5.3Flash/GLM5.3独立identity、名称和行"
+    },
+    {
+      "id": "T16",
+      "target": "十月锁定22607次/2709467730Token；套餐扣减388884913单独解释",
+      "evidence": "RC/PROD",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "22607/2709467730/388884913为提案锁定既有生产事实；本轮合成图不是重新查询十月实账，不可宣称新报告生产重生成已核对"
+    },
+    {
+      "id": "T17",
+      "target": "同月份/截止时刻，个人周报、月报及配置页额度相同",
+      "evidence": "RC/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "共享月份/截止/单位合同；report facts+配置API+浏览器合成月度状态，非历史生产余额恢复"
+    },
+    {
+      "id": "T18",
+      "target": "历史缺配置/归属或旧月未结清，显示待核/暂定，不显示精确余额",
+      "evidence": "RC/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "legacy/缺历史/UNKNOWN显示待核和预占，拒绝18.1亿/22−27.1精确余额"
+    },
+    {
+      "id": "T19",
+      "target": "图片生成后额度变化，文字仍来自同一快照；现金费用不重算",
+      "evidence": "RC/AQ",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "repeatable-read和delivery冻结facts，混币cash不合造/价格保留；最终账本状态源修待复验"
+    },
+    {
+      "id": "T20",
+      "target": "1080px真实渲染，三厂商、长姓名、超额/待核均可读，字不重叠",
+      "evidence": "CONTAINER/RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "原Linux/amd64字体Canvas1080已实际看图，Node升级后需refresh"
+    },
+    {
+      "id": "T21",
+      "target": "additive迁移、旧计数器留存、不同企业隔离；读接口返回整数串",
+      "evidence": "AQ/CONTAINER",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "additive/租户隔离/bigint串/0092down→up保事实；不是生产迁移已执行"
+    },
+    {
+      "id": "T22",
+      "target": "Key额度、项目额度、厂商余额/套餐窗口、价格规则未被内部月额度替代",
+      "evidence": "AQ/UI",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "Key/PROJECT/CP窗口及定价独立回归保留"
+    },
+    {
+      "id": "T23",
+      "target": "原投递窗口、防重、UNKNOWN与图片文字回执回归；旧SENT不自动重发",
+      "evidence": "RC",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "delivery集成SENT/UNKNOWN/回执身份/窗口；mock回执不是实际企微收到"
+    },
+    {
+      "id": "T24",
+      "target": "核账preview零生产写入，列明来源及未知；曹磊允许超额事实不误诊",
+      "evidence": "HR/PROD",
+      "status": "旧基线工程已证，新依赖待复验",
+      "limitation": "readonly preview/preflight拒绝apply，现有12池allowOverage true仅SELECT盘点；未知来源无差额"
+    },
+    {
+      "id": "T25",
+      "target": "历史补充若另行授权执行：原Token/价格/财务不改，来源不重复加量",
+      "evidence": "HR",
+      "status": "独立后续范围，未执行",
+      "limitation": "DEFERRED：当前只有preview/preflight，apply明确未实现/未授权；重复执行补账与历史财务不变只能列后续独立执行验收，不能标工程PASS"
+    },
+    {
+      "id": "T26",
+      "target": "首个完整月生效；错过月界顺延，月中不物理清零或偷偷追溯",
+      "evidence": "HR",
+      "status": "工程合同有证；生产未启用",
+      "limitation": "未来完整月/错过NO_GO工程用例；生产activation尚未写，首次实际月待发布决策"
+    },
+    {
+      "id": "T27",
+      "target": "A段发布后真实自然日报/周报内容、任务、回执及收到确认",
+      "evidence": "RC/PROD",
+      "status": "真实发布/业务待验",
+      "limitation": "PENDING_PRODUCTION：未发布新Worker，无新版自然任务/有效回执/人工收到链；旧版周报观察不能替代"
+    },
+    {
+      "id": "T28",
+      "target": "B段实际迁移与服务版本、健康、未来生效时点核对；回滚演练保留新账",
+      "evidence": "CONTAINER/HR/PROD",
+      "status": "真实发布/业务待验",
+      "limitation": "PENDING_CONTROLLED_RELEASE：本机迁移/回滚保账已证旧基线，但真实生产0092/一致服务版本/未来生效点与流量保护演练未做"
+    },
+    {
+      "id": "T29",
+      "target": "首个真实月界旧月留存、新月继承、实际请求/跨月归属正确",
+      "evidence": "AQ/PROD",
+      "status": "真实发布/业务待验",
+      "limitation": "PENDING_REAL_MONTH_BOUNDARY：必须上线后首个约定真实自然月界及真实跨月请求；固定时钟不替代"
+    },
+    {
+      "id": "T30",
+      "target": "首个完整新周期自然月报及日周报：逐条有效唯一回执、无异常重复、人工确认",
+      "evidence": "RC/PROD",
+      "status": "真实发布/业务待验",
+      "limitation": "PENDING_PRODUCTION_CYCLE：首个完整新周期自然月/日/周报逐条唯一有效回执和人工确认均待验"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "AQ01",
+      "name": "内部额度与厂商计费分开计量",
+      "scenarios": [
+        "API 有用量而无套餐扣减",
+        "Coding Plan 按冻结倍率扣减"
+      ]
+    },
+    {
+      "id": "AQ02",
+      "name": "额度以企业时区自然月独立运行",
+      "scenarios": [
+        "月初重置并保留上月",
+        "跨年与不同月长",
+        "初始化任务暂时未运行"
+      ]
+    },
+    {
+      "id": "AQ03",
+      "name": "月度额度继承已生效分配且月内调整留痕",
+      "scenarios": [
+        "月内追加不重置已用",
+        "下调额度至已用以下",
+        "月内停用再启用"
+      ]
+    },
+    {
+      "id": "AQ04",
+      "name": "允许超额与额度使用事实独立",
+      "scenarios": [
+        "保留当前允许超额配置",
+        "禁止超额的 API 额度不足"
+      ]
+    },
+    {
+      "id": "AQ05",
+      "name": "预占与实耗遵守相同月份和额度基础",
+      "scenarios": [
+        "失败 Attempt 仍有真实用量",
+        "上游前拒绝",
+        "已访问上游但用量未知"
+      ]
+    },
+    {
+      "id": "AQ06",
+      "name": "跨月请求结算回原预占月份",
+      "scenarios": [
+        "旧月开始新月完成",
+        "同一请求跨月换 Attempt"
+      ]
+    },
+    {
+      "id": "AQ07",
+      "name": "额度终态结算只发生一次且与账本一致",
+      "scenarios": [
+        "重复终态提交",
+        "结算事务失败"
+      ]
+    },
+    {
+      "id": "AQ08",
+      "name": "每个厂商池的额度单位可解释",
+      "scenarios": [
+        "API 与套餐分别展示",
+        "混合模式厂商池未明确基础"
+      ]
+    },
+    {
+      "id": "RC01",
+      "name": "全员报告仅统计同一企业员工范围",
+      "scenarios": [
+        "日报存在项目直接调用",
+        "团队额度排除项目"
+      ]
+    },
+    {
+      "id": "RC02",
+      "name": "报告以企业时区完整自然期间取数",
+      "scenarios": [
+        "北京时间十月月界",
+        "跨月周报的额度日期",
+        "旧周报告不受今天计数变化影响"
+      ]
+    },
+    {
+      "id": "RC03",
+      "name": "真实用量与额度消费分别说明",
+      "scenarios": [
+        "截图对应的十月用量",
+        "失败实耗与成功请求口径不同"
+      ]
+    },
+    {
+      "id": "RC04",
+      "name": "日周月报的额度余额来自同一月度合同",
+      "scenarios": [
+        "个人周报与月报对齐",
+        "月报仍有跨月未结清请求"
+      ]
+    },
+    {
+      "id": "RC05",
+      "name": "不混加不同基础的额度总盘",
+      "scenarios": [
+        "原截图的混合额度基础",
+        "额度状态摘要"
+      ]
+    },
+    {
+      "id": "RC06",
+      "name": "模型占比以完整员工期间用量为分母",
+      "scenarios": [
+        "四个模型展示 Top3",
+        "两种 GLM 并存"
+      ]
+    },
+    {
+      "id": "RC07",
+      "name": "图文来自同一冻结事实且金额保持独立",
+      "scenarios": [
+        "图片生成后又有新数据",
+        "历史事实不足"
+      ]
+    },
+    {
+      "id": "RC08",
+      "name": "维持原有投递合同并验证实际阅读结果",
+      "scenarios": [
+        "修正模板后原消息已成功",
+        "新版报告在真实窗口触发"
+      ]
+    },
+    {
+      "id": "HR01",
+      "name": "历史核账区分已证事实与待核事实",
+      "scenarios": [
+        "十月已有生产证据",
+        "允许超额的生产事实"
+      ]
+    },
+    {
+      "id": "HR02",
+      "name": "新月度规则从明确生效月份开始",
+      "scenarios": [
+        "十一月发布",
+        "错过原定激活月界"
+      ]
+    },
+    {
+      "id": "HR03",
+      "name": "新额度消费及配置变更保留历史归属",
+      "scenarios": [
+        "消费后管理员修改额度",
+        "历史请求跨授权版本"
+      ]
+    },
+    {
+      "id": "HR04",
+      "name": "历史修复先预览后按确定清单执行",
+      "scenarios": [
+        "本次只生成方案",
+        "同一修复清单再次执行"
+      ]
+    },
+    {
+      "id": "HR05",
+      "name": "原始用量和财务账本不被额度修复改写",
+      "scenarios": [
+        "API 内部额度补记",
+        "已结账账期"
+      ]
+    },
+    {
+      "id": "HR06",
+      "name": "分阶段发布保持明确兼容边界",
+      "scenarios": [
+        "A 段报表先上线",
+        "B 段回滚"
+      ]
+    },
+    {
+      "id": "HR07",
+      "name": "验收分工程受控与真实自动业务三个层次",
+      "scenarios": [
+        "OpenSpec 严格校验通过",
+        "真正跨过月界",
+        "部分业务证据缺失"
+      ]
+    }
+  ],
+  "counts": {
+    "testCases": 30,
+    "requirements": 23,
+    "scenarios": 51
+  },
+  "productionBusinessAcceptance": "PENDING_T27_T30",
+  "historicalApply": "NOT_IMPLEMENTED_NOT_EXECUTED",
+  "actualPathRefresh": {
+    "result": "PASS_ACTUAL_API_WEB_PATHS_ONLY",
+    "api": {
+      "files": 63,
+      "passed": 457,
+      "failed": 0,
+      "skipped": 0
+    },
+    "web": {
+      "files": 95,
+      "passed": 734,
+      "failed": 0,
+      "skipped": 0
+    },
+    "e2e": {
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0,
+      "directory": "V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/e2e/run-1793601756519",
+      "workers": 1,
+      "playwright": "1.55.0"
+    },
+    "node": "v22.23.4",
+    "icu": "78.3",
+    "tz": "2026e",
+    "lockSha256": "3bebc5d88ca86fdfad321e6c74bb144718b1c86a97d4ec82552ea6961e35ef90",
+    "scopedSourceSnapshot": "d8aae7f177591a0450f5d3562b721d810684e7e56cc7c16250405912ac3ff8f1",
+    "sourceBinding": "captured after runs; rebind after final freeze if files unchanged",
+    "extraWorkbookReader": "UNCERTIFIED_UNUSED_API_ORIGINAL_FAIL_PROBES_PRESERVED",
+    "candidateScopeAcceptance": "USER_ACCEPTED_ACTUAL_BUSINESS_PATHS_ONLY",
+    "productionBusinessAcceptance": false
+  },
+  "scopeDecision": "USER_ACCEPTED_ACTUAL_BUSINESS_PATHS_ONLY",
+  "extraWorkbookReader": "UNCERTIFIED_UNUSED_API_ORIGINAL_FAILURES_RETAINED",
+  "laterProductionChange": {
+    "file": "apps/control-api/src/resource-insights/token-utilization.ts",
+    "change": "SET LOCAL work_mem='16MB' within existing snapshot transaction",
+    "validation": {
+      "files": 2,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    },
+    "fullApiWebE2eRerunRequired": false,
+    "sourceSha256": "8d69dcaf88bbb2fbafb336cd01c5f616d337ead2a0de2ddb99b6de261ed8878f",
+    "validationLog": "database-full-remediation/resource-memory-fix-regression.log"
+  },
+  "containerEvidence": "security-refresh/container/runtime-result.json",
+  "capacityEvidence": "database-full-remediation/capacity-third-lock-final-work-mem16.result.json",
+  "finalPreview": {
+    "team": "security-refresh/container/consistent-preview/linux-amd64-company-consistent.png",
+    "personal": "security-refresh/container/consistent-preview/linux-amd64-personal-consistent.png",
+    "arithmetic": "security-refresh/container/consistent-preview/arithmetic-result.json",
+    "inputSha256": "dc49f03aa369fd4c65eab6b30c9fa1754b15a03d93d150d46073b790d01644e6",
+    "initialRetained": "security-refresh/container/initial-preview/",
+    "fixtureOnlyNoProductChange": true
+  }
+}

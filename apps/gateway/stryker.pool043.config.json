@@ -1,19 +1,35 @@
 {
   "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "pnpm",
-  "reporters": ["clear-text", "json"],
-  "jsonReporter": { "fileName": "reports/mutation/pool043.json" },
-  "plugins": ["@stryker-mutator/vitest-runner"],
+  "reporters": [
+    "clear-text",
+    "json",
+    "progress-append-only"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation/pool043.json"
+  },
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
   "testRunner": "vitest",
-  "vitest": { "configFile": "vitest.pool043.mutation.config.ts" },
+  "vitest": {
+    "configFile": "vitest.pool043.mutation.config.ts"
+  },
   "coverageAnalysis": "perTest",
   "mutate": [
     "src/auth/current-model-authorization.ts:284:3-339:2",
     "src/pipeline/attempt-usage-settlement.ts:196:1-227:2",
     "src/pipeline/real-pipeline.ts:476:9-523:10",
-    "src/pipeline/real-pipeline.ts:937:9-983:10"
+    "src/pipeline/real-pipeline.ts:937:9-983:10",
+    "src/pipeline/pipeline-attempt-execution.ts:56:1-97:2",
+    "src/pipeline/pipeline-settlement.ts:37:1-82:2"
   ],
-  "thresholds": { "high": 100, "low": 80, "break": 80 },
+  "thresholds": {
+    "high": 100,
+    "low": 80,
+    "break": 80
+  },
   "timeoutMS": 120000,
   "concurrency": 1,
   "disableTypeChecks": true,

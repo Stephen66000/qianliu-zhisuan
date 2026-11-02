@@ -1,0 +1,38 @@
+[
+  {
+    "label": "before",
+    "utc": "2026-11-02T06:57:16.297309+00:00",
+    "runtime": "{\"node\":\"v22.23.4\",\"icu\":\"78.3\",\"tz\":\"2026e\"}",
+    "dockerLimits": "28.0.1|8|8218316800",
+    "testcontainers": "",
+    "dockerStats": "",
+    "validationProcesses": "84281 84040    13:33   0.0  0.1 node (vitest)\n84288 84281    13:33   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n84289 84281    13:33   0.0  0.1 node (vitest 1)"
+  },
+  {
+    "label": "during",
+    "utc": "2026-11-02T06:57:47.896759+00:00",
+    "runtime": "{\"node\":\"v22.23.4\",\"icu\":\"78.3\",\"tz\":\"2026e\"}",
+    "dockerLimits": "28.0.1|8|8218316800",
+    "testcontainers": "5317d2c99bd6 postgres:17-alpine Up 27 seconds (healthy)\nf88f5bbd8b26 testcontainers/ryuk:0.14.0 Up 27 seconds",
+    "dockerStats": "sweet_williams|104.44%|272.9MiB / 7.654GiB\ntestcontainers-ryuk-490eec2dbfe8|0.00%|13.1MiB / 7.654GiB",
+    "validationProcesses": "84281 84040    14:04   0.0  0.1 node (vitest)\n84288 84281    14:04   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n84289 84281    14:04   0.0  0.1 node (vitest 1)\n87000 86996    00:29   0.0  0.1 node (vitest)\n87007 87000    00:29   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n87008 87000    00:29   0.0  0.1 node (vitest 1)"
+  },
+  {
+    "label": "during",
+    "utc": "2026-11-02T06:58:21.468493+00:00",
+    "runtime": "{\"node\":\"v22.23.4\",\"icu\":\"78.3\",\"tz\":\"2026e\"}",
+    "dockerLimits": "28.0.1|8|8218316800",
+    "testcontainers": "5317d2c99bd6 postgres:17-alpine Up About a minute (healthy)\nf88f5bbd8b26 testcontainers/ryuk:0.14.0 Up About a minute",
+    "dockerStats": "sweet_williams|139.82%|378.8MiB / 7.654GiB\ntestcontainers-ryuk-490eec2dbfe8|0.00%|13.12MiB / 7.654GiB",
+    "validationProcesses": "84281 84040    14:38   0.0  0.1 node (vitest)\n84288 84281    14:38   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n84289 84281    14:38   0.0  0.1 node (vitest 1)\n87000 86996    01:03   0.0  0.1 node (vitest)\n87007 87000    01:03   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n87008 87000    01:03   0.4  0.3 node (vitest 1)"
+  },
+  {
+    "label": "after",
+    "utc": "2026-11-02T06:58:35.732724+00:00",
+    "runtime": "{\"node\":\"v22.23.4\",\"icu\":\"78.3\",\"tz\":\"2026e\"}",
+    "dockerLimits": "28.0.1|8|8218316800",
+    "testcontainers": "f88f5bbd8b26 testcontainers/ryuk:0.14.0 Up About a minute",
+    "dockerStats": "testcontainers-ryuk-490eec2dbfe8|0.00%|13.12MiB / 7.654GiB",
+    "validationProcesses": "84281 84040    14:52   0.0  0.1 node (vitest)\n84288 84281    14:52   0.0  0.0 /Users/mac/Projects/\u4edf\u6d41\u667a\u7b97/node_modules/.pnpm/@esbuild+darwin-arm64@0.25.12/node_modules/@esbuild/darwin-arm64/bin/esbuild\n84289 84281    14:52   0.0  0.1 node (vitest 1)"
+  }
+]

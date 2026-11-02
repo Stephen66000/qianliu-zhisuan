@@ -1,0 +1,1551 @@
+[
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "5",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 66,
+        "line": 74
+      },
+      "start": {
+        "column": 26,
+        "line": 74
+      }
+    },
+    "replacement": "[]",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "6",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 33,
+        "line": 74
+      },
+      "start": {
+        "column": 27,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "7",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 41,
+        "line": 74
+      },
+      "start": {
+        "column": 35,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "8",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 74
+      },
+      "start": {
+        "column": 43,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "9",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 57,
+        "line": 74
+      },
+      "start": {
+        "column": 51,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "10",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 65,
+        "line": 74
+      },
+      "start": {
+        "column": 59,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "11",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 109,
+        "line": 74
+      },
+      "start": {
+        "column": 90,
+        "line": 74
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "16",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 92,
+        "line": 75
+      },
+      "start": {
+        "column": 73,
+        "line": 75
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    if (/(?:参数|字段)[^。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "20",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 4,
+        "line": 79
+      },
+      "start": {
+        "column": 83,
+        "line": 77
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "  if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {",
+      "    return \"CONTEXT_LENGTH_EXCEEDED\";",
+      "  }"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "21",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 37,
+        "line": 78
+      },
+      "start": {
+        "column": 12,
+        "line": 78
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return \"CONTEXT_LENGTH_EXCEEDED\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "32",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 4,
+        "line": 85
+      },
+      "start": {
+        "column": 103,
+        "line": 83
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "  if (/(message|content|image|attachment).*(invalid|unsupported|expected|required)/.test(normalized)) {",
+      "    return \"INVALID_MESSAGE_CONTENT\";",
+      "  }"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "33",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 37,
+        "line": 84
+      },
+      "start": {
+        "column": 12,
+        "line": 84
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return \"INVALID_MESSAGE_CONTENT\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "37",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 4,
+        "line": 88
+      },
+      "start": {
+        "column": 84,
+        "line": 86
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "  if (/unsupported.*(parameter|field)|unknown (parameter|field)/.test(normalized)) {",
+      "    return \"UNSUPPORTED_PARAMETER\";",
+      "  }"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "38",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 35,
+        "line": 87
+      },
+      "start": {
+        "column": 12,
+        "line": 87
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return \"UNSUPPORTED_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "47",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 4,
+        "line": 94
+      },
+      "start": {
+        "column": 87,
+        "line": 92
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "  if (/(model).*(not found|unavailable|unsupported|does not exist)/.test(normalized)) {",
+      "    return \"MODEL_UNAVAILABLE\";",
+      "  }"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "48",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 31,
+        "line": 93
+      },
+      "start": {
+        "column": 12,
+        "line": 93
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return \"MODEL_UNAVAILABLE\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "170",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 80,
+        "line": 332
+      },
+      "start": {
+        "column": 72,
+        "line": 332
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "174",
+    "status": "NoCoverage",
+    "location": {
+      "end": {
+        "column": 46,
+        "line": 333
+      },
+      "start": {
+        "column": 39,
+        "line": 333
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  return value === undefined ? null : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "0",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 81,
+        "line": 74
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "1",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 81,
+        "line": 74
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "2",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 81,
+        "line": 74
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    },
+    "replacement": "code !== null || [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "3",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 22,
+        "line": 74
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "4",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 22,
+        "line": 74
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    },
+    "replacement": "code === null",
+    "original": [
+      "    if (code !== null && [\"1210\", \"1212\", \"1213\", \"1214\", \"1215\"].includes(code)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "12",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 75
+      },
+      "start": {
+        "column": 9,
+        "line": 75
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    if (/(?:参数|字段)[^。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "13",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 75
+      },
+      "start": {
+        "column": 9,
+        "line": 75
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    if (/(?:参数|字段)[^。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "14",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 50,
+        "line": 75
+      },
+      "start": {
+        "column": 9,
+        "line": 75
+      }
+    },
+    "replacement": "/(?:参数|字段)[^。\\n](?:有误|非法|无效|错误|缺失)/",
+    "original": [
+      "    if (/(?:参数|字段)[^。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "15",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 50,
+        "line": 75
+      },
+      "start": {
+        "column": 9,
+        "line": 75
+      }
+    },
+    "replacement": "/(?:参数|字段)[。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/",
+    "original": [
+      "    if (/(?:参数|字段)[^。\\n]{0,40}(?:有误|非法|无效|错误|缺失)/.test(message)) return \"INVALID_PARAMETER\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "18",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 81,
+        "line": 77
+      },
+      "start": {
+        "column": 7,
+        "line": 77
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "19",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 77
+      },
+      "start": {
+        "column": 7,
+        "line": 77
+      }
+    },
+    "replacement": "/(context|token).(length|limit|maximum)|maximum context/",
+    "original": [
+      "  if (/(context|token).*(length|limit|maximum)|maximum context/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "24",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 80
+      },
+      "start": {
+        "column": 7,
+        "line": 80
+      }
+    },
+    "replacement": "/(tool|function).(schema|parameters?|definition)|invalid.*(tool|function)/",
+    "original": [
+      "  if (/(tool|function).*(schema|parameters?|definition)|invalid.*(tool|function)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "25",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 80
+      },
+      "start": {
+        "column": 7,
+        "line": 80
+      }
+    },
+    "replacement": "/(tool|function).*(schema|parameters|definition)|invalid.*(tool|function)/",
+    "original": [
+      "  if (/(tool|function).*(schema|parameters?|definition)|invalid.*(tool|function)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "26",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 80
+      },
+      "start": {
+        "column": 7,
+        "line": 80
+      }
+    },
+    "replacement": "/(tool|function).*(schema|parameters?|definition)|invalid.(tool|function)/",
+    "original": [
+      "  if (/(tool|function).*(schema|parameters?|definition)|invalid.*(tool|function)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "30",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 101,
+        "line": 83
+      },
+      "start": {
+        "column": 7,
+        "line": 83
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (/(message|content|image|attachment).*(invalid|unsupported|expected|required)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "31",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 84,
+        "line": 83
+      },
+      "start": {
+        "column": 7,
+        "line": 83
+      }
+    },
+    "replacement": "/(message|content|image|attachment).(invalid|unsupported|expected|required)/",
+    "original": [
+      "  if (/(message|content|image|attachment).*(invalid|unsupported|expected|required)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "35",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 86
+      },
+      "start": {
+        "column": 7,
+        "line": 86
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (/unsupported.*(parameter|field)|unknown (parameter|field)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "36",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 65,
+        "line": 86
+      },
+      "start": {
+        "column": 7,
+        "line": 86
+      }
+    },
+    "replacement": "/unsupported.(parameter|field)|unknown (parameter|field)/",
+    "original": [
+      "  if (/unsupported.*(parameter|field)|unknown (parameter|field)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "41",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 61,
+        "line": 89
+      },
+      "start": {
+        "column": 7,
+        "line": 89
+      }
+    },
+    "replacement": "/invalid (value|parameter|field)|expected . (for|at)/",
+    "original": [
+      "  if (/invalid (value|parameter|field)|expected .* (for|at)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "45",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 85,
+        "line": 92
+      },
+      "start": {
+        "column": 7,
+        "line": 92
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (/(model).*(not found|unavailable|unsupported|does not exist)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "46",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 68,
+        "line": 92
+      },
+      "start": {
+        "column": 7,
+        "line": 92
+      }
+    },
+    "replacement": "/(model).(not found|unavailable|unsupported|does not exist)/",
+    "original": [
+      "  if (/(model).*(not found|unavailable|unsupported|does not exist)/.test(normalized)) {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "51",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 35,
+        "line": 226
+      },
+      "start": {
+        "column": 27,
+        "line": 226
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    const role = new Set([\"system\", \"user\", \"assistant\", \"tool\"]).has(message.role) ? message.role : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "53",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 56,
+        "line": 226
+      },
+      "start": {
+        "column": 45,
+        "line": 226
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    const role = new Set([\"system\", \"user\", \"assistant\", \"tool\"]).has(message.role) ? message.role : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "54",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 226
+      },
+      "start": {
+        "column": 58,
+        "line": 226
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    const role = new Set([\"system\", \"user\", \"assistant\", \"tool\"]).has(message.role) ? message.role : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "60",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 57,
+        "line": 228
+      },
+      "start": {
+        "column": 25,
+        "line": 228
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    countOverflowed ||= roleCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "61",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 57,
+        "line": 228
+      },
+      "start": {
+        "column": 25,
+        "line": 228
+      }
+    },
+    "replacement": "roleCount >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "    countOverflowed ||= roleCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "67",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 70,
+        "line": 233
+      },
+      "start": {
+        "column": 25,
+        "line": 233
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    countOverflowed ||= assistantToolCallCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "68",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 70,
+        "line": 233
+      },
+      "start": {
+        "column": 25,
+        "line": 233
+      }
+    },
+    "replacement": "assistantToolCallCount >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "    countOverflowed ||= assistantToolCallCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "71",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 63,
+        "line": 237
+      },
+      "start": {
+        "column": 5,
+        "line": 237
+      }
+    },
+    "replacement": "countOverflowed &&= toolResultCount > MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "72",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 63,
+        "line": 237
+      },
+      "start": {
+        "column": 25,
+        "line": 237
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "73",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 63,
+        "line": 237
+      },
+      "start": {
+        "column": 25,
+        "line": 237
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "74",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 63,
+        "line": 237
+      },
+      "start": {
+        "column": 25,
+        "line": 237
+      }
+    },
+    "replacement": "toolResultCount >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "75",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 63,
+        "line": 237
+      },
+      "start": {
+        "column": 25,
+        "line": 237
+      }
+    },
+    "replacement": "toolResultCount <= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "    countOverflowed ||= toolResultCount > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "76",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 49,
+        "line": 238
+      },
+      "start": {
+        "column": 9,
+        "line": 238
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "    if (typeof message.tool_call_id === \"string\") resultIds.add(message.tool_call_id);"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "80",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 82,
+        "line": 240
+      },
+      "start": {
+        "column": 30,
+        "line": 240
+      }
+    },
+    "replacement": "[...assistantIds]",
+    "original": [
+      "  const unmatchedAssistant = [...assistantIds].filter((id) => !resultIds.has(id)).length;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "84",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 80,
+        "line": 241
+      },
+      "start": {
+        "column": 28,
+        "line": 241
+      }
+    },
+    "replacement": "[...resultIds]",
+    "original": [
+      "  const unmatchedResults = [...resultIds].filter((id) => !assistantIds.has(id)).length;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "90",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 107,
+        "line": 242
+      },
+      "start": {
+        "column": 23,
+        "line": 242
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "91",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 107,
+        "line": 242
+      },
+      "start": {
+        "column": 23,
+        "line": 242
+      }
+    },
+    "replacement": "unmatchedAssistant > MAX_DIAGNOSTIC_COUNT && unmatchedResults > MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "92",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 242
+      },
+      "start": {
+        "column": 23,
+        "line": 242
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "93",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 64,
+        "line": 242
+      },
+      "start": {
+        "column": 23,
+        "line": 242
+      }
+    },
+    "replacement": "unmatchedAssistant >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "95",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 107,
+        "line": 242
+      },
+      "start": {
+        "column": 68,
+        "line": 242
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "96",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 107,
+        "line": 242
+      },
+      "start": {
+        "column": 68,
+        "line": 242
+      }
+    },
+    "replacement": "unmatchedResults >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "  countOverflowed ||= unmatchedAssistant > MAX_DIAGNOSTIC_COUNT || unmatchedResults > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "99",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 53,
+        "line": 245
+      },
+      "start": {
+        "column": 24,
+        "line": 245
+      }
+    },
+    "replacement": "[...contentBlockTypes]",
+    "original": [
+      "    contentBlockTypes: [...contentBlockTypes].sort(),"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "136",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 54,
+        "line": 308
+      },
+      "start": {
+        "column": 7,
+        "line": 308
+      }
+    },
+    "replacement": "countOverflowed &&= next > MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "137",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 54,
+        "line": 308
+      },
+      "start": {
+        "column": 27,
+        "line": 308
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "138",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 54,
+        "line": 308
+      },
+      "start": {
+        "column": 27,
+        "line": 308
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "139",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 54,
+        "line": 308
+      },
+      "start": {
+        "column": 27,
+        "line": 308
+      }
+    },
+    "replacement": "next >= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "140",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 54,
+        "line": 308
+      },
+      "start": {
+        "column": 27,
+        "line": 308
+      }
+    },
+    "replacement": "next <= MAX_DIAGNOSTIC_COUNT",
+    "original": [
+      "      countOverflowed ||= next > MAX_DIAGNOSTIC_COUNT;"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "148",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 47,
+        "line": 319
+      },
+      "start": {
+        "column": 21,
+        "line": 319
+      }
+    },
+    "replacement": "[...schemaKeywords]",
+    "original": [
+      "    schemaKeywords: [...schemaKeywords].sort(),"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "154",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 32,
+        "line": 329
+      },
+      "start": {
+        "column": 7,
+        "line": 329
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (typeof value === \"string\") {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "156",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 32,
+        "line": 329
+      },
+      "start": {
+        "column": 24,
+        "line": 329
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (typeof value === \"string\") {"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "157",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 4,
+        "line": 331
+      },
+      "start": {
+        "column": 34,
+        "line": 329
+      }
+    },
+    "replacement": "{}",
+    "original": [
+      "  if (typeof value === \"string\") {",
+      "    return new Set([\"auto\", \"none\", \"required\"]).has(value) ? value : \"other\";",
+      "  }"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "158",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 48,
+        "line": 330
+      },
+      "start": {
+        "column": 20,
+        "line": 330
+      }
+    },
+    "replacement": "[]",
+    "original": [
+      "    return new Set([\"auto\", \"none\", \"required\"]).has(value) ? value : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "159",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 27,
+        "line": 330
+      },
+      "start": {
+        "column": 21,
+        "line": 330
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return new Set([\"auto\", \"none\", \"required\"]).has(value) ? value : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "160",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 35,
+        "line": 330
+      },
+      "start": {
+        "column": 29,
+        "line": 330
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return new Set([\"auto\", \"none\", \"required\"]).has(value) ? value : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "161",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 47,
+        "line": 330
+      },
+      "start": {
+        "column": 37,
+        "line": 330
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "    return new Set([\"auto\", \"none\", \"required\"]).has(value) ? value : \"other\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "164",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 22,
+        "line": 332
+      },
+      "start": {
+        "column": 7,
+        "line": 332
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "165",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 56,
+        "line": 332
+      },
+      "start": {
+        "column": 31,
+        "line": 332
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "166",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 56,
+        "line": 332
+      },
+      "start": {
+        "column": 31,
+        "line": 332
+      }
+    },
+    "replacement": "false",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "167",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 56,
+        "line": 332
+      },
+      "start": {
+        "column": 31,
+        "line": 332
+      }
+    },
+    "replacement": "value.type !== \"function\"",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "168",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 56,
+        "line": 332
+      },
+      "start": {
+        "column": 46,
+        "line": 332
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "169",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 69,
+        "line": 332
+      },
+      "start": {
+        "column": 59,
+        "line": 332
+      }
+    },
+    "replacement": "\"\"",
+    "original": [
+      "  if (isRecord(value)) return value.type === \"function\" ? \"function\" : \"object\";"
+    ]
+  },
+  {
+    "file": "src/upstream-error-evidence.ts",
+    "id": "171",
+    "status": "Survived",
+    "location": {
+      "end": {
+        "column": 29,
+        "line": 333
+      },
+      "start": {
+        "column": 10,
+        "line": 333
+      }
+    },
+    "replacement": "true",
+    "original": [
+      "  return value === undefined ? null : \"other\";"
+    ]
+  }
+]

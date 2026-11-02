@@ -416,6 +416,13 @@ describe("POOL-043 结算事实逐字段不变量", () => {
     }), omitted)).not.toThrow();
   });
 
+  it("同样的已知零金额仍不能重放为另一种金额事实来源", () => {
+    const actual = asTransaction({ total_api_cost: "0", api_cost_status: "PRICED_USAGE" });
+    const input = { ...transactionInput, total_api_cost: "0", api_cost_status: "CONFIRMED_ZERO_NO_UPSTREAM" as const };
+    expectConflict(() => assertTransactionMatches(actual, input), "ledger_transaction_conflict");
+    expect(() => assertTransactionMatches(actual, { ...input, api_cost_status: "PRICED_USAGE" })).not.toThrow();
+  });
+
   it("Usage 与 Ledger 输入必须逐字段一致", () => {
     expect(() => assertUsageLineInputCoherent(settlementInput)).not.toThrow();
     const mismatches: Array<Partial<CreateUsageLedgerLineInput["ledger_line"]>> = [

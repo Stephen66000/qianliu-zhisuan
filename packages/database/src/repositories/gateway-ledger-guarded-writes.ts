@@ -13,7 +13,7 @@ import type {
   UsageEvent,
   UsageInput,
 } from "./gateway-ledger-types.js";
-import { GatewayLedgerSettlementConflictError } from "./gateway-ledger-settlement.js";
+import { GatewayLedgerSettlementConflictError, resolveTransactionCostStatus } from "./gateway-ledger-settlement.js";
 import { guardOperatingBillLedgerWrite } from "./operating-bill-write-barrier.js";
 import { ensureRequestAttributionSnapshot } from "./request-attribution-writer.js";
 import { resolveSubscriptionPeriodAtSettlement } from "./subscription-period-attribution.js";
@@ -278,6 +278,7 @@ export async function createGuardedLedgerTransactionIfAbsent(
       total_reasoning_tokens: input.total_reasoning_tokens ?? 0n,
       total_deducted_quota: input.total_deducted_quota,
       total_api_cost: input.total_api_cost,
+      api_cost_status: input.api_cost_status ?? await resolveTransactionCostStatus(trx, input),
       overage: input.overage ?? false,
       usage_quality: input.usage_quality,
       attempt_count: input.attempt_count,

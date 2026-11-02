@@ -1,0 +1,62 @@
+{
+  "node": "v22.23.4",
+  "icu": "78.3",
+  "tz": "2026e",
+  "lockSha256": "4eda45f53d0f9e85c92266e053390ee92cff49ed60ea30a08ad1afd4edaab5e0",
+  "versions": {
+    "exceljs": "4.4.0",
+    "archiverExcel": "5.3.2",
+    "glob7": "7.2.3",
+    "glob7Minimatch": "11.0.1",
+    "readdirMinimatch": "11.0.1",
+    "testcontainers": "12.0.4",
+    "archiverTools": "7.0.1",
+    "archiverUtils5": "5.0.2",
+    "glob14": "14.0.2"
+  },
+  "checks": [
+    {
+      "name": "actual scoped dependency exports and glob7 nonull internals",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS buffer and file read/write preserves Chinese dates styles UUID conditional format",
+      "status": "PASS"
+    },
+    {
+      "name": "ExcelJS streaming writer and streaming reader preserve all committed rows",
+      "status": "PASS"
+    },
+    {
+      "name": "real directory template export and XLSX parser still enforce business template",
+      "status": "PASS"
+    },
+    {
+      "name": "glob7 callback and sync brace globstar dot ignore matchBase and nonull semantics",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'charAt')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'charAt')\n    at GlobSync._processReaddir (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:148:35)\n    at GlobSync._process (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:132:10)\n    at GlobSync._processGlobStar (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:364:8)\n    at GlobSync._process (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:130:10)\n    at new GlobSync (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:45:10)\n    at Function.globSync [as sync] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:23:10)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:53:109)\n    at check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:31:41)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:50:8)"
+    },
+    {
+      "name": "glob7 and glob14 follow finite internal symlink without losing deep path",
+      "status": "FAIL",
+      "error": "TypeError: Cannot read properties of undefined (reading 'charAt')",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'charAt')\n    at GlobSync._processReaddir (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:148:35)\n    at GlobSync._process (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:132:10)\n    at GlobSync._processGlobStar (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:364:8)\n    at GlobSync._process (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:130:10)\n    at new GlobSync (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:45:10)\n    at Function.globSync [as sync] (/Users/mac/Projects/仟流智算/node_modules/.pnpm/glob@7.2.3/node_modules/glob/sync.js:23:10)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:56:19)\n    at check (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:31:41)\n    at <anonymous> (/Users/mac/Projects/仟流智算/V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/pre-release-20261102/security-refresh/dependency-compatibility.mjs:55:8)"
+    },
+    {
+      "name": "readdir-glob callback and match events honor braces dot skip ignore and follow",
+      "status": "PASS"
+    },
+    {
+      "name": "archiver-utils5 glob14 expand negation uniqueness filter and mapping contract",
+      "status": "PASS"
+    },
+    {
+      "name": "actual ExcelJS archiver5 and testcontainers archiver7 produce readable glob ZIPs",
+      "status": "PASS"
+    }
+  ],
+  "synthetic": true,
+  "productionOperations": false,
+  "status": "FAIL"
+}

@@ -302,3 +302,85 @@ describe("upstream error evidence", () => {
     expect(shape.invalidToolCount).toBe(1);
   });
 });
+
+describe("diagnostic classification and shape contract boundaries", () => {
+  it.each(["1210", "1212", "1213", "1214", "1215"])("zhipu parameter code %s is not evidence of missing image capability", code => {
+    const evidence = buildUpstreamErrorEvidence({ error: { code, message: CONTENT } }, 400, "zhipu", buildRequestShapeSummary(body()));
+    expect(evidence.messageCategory).toBe("INVALID_PARAMETER");
+    expect(evidence.code).toBe(code);
+    expect(JSON.stringify(evidence)).not.toContain(CONTENT);
+  });
+  it.each([
+    ["maximum context length exceeded", "CONTEXT_LENGTH_EXCEEDED"],
+    ["invalid function schema", "INVALID_TOOL_SCHEMA"],
+    ["message content invalid", "INVALID_MESSAGE_CONTENT"],
+    ["unknown parameter", "UNSUPPORTED_PARAMETER"],
+    ["invalid value", "INVALID_PARAMETER"],
+    ["model unavailable_model not found", "MODEL_UNAVAILABLE"],
+  ])("classifies a safe category without persisting the message: %s", (message, category) => {
+    const evidence = buildUpstreamErrorEvidence({ error: { message: `${message} ${CONTENT} ${SECRET}` } }, 400, "deepseek", buildRequestShapeSummary(body()));
+    expect(evidence.messageCategory).toBe(category);
+    for (const canary of [CONTENT, SECRET]) expect(JSON.stringify(evidence)).not.toContain(canary);
+  });
+  it("classifies zhipu Chinese parameter failures and keeps opaque failures unclassified", () => {
+    const shape = buildRequestShapeSummary(body());
+    expect(buildUpstreamErrorEvidence({ error: { message: "字段无效" } }, 400, "zhipu", shape).messageCategory).toBe("INVALID_PARAMETER");
+    expect(buildUpstreamErrorEvidence({ error: { message: CONTENT } }, 400, "zhipu", shape).messageCategory).toBe("UNCLASSIFIED");
+  });
+  it.each([
+    [undefined, null], [42, "other"], ["auto", "auto"], ["none", "none"], ["required", "required"],
+    [{ type: "function", function: { name: TOOL_NAME } }, "function"],
+    [{ type: "private_type", value: CONTENT }, "object"],
+  ])("tool choice only persists the fixed kind for %j", (choice, expected) => {
+    const shape = buildRequestShapeSummary(body({ tool_choice: choice }));
+    expect(shape.toolChoiceKind).toBe(expected);
+    for (const canary of [TOOL_NAME, CONTENT, "private_type"]) expect(JSON.stringify(shape)).not.toContain(canary);
+  });
+  it("counts all message roles and paired tool calls exactly without leaking their identifiers", () => {
+    const ids = ["private_call_alpha_381", "private_call_beta_947"];
+    const shape = buildRequestShapeSummary(body({ messages: [
+      { role: "system", content: CONTENT }, { role: "user", content: CONTENT },
+      { role: "assistant", content: null, tool_calls: ids.map(id => ({ id, type: "function", function: { name: TOOL_NAME, arguments: SECRET } })) },
+      ...ids.map(id => ({ role: "tool", tool_call_id: id, content: CONTENT })),
+      { role: "assistant", content: "" }, { role: "private_role", content: CONTENT },
+    ] }));
+    expect(shape.messageRoles).toEqual({ system: 1, user: 1, assistant: 2, tool: 2, other: 1 });
+    expect(shape).toMatchObject({ messageCount: 7, assistantToolCallCount: 2, toolResultCount: 2,
+      unmatchedAssistantToolCallCount: 0, unmatchedToolResultCount: 0, countOverflowed: false });
+    for (const canary of [...ids, CONTENT, TOOL_NAME, SECRET, "private_role"]) expect(JSON.stringify(shape)).not.toContain(canary);
+  });
+  it("deduplicates unmatched call identifiers while keeping the actual call count", () => {
+    const shape = buildRequestShapeSummary(body({ messages: [{ role: "assistant", content: null,
+      tool_calls: [{ id: "private_duplicate_id" }, { id: "private_duplicate_id" }] }] }));
+    expect(shape.assistantToolCallCount).toBe(2);
+    expect(shape.unmatchedAssistantToolCallCount).toBe(1);
+    expect(shape.toolResultCount).toBe(0);
+  });
+  it("records exact anonymous schema shape and zero issues for a valid required property", () => {
+    const shape = buildRequestShapeSummary(body({ tools: [{ type: "function", function: {
+      name: TOOL_NAME, parameters: { type: "object", properties: {
+        [PROPERTY_NAME]: { type: "string" }, second_private_property: { type: "integer" },
+      }, required: [PROPERTY_NAME] },
+    } }] }));
+    expect(shape).toMatchObject({ toolCount: 1, functionToolCount: 1, invalidToolCount: 0,
+      schemaPropertyCount: 2, schemaNodeCount: 9, schemaMaxDepth: 3, countOverflowed: false });
+    expect(shape.toolSchemaIssueCounts).toEqual({});
+    expect(shape.toolTypes).toEqual(["function"]);
+    expect(shape.schemaKeywords).toEqual(["properties", "required", "type"]);
+    for (const canary of [TOOL_NAME, PROPERTY_NAME, "second_private_property"]) expect(JSON.stringify(shape)).not.toContain(canary);
+  });
+  it("accumulates repeated issue counts while classifying each invalid tool only once", () => {
+    const invalid = { type: "function", function: { name: "invalid.name", parameters: { type: "array" } } };
+    const shape = buildRequestShapeSummary(body({ tools: [invalid, invalid] }));
+    expect(shape.functionToolCount).toBe(2); expect(shape.invalidToolCount).toBe(2);
+    expect(shape.toolSchemaIssueCounts).toEqual({ FUNCTION_NAME_INVALID: 2, PARAMETERS_SCHEMA_INVALID: 2 });
+  });
+  it("caps a single message's many calls and never persists their private IDs", () => {
+    const shape = buildRequestShapeSummary(body({ messages: [{ role: "assistant", content: null,
+      tool_calls: Array.from({ length: 10_001 }, () => ({ id: "overflow_private_call" })) }] }));
+    expect(shape.assistantToolCallCount).toBe(10_000);
+    expect(shape.unmatchedAssistantToolCallCount).toBe(1);
+    expect(shape.countOverflowed).toBe(true);
+    expect(JSON.stringify(shape)).not.toContain("overflow_private_call");
+  });
+});

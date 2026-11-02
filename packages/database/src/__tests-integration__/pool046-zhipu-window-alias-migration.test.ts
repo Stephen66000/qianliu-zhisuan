@@ -257,7 +257,7 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         billing_rule_snapshot: JSON.stringify(historicalSnapshot) as unknown as typeof historicalSnapshot,
       }).execute();
 
-      const migrated = await migrator.migrateToLatest();
+      const migrated = await migrator.migrateTo("0091_recorded_cost_accounting_policy");
       expect(migrated.error).toBeUndefined();
       // 台账断言锚定「本用例关心的迁移区间」而非「当时的迁移头」：迁移头会随其他
       // 工作包继续追加（见 migration-rollback.ts docstring），用前缀匹配替代全量清单。
@@ -408,9 +408,9 @@ describe("POOL-046 0045 智谱时段与 alias 迁移", () => {
         .where("id", "=", targetRuleId).executeTakeFirstOrThrow())
         .toEqual(billingRuleAfterRollback);
 
-      const replayed = await migrator.migrateToLatest();
+      const replayed = await migrator.migrateTo("0091_recorded_cost_accounting_policy");
       expect(replayed.error).toBeUndefined();
-      expect(replayed.results?.map((result) => [result.migrationName, result.status])).toEqual([
+      expect(replayed.results?.slice(0, 39).map((result) => [result.migrationName, result.status])).toEqual([
         ["0045_zhipu_weekday_window_alias", "Success"],
         ["0046_directory_import_foundation", "Success"],
         ["0047_usage_bucket_aggregate", "Success"],

@@ -1,0 +1,17 @@
+[
+  {
+    "check": "typecheck",
+    "exitCode": 0,
+    "log": "final-typecheck.log"
+  },
+  {
+    "check": "lint",
+    "exitCode": 0,
+    "log": "final-lint.log"
+  },
+  {
+    "check": "build",
+    "exitCode": 0,
+    "log": "final-build.log"
+  }
+]

@@ -3,7 +3,7 @@
  * 产品语义（2026-08-05 与需求方当面对齐）：
  * - 管理员按厂商给员工一个总额度池（如 Kimi 5000 万、DeepSeek 3 亿）；
  * - 厂商下所有就绪型号默认全开，可单个掐掉（掐型号不影响池）；
- * - 主体总额度 = 各厂商池之和，自动汇总；
+ * - 不同厂商计量基础分列，不能相加为统一剩余 Token；
  * - 新接入型号自动并入已开通厂商（池存续期间默认放行）。
  *
  * 页面结构：厂商块（池额度 + 型号表）→ 底部汇总 → 保存并生效。
@@ -16,6 +16,7 @@ import { put } from "../../api/client";
 import { QUERY_KEYS, useAccessConfiguration } from "../../api/hooks";
 import type {
   AccessConfigPoolInput,
+  AccessConfigPool,
   AccessConfigPutBody,
   AccessConfigPutResult,
   AccessConfiguration,
@@ -31,6 +32,24 @@ function formatThousands(value: string): string {
 
 function parseQuota(value: string): string {
   return value.replace(/\D/g, "");
+}
+
+function quotaStateLabel(pool: AccessConfigPool): string {
+  const quota = pool.quota;
+  if (!quota) return `已用 ${formatThousands(pool.quota_used)} / ${formatThousands(pool.quota_value)}`;
+  if (quota.mode !== "MONTHLY") return "历史额度待核账";
+  const basis = quota.quota_basis === "RAW_TOKEN" ? "实际 Token" : "套餐折算额度";
+  const prefix = `${quota.period_key} · ${basis}`;
+  if (quota.completeness !== "COMPLETE") {
+    return `${prefix} · 用量待核账 · 未结清预占 ${formatThousands(quota.reserved_value ?? "0")}`;
+  }
+  const values = [
+    `已用 ${formatThousands(quota.used_value ?? "0")}`,
+    `可用 ${formatThousands(quota.available_value ?? "0")}`,
+  ];
+  if (BigInt(quota.reserved_value ?? "0") > 0n) values.push(`预占 ${formatThousands(quota.reserved_value!)}`);
+  if (BigInt(quota.overage_value ?? "0") > 0n) values.push(`超额 ${formatThousands(quota.overage_value!)}`);
+  return `${prefix} · ${values.join(" · ")}`;
 }
 
 interface ProviderDraft {
@@ -128,19 +147,17 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
   });
 
   const summary = useMemo(() => {
-    let totalQuota = 0n;
     let providerCount = 0;
     let modelCount = 0;
     for (const draft of drafts.values()) {
       if (!draft.enabled) continue;
       const quota = parseQuota(draft.quota_value);
       if (quota !== "" && quota !== "0") {
-        totalQuota += BigInt(quota);
         providerCount += 1;
         modelCount += draft.enabled_model_ids.size;
       }
     }
-    return { totalQuota, providerCount, modelCount };
+    return { providerCount, modelCount };
   }, [drafts]);
 
   if (configQuery.isLoading) return <p className="text-ql-fg-tertiary">加载接入配置…</p>;
@@ -220,7 +237,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                   <span className="font-medium">{provider.provider_name}</span>
                   {provider.pool && (
                     <span className="text-sm text-ql-fg-secondary">
-                      已用 {formatThousands(provider.pool.quota_used)} / {formatThousands(provider.pool.quota_value)}
+                      {quotaStateLabel(provider.pool)}
                     </span>
                   )}
                 </div>
@@ -252,9 +269,11 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                 <div className="border-t p-3 space-y-3">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="block text-sm">
-                      <span className="mb-1 block text-ql-fg-secondary">Token 额度</span>
+                      <span className="mb-1 block text-ql-fg-secondary">
+                        {provider.pool?.quota?.policy_effective_from ? "每月额度" : "分配额度"}
+                      </span>
                       <input
-                        aria-label={`${provider.provider_name} Token 额度`}
+                        aria-label={`${provider.provider_name} 额度`}
                         type="text"
                         inputMode="numeric"
                         className="w-full rounded-md border px-3 py-2"
@@ -281,6 +300,21 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                       />
                     </label>
                   </div>
+
+                  {provider.pool?.quota?.mode === "MONTHLY" && (
+                    <p className="text-sm text-ql-fg-secondary">
+                      每月 1 日零点重置（{provider.pool.quota.timezone}），修改总额保留本月已用。
+                      {provider.pool.allow_overage ? "当前允许超额，超额用量仍记录。" : "当前禁止超额，额度不足时阻断后续调用。"}
+                    </p>
+                  )}
+                  {provider.pool?.quota?.mode === "LEGACY_PENDING_RECONCILIATION"
+                    && provider.pool.quota.policy_effective_from && (
+                    <p className="text-sm text-ql-fg-secondary">
+                      月度额度计划从 {new Intl.DateTimeFormat("zh-CN", {
+                        timeZone: provider.pool.quota.timezone, year: "numeric", month: "numeric", day: "numeric",
+                      }).format(new Date(provider.pool.quota.policy_effective_from))} 生效；此前历史余额待核账。
+                    </p>
+                  )}
 
                   <div>
                     <p className="mb-2 text-sm text-ql-fg-secondary">
@@ -351,7 +385,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
             已开通 {summary.providerCount} 个厂商，共 {summary.modelCount} 个型号
           </p>
           <p className="text-sm text-ql-fg-secondary">
-            总额度 {summary.totalQuota.toLocaleString()} Token（各厂商池之和）
+            各厂商额度按对应计量口径分别展示
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -443,3 +443,4 @@ export * from "./project-allocation/index.js";
 export const DOMAIN_VERSION = "0.3.0" as const;
 
 export { formatModelName } from "./model-display-name.js";
+export { employeeQuotaMonth, employeeQuotaBalance } from './employee-quota-period.js';

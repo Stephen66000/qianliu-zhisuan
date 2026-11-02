@@ -114,7 +114,7 @@ class ConfigQuery {
   }
   executeTakeFirst() {
     if (this.table === "principal") return Promise.resolve({
-      id: "principal-a", name: "A", status: "ACTIVE", department_label: "R&D", archived_at: null,
+      id: "principal-a", type: "EMPLOYEE", name: "A", status: "ACTIVE", department_label: "R&D", archived_at: null,
     });
     if (this.table === "principal_key") return Promise.resolve({
       id: "key-a", key_prefix: "sk-ql", status: "ACTIVE",
@@ -127,6 +127,7 @@ class ConfigQuery {
     return Promise.resolve(undefined);
   }
   executeTakeFirstOrThrow() {
+    if (this.table === "enterprise") return Promise.resolve({ timezone: "Asia/Shanghai", employee_quota_monthly_from: null });
     if (this.table === "principal_access_config_state") return Promise.resolve({ config_version: 1 });
     if (this.table === "employee_model_rule_version") return Promise.resolve({ id: "version-1", rule_id: "rule-1" });
     return Promise.resolve({ id: "row" });
@@ -163,6 +164,9 @@ class ConfigDelete {
 }
 
 class ConfigTransaction {
+  transaction() {
+    return { setIsolationLevel: () => ({ execute: (callback: (trx: ConfigTransaction) => unknown) => callback(this) }) };
+  }
   configVersion = 1;
   stateExists = true;
   readonly currentPools = [
@@ -202,7 +206,7 @@ describe("POOL-039 principal access PUT mutation contract", () => {
     expect(result).toMatchObject({
       principal: { id: "principal-a", department_label: "R&D" },
       key: { key_prefix: "sk-ql", authorization_status: "AUTHORIZED" },
-      summary: { total_quota: "16", provider_count: 4, model_count: 4 },
+      summary: { total_quota: null, quota_aggregation: "PER_PROVIDER", provider_count: 4, model_count: 4 },
       manual_pending_takeover: ["manual-model"],
       config_version: 7,
     });

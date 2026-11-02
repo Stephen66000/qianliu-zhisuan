@@ -22,6 +22,14 @@ describe("SecretValue 脱敏", () => {
     expect(fp).toContain("len=");
   });
 
+  it("区分空凭证与已配置凭证，空值显示不包含伪指纹", () => {
+    const empty = new SecretValue("");
+    expect(empty.isConfigured()).toBe(false);
+    expect(empty.fingerprint()).toBe("[EMPTY]");
+    expect(empty.toJSON()).toBe("[REDACTED]");
+    expect(new SecretValue("configured-test-token").isConfigured()).toBe(true);
+  });
+
   it("exposes version", () => {
     expect(PROVIDER_ADAPTERS_VERSION).toBe("0.3.0");
   });

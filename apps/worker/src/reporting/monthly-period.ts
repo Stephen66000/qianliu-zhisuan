@@ -1,33 +1,19 @@
-import type { Kysely } from "kysely";
-import type { Database } from "@qianliu/database";
+import { employeeQuotaMonth } from "@qianliu/domain";
 
-export function completedReportMonth(month?: string, now = new Date()) {
-  const local = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit" }).format(now);
+export function completedReportMonth(month?: string, now = new Date(), timezone = "Asia/Shanghai") {
+  const local = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone, year: "numeric", month: "2-digit" }).format(now);
   const [currentYear, currentMonth] = local.split("-").map(Number);
   const selected = month ?? (currentMonth === 1 ? `${currentYear! - 1}-12`
     : `${currentYear}-${String(currentMonth! - 1).padStart(2, "0")}`);
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(selected)) throw new Error("月报月份必须为 YYYY-MM");
   const [year, number] = selected.split("-").map(Number);
-  const next = number === 12 ? `${year! + 1}-01` : `${year}-${String(number! + 1).padStart(2, "0")}`;
-  const start = new Date(`${selected}-01T00:00:00+08:00`);
-  const end = new Date(`${next}-01T00:00:00+08:00`);
+  const localMonth = employeeQuotaMonth(new Date(`${selected}-15T12:00:00Z`), timezone);
+  const start = localMonth.periodStart;
+  const end = localMonth.periodEnd;
   if (!Number.isFinite(start.getTime()) || end > now) throw new Error("月报只能统计已经结束的完整自然月");
-  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  const days = new Date(Date.UTC(year!, number!, 0)).getUTCDate();
   return { month: selected, start, end, days, anchor: new Date(end.getTime() - 1),
     label: `${year} 年 ${number} 月`, dateRange: `${year} 年 ${number} 月 · ${number}.1 - ${number}.${days}` };
-}
-
-/** Historical month-end allocation, never the new month's mutable quota counter.
- * Later grant edits have no retained historical value and are displayed as missing. */
-export async function queryMonthEndAllocation(db: Kysely<Database>, enterpriseId: string, end: Date, principalId?: string): Promise<number | null> {
-  const rows = await db.selectFrom("principal_grant as grant")
-    .innerJoin("principal as pr", join => join.onRef("pr.id", "=", "grant.principal_id").onRef("pr.enterprise_id", "=", "grant.enterprise_id"))
-    .select(["grant.quota_value", "grant.updated_at", "grant.status", "grant.valid_from", "grant.valid_until"])
-    .where("grant.enterprise_id", "=", enterpriseId).where("grant.created_at", "<", end).where("pr.type", "=", "EMPLOYEE")
-    .$if(Boolean(principalId), qb => qb.where("grant.principal_id", "=", principalId!)).execute();
-  if (rows.some(row => row.updated_at >= end)) return null;
-  return rows.filter(row => row.status === "ACTIVE" && row.valid_from < end && (row.valid_until === null || row.valid_until >= end))
-    .reduce((total, row) => total + Number(row.quota_value), 0);
 }
 
 export function monthlyReportDue(now: Date): boolean {

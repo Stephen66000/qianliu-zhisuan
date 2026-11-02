@@ -276,6 +276,7 @@ describe("W07 账本闭环与幂等", () => {
       total_cache_tokens: 0n + 100n,
       total_deducted_quota: 0n,
       total_api_cost: "0.0023720",
+      api_cost_status: "PRICED_USAGE",
       usage_quality: "MIXED:ESTIMATED+PROVIDER_REPORTED",
       attempt_count: 2,
     });
@@ -320,6 +321,7 @@ describe("W07 账本闭环与幂等", () => {
       total_cache_tokens: 0n,
       total_deducted_quota: 0n,
       total_api_cost: "0.0015",
+      api_cost_status: "PRICED_USAGE",
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1,
     });
@@ -335,6 +337,7 @@ describe("W07 账本闭环与幂等", () => {
       total_cache_tokens: 0n,
       total_deducted_quota: 0n,
       total_api_cost: "0.0015",
+      api_cost_status: "PRICED_USAGE",
       usage_quality: "PROVIDER_REPORTED",
       attempt_count: 1,
     });

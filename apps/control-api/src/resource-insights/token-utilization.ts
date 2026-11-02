@@ -18,6 +18,8 @@ export async function loadResourceUtilizationSnapshot(
   db: Kysely<Database>, enterpriseId: string, month: string, asOf = new Date(),
 ): Promise<{ generatedAt: string; resources: Array<ResourceUtilizationRow & { tokenUtilization: TokenUtilization }> }> {
   return db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+    // Reduce disk merge passes; this per-operation budget resets when the transaction ends.
+    await sql`SET LOCAL work_mem = '16MB'`.execute(trx);
     const resources = await listResourceUtilization(trx, enterpriseId, month, asOf);
     const currentMonthTokens = Object.fromEntries(resources.map((r) => [r.resourceId, r.realTokens]));
     const tokenFacts = await queryResourceTokenUtilization(trx, enterpriseId, month, asOf, currentMonthTokens);

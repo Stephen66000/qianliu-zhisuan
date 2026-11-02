@@ -27,6 +27,9 @@ import {
   type PrincipalAccessPoolRow,
 } from "./principal-access-read-model.js";
 import { stableHash, stableProviderCodes } from "./principal-access-config-utils.js";
+import { ensureCurrentQuotaPeriod } from "./employee-quota-repository.js";
+import { principalAccessQuotaView } from "./principal-access-quota-view.js";
+import { writePrincipalProviderPools, PrincipalAccessPoolBasisError } from "./principal-access-pool-writer.js";
 
 export {
   computeAllowedModelIds,
@@ -76,9 +79,17 @@ export class PrincipalAccessConfigRepository {
 
   /** GET 读模型：厂商分块 + 池 + 型号开关 + 待接管标记 + config_version。 */
   async read(enterpriseId: string, principalId: string) {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute((trx) =>
+      new PrincipalAccessConfigRepository(trx).readSnapshot(enterpriseId, principalId));
+  }
+
+  private async readSnapshot(enterpriseId: string, principalId: string) {
     const now = new Date();
+    const enterprise = await this.db.selectFrom("enterprise")
+      .select(["timezone", "employee_quota_monthly_from"])
+      .where("id", "=", enterpriseId).executeTakeFirstOrThrow();
     const principal = await this.db.selectFrom("principal")
-      .select(["id", "name", "status", "department_label", "archived_at"])
+      .select(["id", "type", "name", "status", "department_label", "archived_at"])
       .where("enterprise_id", "=", enterpriseId).where("id", "=", principalId)
       .executeTakeFirst();
     if (!principal) throw new PrincipalAccessConfigError("NOT_FOUND", "主体不存在");
@@ -98,6 +109,7 @@ export class PrincipalAccessConfigRepository {
       .select([
         "principal_grant.id", "principal_grant.provider", "principal_grant.quota_value",
         "principal_grant.allow_overage", "principal_grant.valid_until",
+        "principal_grant.quota_basis",
         "principal_grant.authorization_rule_version_id",
         sql<bigint>`COALESCE(quota_counter.used_value, 0)`.as("used_value"),
       ])
@@ -115,10 +127,20 @@ export class PrincipalAccessConfigRepository {
     // 池来源判定：有 owner_principal_id 的单人规则版本 → MANAGED_SINGLE；否则批量。
     const singleRuleVersionIds = await this.singleRuleVersionIds(enterpriseId, principalId);
     const singleVersionSet = new Set(singleRuleVersionIds);
+    const quotaByProvider = new Map<string, ReturnType<typeof principalAccessQuotaView>>();
+    for (const row of principal.type === "EMPLOYEE"
+      ? [...poolRows].sort((a, b) => a.provider.localeCompare(b.provider, "en")) : []) {
+      const period = await ensureCurrentQuotaPeriod(this.db, { enterpriseId, principalId, provider: row.provider, now });
+      quotaByProvider.set(row.provider, principalAccessQuotaView({
+        period, basis: row.quota_basis, timezone: enterprise.timezone,
+        effectiveFrom: enterprise.employee_quota_monthly_from,
+      }));
+    }
     const pools: PrincipalAccessPoolRow[] = poolRows.map((row) => ({
       id: row.id, provider: row.provider, quota_value: row.quota_value,
       allow_overage: row.allow_overage, valid_until: row.valid_until,
       used_value: row.used_value,
+      quota: quotaByProvider.get(row.provider),
       source: row.authorization_rule_version_id === null
         ? "MANUAL_PENDING"
         : singleVersionSet.has(row.authorization_rule_version_id) ? "MANAGED_SINGLE" : "MANAGED_BATCH",
@@ -186,10 +208,13 @@ export class PrincipalAccessConfigRepository {
     return this.db.transaction().execute(async (trx) => {
       // 1. 预校验：主体存在、ACTIVE、未归档、有 ACTIVE Key。
       const principal = await trx.selectFrom("principal")
-        .select(["id", "name", "status", "archived_at"])
+        .select(["id", "type", "name", "status", "archived_at"])
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.principalId)
         .executeTakeFirst();
       if (!principal) throw new PrincipalAccessConfigError("NOT_FOUND", "主体不存在");
+      const monthlyPolicy = principal.type === "EMPLOYEE"
+        ? await trx.selectFrom("enterprise").select("employee_quota_monthly_from")
+          .where("id", "=", input.enterpriseId).executeTakeFirst() : undefined;
       if (principal.status !== "ACTIVE" || principal.archived_at !== null) {
         throw new PrincipalAccessConfigError("INVALID_STATE", "主体已停用或归档，不能配置接入");
       }
@@ -244,6 +269,12 @@ export class PrincipalAccessConfigRepository {
       const issues: Array<{ code: string; message: string; unified_model_id?: string; provider_code?: string }> = [];
       for (const pool of input.pools) {
         const providerModels = models.filter((m) => m.provider_code === pool.provider_code);
+        const enabledModes = new Set(providerModels
+          .filter((model) => pool.enabled_model_ids.includes(model.unified_model_id)).map((model) => model.mode));
+        if (monthlyPolicy?.employee_quota_monthly_from && enabledModes.size > 1) {
+          issues.push({ code: "QUOTA_BASIS_CONFLICT", provider_code: pool.provider_code,
+            message: `厂商 ${pool.provider_code} 同时包含 API 与套餐，月度额度计量基础须先明确` });
+        }
         if (providerModels.length === 0) {
           issues.push({ code: "PROVIDER_UNAVAILABLE", provider_code: pool.provider_code, message: `厂商 ${pool.provider_code} 在本企业无可用型号` });
         }
@@ -287,48 +318,15 @@ export class PrincipalAccessConfigRepository {
           .map((provider) => [provider, lockedPools.get(`${input.principalId}:${provider}`)] as const)
           .filter((entry): entry is readonly [string, NonNullable<typeof entry[1]>] => entry[1] !== undefined),
       );
-      const requestedProviders = new Set(input.pools.filter((p) => p.enabled_model_ids.length > 0).map((p) => p.provider_code));
-      const changes: { pools_added: string[]; pools_updated: string[]; pools_closed: string[] } = {
-        pools_added: [], pools_updated: [], pools_closed: [],
-      };
-
-      // 5a. 关闭请求的 providers 之外的现有池。
-      for (const [provider, pool] of currentByProvider) {
-        if (!requestedProviders.has(provider)) {
-          await trx.updateTable("principal_grant")
-            .set({ status: "DISABLED", version: sql`version + 1`, updated_at: new Date() })
-            .where("id", "=", pool.id).execute();
-          changes.pools_closed.push(provider);
-        }
+      let written;
+      try {
+        written = await writePrincipalProviderPools(trx, input, currentByProvider, modelById,
+          singleRuleVersionId, monthlyPolicy?.employee_quota_monthly_from ?? null, principal.type === "EMPLOYEE");
+      } catch (error) {
+        if (error instanceof PrincipalAccessPoolBasisError) throw new PrincipalAccessConfigError("NOT_READY", error.message);
+        throw error;
       }
-
-      // 5b. upsert 请求的池。
-      const poolGrantByProvider = new Map<string, string>();
-      for (const pool of input.pools) {
-        if (pool.enabled_model_ids.length === 0) continue;
-        const existing = currentByProvider.get(pool.provider_code);
-        if (existing) {
-          await trx.updateTable("principal_grant").set({
-            quota_value: pool.quota_value, allow_overage: pool.allow_overage,
-            valid_until: pool.valid_until,
-            authorization_rule_version_id: singleRuleVersionId,
-            version: sql`version + 1`, updated_at: new Date(),
-          }).where("id", "=", existing.id).execute();
-          poolGrantByProvider.set(pool.provider_code, existing.id);
-          changes.pools_updated.push(pool.provider_code);
-        } else {
-          const grant = await trx.insertInto("principal_grant").values({
-            enterprise_id: input.enterpriseId, principal_id: input.principalId,
-            provider: pool.provider_code, model_alias: "*", pool_model_alias: "*",
-            quota_unit: "TOKEN", quota_value: pool.quota_value, allow_overage: pool.allow_overage,
-            valid_until: pool.valid_until, status: "ACTIVE",
-            authorization_rule_version_id: singleRuleVersionId,
-          }).returning("id").executeTakeFirstOrThrow();
-          await trx.insertInto("quota_counter").values({ grant_id: grant.id }).execute();
-          poolGrantByProvider.set(pool.provider_code, grant.id);
-          changes.pools_added.push(pool.provider_code);
-        }
-      }
+      const { changes, poolGrantByProvider } = written;
 
       // 7. 型号开关版本化（单人规则）+ 显式禁用清单重算。
       const allEnabledModelIds = new Set(input.pools.flatMap((p) => p.enabled_model_ids));

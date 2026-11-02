@@ -1,3 +1,5 @@
+import { runEmployeeQuotaInitializationTick } from "./reporting/quota-initialization.js";
+import { runQuotaReconcileCommand } from "./reporting/quota-reconcile-cli.js";
 import { runReportRollbackCompat } from "./reporting/rollback-compat.js";
 import { runDeliveryCommand } from "./reporting/delivery-cli.js";
 import { runReportDeliveryTick } from "./reporting/delivery-scheduler.js";
@@ -51,6 +53,7 @@ import {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
+  if (command === "quota-reconcile") { await runQuotaReconcileCommand(args.slice(1)); return; }
   if (command === "report-rollback-compat") { await runReportRollbackCompat(args.slice(1)); return; }
   if (command === "report-delivery") { await runDeliveryCommand(args.slice(1)); return; }
   if (["daily-token-report", "report-company-weekly", "report-personal-weekly", "report-company-monthly", "report-personal-monthly", "check-incentives", "dispatch-user-cards", "send-user-cards"].includes(command ?? "") && !args.includes("--dry-run")) {
@@ -137,6 +140,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  process.stdout.write("[worker] quota-reconcile preview --enterprise <id> --principals <id1,id2> --from <iso> --to <iso> (read-only)\n[worker] quota-reconcile preflight --enterprise <id> --month <YYYY-MM> (read-only)\n");
   console.log("[worker] 用法：worker reconciliation --enterprise <id> [--from <iso>] [--to <iso>]");
   console.log("[worker]       worker runtime-assurance-once");
   console.log("[worker]       worker runtime-assurance-scheduler");
@@ -375,6 +379,8 @@ async function runRuntimeAssuranceScheduler(): Promise<void> {
         },
         aggregate: () => observe("usage_aggregate", "用量聚合重建", async () => {
           const now = new Date();
+          try { await runEmployeeQuotaInitializationTick({ db, now }); }
+          catch (error) { console.error(JSON.stringify({ event: "employee_quota_initialization_failed", error_type: error instanceof Error ? error.name : typeof error })); }
           const shanghaiDate = new Intl.DateTimeFormat("en-CA", {
             timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
           }).format(now);

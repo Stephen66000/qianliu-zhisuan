@@ -1,3 +1,4 @@
+import { settleMonthlyQuotaItems } from "./employee-quota-repository.js";
 import { type Kysely, type Transaction } from "kysely";
 
 import type { Database } from "../kysely.js";
@@ -314,8 +315,11 @@ export async function settleRequestAccounting(
     | "quota_settlements" | "release_lease_ids">,
   now: Date,
 ): Promise<void> {
+  const monthly = (input.quota_settlements ?? []).filter(item => item.period_id || item.usage_id);
+  await settleMonthlyQuotaItems(db, input, monthly, now);
   const byGrant = new Map<string, { estimated: bigint; actual: bigint }>();
   for (const item of input.quota_settlements ?? []) {
+    if (item.period_id || item.usage_id) continue;
     const current = byGrant.get(item.grant_id) ?? { estimated: 0n, actual: 0n };
     current.estimated += item.reserved_estimate;
     current.actual += item.actual_deducted;
@@ -360,7 +364,7 @@ export async function settleRequestAccounting(
   }
 }
 
-async function resolveTransactionCostStatus(
+export async function resolveTransactionCostStatus(
   db: Kysely<Database>,
   input: CreateLedgerTransactionInput,
 ): Promise<NonNullable<CreateLedgerTransactionInput["api_cost_status"]>> {
@@ -373,11 +377,10 @@ async function resolveTransactionCostStatus(
   if (lines.some(line => line.api_cost_status === "UNKNOWN_COST")) return "UNKNOWN_COST";
   if (lines.length > 0 && lines.every(line => line.resource_mode === "CODING_PLAN"
     || line.api_cost_status === "NOT_APPLICABLE")) return "NOT_APPLICABLE";
-  if (lines.some(line => line.api_cost_status === "PRICED_USAGE")) return "PRICED_USAGE";
-  if (lines.some(line => line.api_cost_status === "CONFIRMED_ZERO_NO_UPSTREAM")) {
-    return "CONFIRMED_ZERO_NO_UPSTREAM";
-  }
+  // A verified aggregate can be null even when every individual API line is priced (mixed currencies).
   if (input.total_api_cost === null) return "UNKNOWN_COST";
+  if (lines.some(line => line.api_cost_status === "PRICED_USAGE")) return "PRICED_USAGE";
+  // A zero Attempt cannot erase a positive legacy peer; use the verified aggregate for the fallback.
   return Number(input.total_api_cost) === 0 ? "CONFIRMED_ZERO_NO_UPSTREAM" : "PRICED_USAGE";
 }
 
