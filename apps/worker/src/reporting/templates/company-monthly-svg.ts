@@ -1,3 +1,4 @@
+import { companyReportFrame } from "./company-report-frame.js";
 import { escapeXml } from "../format-utils.js";
 import { QIANLIU_LOGO_DATA_URI } from "./logo-base64.js";
 import type { CompanyWeeklyReportData } from "./company-weekly-svg.js";
@@ -19,11 +20,9 @@ import type { CompanyWeeklyReportData } from "./company-weekly-svg.js";
 export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string {
   if (!data.monthTokenUsageRate) throw new Error("MONTHLY_USAGE_RATE_REQUIRED");
   const cardWidth = 540;
-  const cardHeight = 760;
   const SAFE_MARGIN_Y = 56;
 
   const topSafe = SAFE_MARGIN_Y;
-  const bottomSafe = cardHeight - SAFE_MARGIN_Y;
   const totalEmpCount = data.totalEmployees ?? data.topUsers.length;
 
   // 测量 4 大主区块的固有高度：
@@ -41,6 +40,9 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
   const hBlock4 = 38;
 
   const totalContentHeight = hBlock1 + hBlock2 + hBlock3 + hBlock4;
+  const frame = companyReportFrame(totalContentHeight);
+  const cardHeight = frame.height;
+  const bottomSafe = frame.layoutHeight - SAFE_MARGIN_Y;
   const remainingSpace = (bottomSafe - topSafe) - totalContentHeight;
   const majorGap = Math.max(26, remainingSpace / 3);
 
@@ -157,11 +159,10 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
   <!-- Pure White Background -->
   <rect x="0" y="0" width="${cardWidth}" height="${cardHeight}" fill="#FFFFFF"/>
 
-  <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
+  <g transform="${frame.transform}" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
     <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · Token使用量月报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml((data.reportMonth ?? data.dateRange).replace(/\s+/g, ""))}</tspan></text>
 
-    ${data.reportMonth ? `<text x="87" y="${headerY + 18}" font-size="10" fill="#7D8FA4">${escapeXml(data.dateRange)}</text>` : ""}
     <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
     <g transform="translate(87, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "当月分配额度" : "本月总 Token"}</text>
@@ -237,8 +238,9 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
     <text x="87" y="${brandSubY}" font-size="11" font-weight="500" fill="#7D8FA4" letter-spacing="0.8">Qianliu IC</text>
 
     <!-- 官方矢量 Logo：38x38，右边缘 X=453，蓝色拐角底部与 Qianliu IC 底线 Y 对齐 -->
-    <image href="${QIANLIU_LOGO_DATA_URI}" x="415" y="${logoTopY}" width="38" height="38"/>
+
   </g>
+  <image href="${QIANLIU_LOGO_DATA_URI}" x="${frame.offsetX + 415 * frame.scale}" y="${logoTopY * frame.scale}" width="${38 * frame.scale}" height="${38 * frame.scale}"/>
 </svg>
 `.trim();
 }

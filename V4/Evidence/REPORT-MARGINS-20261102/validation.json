@@ -1,0 +1,30 @@
+{
+  "status": "LOCAL_VALIDATED",
+  "scope": "Monthly report only; weekly explicitly on hold",
+  "base": "ece61ad7378ba1209340c6662fe5d2c3ffa5731d",
+  "sourceSha256": {
+    "apps/worker/src/reporting/__tests__/company-monthly-contract.test.ts": "ec54cd501cc813668d9dc8da3956108875f5d13ea057fa1e079f01bd3aafe881",
+    "apps/worker/src/reporting/__tests__/monthly-report.integration.test.ts": "9b10c0e317d8a844566fb4a82c06ca28bf2b5df7b32d1e036b7a2b2425f0d754",
+    "apps/worker/src/reporting/templates/company-monthly-svg.ts": "e7b895686631700480da91a4e0d6110d4b48d9ace838c433dc7d139b8f095f37",
+    "apps/worker/src/reporting/templates/company-report-frame.ts": "eb10676bce44de65574af8faabe36c33aec0ec8d17bd09d640b35265cb0b3982"
+  },
+  "checks": {
+    "reportingFiles": 15,
+    "reportingTests": 101,
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "visualPNGReview": "PASS"
+  },
+  "layout": {
+    "width": 1080,
+    "fourMemberHeight": 1520,
+    "originalSideMargin": 174,
+    "newSideMargin": 121.8,
+    "contentScale": 1.1426229508196721,
+    "dateSubtitle": false,
+    "logoOutsideScaledTextGroup": true
+  },
+  "weeklyChanged": false,
+  "calculationsChanged": false,
+  "productionPreviewDataPublished": false
+}

@@ -35,8 +35,17 @@ describe("user-confirmed monthly metrics and original layout", () => {
     expect(visible).toContain('>成员</text>');expect(visible).toContain('>所属团队</text>');
     expect(visible).toContain('>本月热门 3 个模型</text>');expect(visible).not.toContain('成员 / 所属团队');
     expect(visible).toContain("Token使用量月报");expect(visible).toContain("2026年10月");expect(visible).toContain(">人员使用量</text>");expect(visible).toContain(">使用4人</text>");
+    expect(visible).not.toContain("10.1 - 10.31");
     expect(visible).not.toContain("使用率＝");expect(visible).not.toContain("北京时间完整自然月");
     expect(visible).not.toContain("Asia/Shanghai");expect(visible).not.toContain("历史余额待核账");expect(visible).not.toContain("厂商额度");
+    const matrix=visible.match(/matrix\(([^)]+)\)/)![1]!.split(" ").map(Number);
+    expect(87*matrix[0]!+matrix[4]!).toBeCloseTo(60.9); // Each original 87px margin is reduced by 30%.
+    expect(453*matrix[0]!+matrix[4]!).toBeCloseTo(479.1);
+    const imageTag=visible.match(/<image\b[^>]+\/>/)![0];
+    const attribute=(key:string)=>Number(imageTag.match(new RegExp(`\\b${key}="([^"]+)"`))![1]);
+    expect(attribute("x")+attribute("width")).toBeCloseTo(479.1);
+    // The bitmap compositor reads absolute image coordinates, outside the scaled text group.
+    expect(visible.indexOf(imageTag)).toBeGreaterThan(visible.lastIndexOf("</g>"));
     const png=await renderSvgToPng(svg,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1520]);
   });
 });
