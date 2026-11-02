@@ -17,7 +17,7 @@ describe("user-confirmed monthly metrics and original layout", () => {
     expect(() => companyMonthlyMetrics(null,"100","1")).toThrow("MONTHLY_ALLOCATION_NOT_PROVABLE");
     expect(() => companyMonthlyMetrics("0","100","1")).toThrow("MONTHLY_USAGE_RATE_UNDEFINED");
   });
-  it("renders six numeric KPIs and the approved tables at 1080x1520", async () => {
+  it("renders six numeric KPIs and the approved tables with expanded section spacing", async () => {
     const kpi=companyMonthlyMetrics("2200000000","2709467730","22607");
     const svg=generateCompanyWeeklySvg({enterpriseName:"仟流科技",reportMonth:"2026 年 10 月",dateRange:"2026 年 10 月 · 10.1 - 10.31",
       monthQuotaTotal:kpi.allocation,monthTokenUsageRate:kpi.usageRate,monthConsumedTokens:"27.1 亿",monthQuotaRemaining:kpi.remaining,
@@ -41,11 +41,19 @@ describe("user-confirmed monthly metrics and original layout", () => {
     const matrix=visible.match(/matrix\(([^)]+)\)/)![1]!.split(" ").map(Number);
     expect(87*matrix[0]!+matrix[4]!).toBeCloseTo(60.9); // Each original 87px margin is reduced by 30%.
     expect(453*matrix[0]!+matrix[4]!).toBeCloseTo(479.1);
+    const yFor=(text:string)=>Number(visible.match(new RegExp(`<text x="87" y="([^"]+)"[^>]*>${text}</text>`))![1]);
+    const baselineGap=(760/matrix[0]!-112-(178+60+108+38))/3;
+    expect((yFor("人员使用量")-56-178-14)/baselineGap).toBeCloseTo(1.5);
+    expect((yFor("使用模型")-yFor("人员使用量")-60)/baselineGap).toBeCloseTo(1.5);
+    const fontFor=(text:string)=>Number(visible.match(new RegExp(`<text[^>]*font-size="([^"]+)"[^>]*>${text}</text>`))![1]);
+    expect(fontFor("曹磊")*matrix[0]!*2).toBeCloseTo(10.5*matrix[0]!*2-2);
+    expect(fontFor("deepseek-flash")*matrix[0]!*2).toBeCloseTo(10.5*matrix[0]!*2-2);
+    expect(fontFor("人员使用量")).toBe(13);expect(fontFor("成员")).toBe(10);
     const imageTag=visible.match(/<image\b[^>]+\/>/)![0];
     const attribute=(key:string)=>Number(imageTag.match(new RegExp(`\\b${key}="([^"]+)"`))![1]);
     expect(attribute("x")+attribute("width")).toBeCloseTo(479.1);
     // The bitmap compositor reads absolute image coordinates, outside the scaled text group.
     expect(visible.indexOf(imageTag)).toBeGreaterThan(visible.lastIndexOf("</g>"));
-    const png=await renderSvgToPng(svg,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1520]);
+    const png=await renderSvgToPng(svg,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1650]);
   });
 });

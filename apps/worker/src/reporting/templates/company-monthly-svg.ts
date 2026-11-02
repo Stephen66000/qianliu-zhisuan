@@ -41,10 +41,13 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
 
   const totalContentHeight = hBlock1 + hBlock2 + hBlock3 + hBlock4;
   const frame = companyReportFrame(totalContentHeight);
-  const cardHeight = frame.height;
   const bottomSafe = frame.layoutHeight - SAFE_MARGIN_Y;
   const remainingSpace = (bottomSafe - topSafe) - totalContentHeight;
   const majorGap = Math.max(26, remainingSpace / 3);
+  const sectionGap = majorGap * 1.5;
+  const cardHeight = Math.ceil(frame.height + 2 * (sectionGap - majorGap) * frame.scale);
+  // SVG logical units are scaled 2x and by the existing content enlargement.
+  const rowFont = (size: number) => size - 2 / (2 * frame.scale);
 
   // 1. Block 1: 顶栏组合
   const b1Top = topSafe;
@@ -53,19 +56,19 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
   const kpiRowStep = 72; // 两行大数字的行距（单行槽位 46px + 行间呼吸 26px）
 
   // 分割线 1
-  const div1Y = b1Top + hBlock1 + majorGap / 2;
+  const div1Y = b1Top + hBlock1 + sectionGap / 2;
 
   // 2. Block 2: 全员使用量表格
-  const b2Top = b1Top + hBlock1 + majorGap;
+  const b2Top = b1Top + hBlock1 + sectionGap;
   const table1TitleY = b2Top + 14;
   const table1HeaderY = table1TitleY + 20;
   const userRowStartY = table1HeaderY + 22;
 
   // 分割线 2
-  const div2Y = b2Top + hBlock2 + majorGap / 2;
+  const div2Y = b2Top + hBlock2 + sectionGap / 2;
 
   // 3. Block 3: 使用模型表格
-  const b3Top = b2Top + hBlock2 + majorGap;
+  const b3Top = b2Top + hBlock2 + sectionGap;
   const table2TitleY = b3Top + 14;
   const table2HeaderY = table2TitleY + 20;
   const modelRowStartY = table2HeaderY + 22;
@@ -87,21 +90,21 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
     if (u.rank === 1) {
       rankBadgeSvg = `
         <circle cx="96" cy="${y - 4}" r="7.5" fill="#FEF3C7" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#D97706" text-anchor="middle">1</text>
+        <text x="96" y="${y}" font-size="${rowFont(9.5)}" font-weight="700" fill="#D97706" text-anchor="middle">1</text>
       `;
     } else if (u.rank === 2) {
       rankBadgeSvg = `
         <circle cx="96" cy="${y - 4}" r="7.5" fill="#E2E8F0" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#64748B" text-anchor="middle">2</text>
+        <text x="96" y="${y}" font-size="${rowFont(9.5)}" font-weight="700" fill="#64748B" text-anchor="middle">2</text>
       `;
     } else if (u.rank === 3) {
       rankBadgeSvg = `
         <circle cx="96" cy="${y - 4}" r="7.5" fill="#FFEDD5" />
-        <text x="96" y="${y}" font-size="9.5" font-weight="700" fill="#EA580C" text-anchor="middle">3</text>
+        <text x="96" y="${y}" font-size="${rowFont(9.5)}" font-weight="700" fill="#EA580C" text-anchor="middle">3</text>
       `;
     } else {
       rankBadgeSvg = `
-        <text x="96" y="${y}" font-size="10" font-weight="500" fill="#94A3B8" text-anchor="middle">${u.rank}</text>
+        <text x="96" y="${y}" font-size="${rowFont(10)}" font-weight="500" fill="#94A3B8" text-anchor="middle">${u.rank}</text>
       `;
     }
 
@@ -114,12 +117,12 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
     return `
       <!-- Row ${i + 1}: ${escapeXml(u.name)} -->
       ${rankBadgeSvg}
-      <text x="112" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(u.name)}</text>
-      <text x="${data.reportMonth ? 160 : 146}" y="${y}" font-size="9.5" font-weight="500" fill="#7D8FA4">${escapeXml(u.department || "-")}</text>
-      <text x="264" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(reqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
-      <text x="330" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(tokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${tokensUnit}</tspan></text>
-      <text x="405" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(dailyClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${dailyUnit}</tspan></text>
-      <text x="453" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(u.share)}</text>
+      <text x="112" y="${y}" font-size="${rowFont(10.5)}" font-weight="700" fill="#172033">${escapeXml(u.name)}</text>
+      <text x="${data.reportMonth ? 160 : 146}" y="${y}" font-size="${rowFont(9.5)}" font-weight="500" fill="#7D8FA4">${escapeXml(u.department || "-")}</text>
+      <text x="264" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(reqClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="330" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(tokensClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">${tokensUnit}</tspan></text>
+      <text x="405" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(dailyClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">${dailyUnit}</tspan></text>
+      <text x="453" y="${y}" font-size="${rowFont(10)}" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(u.share)}</text>
     `;
   }).join("\n");
 
@@ -134,11 +137,11 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
 
     return `
       <!-- Model Row ${i + 1}: ${escapeXml(m.model)} -->
-      <text x="87" y="${y}" font-size="10.5" font-weight="700" fill="#172033">${escapeXml(m.model)}</text>
-      <text x="220" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mTokensClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mTokensUnit}</tspan></text>
-      <text x="306" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mDailyClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">${mDailyUnit}</tspan></text>
-      <text x="390" y="${y}" font-size="10.5" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mReqClean)} <tspan font-size="9" font-weight="500" fill="#7D8FA4">次</tspan></text>
-      <text x="453" y="${y}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(m.share)}</text>
+      <text x="87" y="${y}" font-size="${rowFont(10.5)}" font-weight="700" fill="#172033">${escapeXml(m.model)}</text>
+      <text x="220" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mTokensClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">${mTokensUnit}</tspan></text>
+      <text x="306" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mDailyClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">${mDailyUnit}</tspan></text>
+      <text x="390" y="${y}" font-size="${rowFont(10.5)}" font-weight="600" fill="#172033" text-anchor="end">${escapeXml(mReqClean)} <tspan font-size="${rowFont(9)}" font-weight="500" fill="#7D8FA4">次</tspan></text>
+      <text x="453" y="${y}" font-size="${rowFont(10)}" font-weight="500" fill="#7D8FA4" text-anchor="end">${escapeXml(m.share)}</text>
     `;
   }).join("\n");
 
