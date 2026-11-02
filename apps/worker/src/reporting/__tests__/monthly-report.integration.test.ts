@@ -35,7 +35,7 @@ describe("closed-month reports share the weekly high-resolution layout",()=>{
     try{
       const result=await runCompanyMonthlyReport({db,enterpriseId,kekBase64:"unused",month:"2026-09",dryRun:true});
       expect(result).toMatchObject({status:"DRY_RUN",totalTokens:150000,requestCount:2});
-      expect(result.svg).toContain("全员用量月报");expect(result.svg).toContain("2026 年 9 月 · 9.1 - 9.30");
+      expect(result.svg).toContain("Token使用量月报");expect(result.svg).toContain("2026 年 9 月 · 9.1 - 9.30");
       expect(result.monthlyMetrics).toMatchObject({allocatedTokens:"200000",usedTokens:"150000",remainingTokens:"50000",usageRate:"75.0%"});expect(result.summaryText).toContain("当月Token使用率：75.0%");expect(result.svg).not.toContain("额度扣减总量</text>");expect(result.svg).toContain("15.0");
       expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("全周");expect(result.svg!.replace(/<!--[\s\S]*?-->/g," ")).not.toContain("7天");expect(result.svg).toContain('viewBox="0 0 540 760"');
       expect([result.pngBuffer!.readUInt32BE(16),result.pngBuffer!.readUInt32BE(20)]).toEqual([1080,1520]);expect(sizes[0]).toEqual([1080,1520]);

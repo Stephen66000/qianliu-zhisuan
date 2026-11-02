@@ -31,9 +31,11 @@ describe("user-confirmed monthly metrics and original layout", () => {
     const groups=[...visible.matchAll(/<g transform="translate\([^"]+\)">([\s\S]*?)<\/g>/g)].map(m=>m[1]!);
     expect(groups).toHaveLength(6);
     const values=groups.map(g=>g.replace(/<[^>]+>/g, " ").replace(/\s+/g," ").trim());
-    expect(values).toEqual(["单月分配额度 22.0 亿","当月Token使用率 123.2 %","月末剩余额度 -5.1 亿","全月总请求次数 2.3 万","全月Token使用量 27.1 亿","团队日均使用量 8740.2 万 /天"]);
+    expect(values).toEqual(["当月分配额度 22.0 亿","当月Token使用率 123.2 %","月末剩余额度 -5.1 亿","当月总请求次数 2.3 万","当月Token使用量 27.1 亿","团队日均使用量 8740.2 万 /天"]);
     expect(visible).toContain('>成员</text>');expect(visible).toContain('>所属团队</text>');
     expect(visible).toContain('>本月热门 3 个模型</text>');expect(visible).not.toContain('成员 / 所属团队');
+    expect(visible).toContain("Token使用量月报");expect(visible).toContain("2026年10月");expect(visible).toContain(">人员使用量</text>");expect(visible).toContain(">使用4人</text>");
+    expect(visible).not.toContain("使用率＝");expect(visible).not.toContain("北京时间完整自然月");
     expect(visible).not.toContain("Asia/Shanghai");expect(visible).not.toContain("历史余额待核账");expect(visible).not.toContain("厂商额度");
     const png=await renderSvgToPng(svg,{fitWidth:1080});expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1520]);
   });

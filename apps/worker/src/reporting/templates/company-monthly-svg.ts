@@ -159,12 +159,12 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
 
   <g font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Zen Hei', 'Noto Sans CJK SC', sans-serif">
     <!-- Block 1: 顶栏小结 (标题 + 6大数字 2×3) -->
-    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · 全员用量${data.reportMonth ? "月报" : "周报"}<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.reportMonth ? data.reportMonth : data.dateRange)}</tspan></text>
+    <text x="87" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · Token使用量月报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml((data.reportMonth ?? data.dateRange).replace(/\s+/g, ""))}</tspan></text>
 
-    ${data.reportMonth ? `<text x="87" y="${headerY + 18}" font-size="10" fill="#7D8FA4">${escapeXml(data.dateRange)}（北京时间完整自然月）</text>` : ""}
+    ${data.reportMonth ? `<text x="87" y="${headerY + 18}" font-size="10" fill="#7D8FA4">${escapeXml(data.dateRange)}</text>` : ""}
     <!-- 第 1 行：月度额度视角（本月总 Token / Token 消耗总量 / 剩余 Token 总量） -->
     <g transform="translate(87, ${kpiTopY})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "单月分配额度" : "本月总 Token"}</text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">${data.reportMonth ? "当月分配额度" : "本月总 Token"}</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(monthTotalClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${monthTotalUnit}</tspan></text>
     </g>
 
@@ -180,12 +180,12 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
 
     <!-- 第 2 行：本周用量视角（全周总请求次数 / 全周 Token 消耗总量 / 团队日均使用量） -->
     <g transform="translate(87, ${kpiTopY + kpiRowStep})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全${data.reportMonth ? "月" : "周"}总请求次数</text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">当月总请求次数</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalReqClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">万</tspan></text>
     </g>
 
     <g transform="translate(202, ${kpiTopY + kpiRowStep})">
-      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">全月Token使用量</text>
+      <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">当月Token使用量</text>
       <text x="0" y="28" font-size="21" font-weight="700" fill="#172033">${escapeXml(totalTokensClean)} <tspan font-size="15" font-weight="500" fill="#7D8FA4">${totalTokensUnit}</tspan></text>
     </g>
 
@@ -195,12 +195,11 @@ export function generateCompanyMonthlySvg(data: CompanyWeeklyReportData): string
     </g>
 
     <!-- 分割线 1 -->
-    ${data.reportMonth ? `<text x="87" y="${kpiTopY + kpiRowStep + 46}" font-size="8.5" fill="#7D8FA4">使用率＝全月Token使用量 ÷ 分配额度；剩余额度保留超额负值</text>` : ""}
     <line x1="87" y1="${div1Y}" x2="453" y2="${div1Y}" stroke="#F1F5F9" stroke-width="1" />
 
     <!-- Block 2: 全员使用量表格 -->
-    <text x="87" y="${table1TitleY}" font-size="13" font-weight="700" fill="#172033">全员使用量</text>
-    <text x="453" y="${table1TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">全员 ${totalEmpCount} 人</text>
+    <text x="87" y="${table1TitleY}" font-size="13" font-weight="700" fill="#172033">人员使用量</text>
+    <text x="453" y="${table1TitleY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="end">使用${totalEmpCount}人</text>
 
     <!-- 列标题：按比例精细重排，彻底消除长部门重叠 -->
     <text x="96" y="${table1HeaderY}" font-size="10" font-weight="500" fill="#7D8FA4" text-anchor="middle">排名</text>

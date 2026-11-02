@@ -7,12 +7,12 @@ export function companyReportPresentation(monthly: boolean, facts: EmployeeRepor
   const { overview, quota } = facts;
   if (monthly) {
     const metrics = companyMonthlyMetrics(facts.companyMonthlyAllocation, overview.metrics.realTokens, overview.metrics.requestCount);
-    return { tokenUsageLabel: "全月Token使用量", monthlyMetrics: metrics, monthQuotaTotal: metrics.allocation, monthTokenUsageRate: metrics.usageRate,
+    return { reportTitle: "Token使用量月报", requestsLabel: "当月总请求次数", tokenUsageLabel: "当月Token使用量", monthlyMetrics: metrics, monthQuotaTotal: metrics.allocation, monthTokenUsageRate: metrics.usageRate,
       monthConsumedTokens: formatTokenVolume(overview.metrics.realTokens), monthQuotaRemaining: metrics.remaining,
       totalRequests: metrics.requestsWan,
-      quotaSummaryLines: [`💎 单月分配额度：${metrics.allocation}`, `📊 当月Token使用率：${metrics.usageRate}`, `🧮 月末剩余额度：${metrics.remaining}`] };
+      quotaSummaryLines: [`💎 当月分配额度：${metrics.allocation}`, `📊 当月Token使用率：${metrics.usageRate}`, `🧮 月末剩余额度：${metrics.remaining}`] };
   }
-  return { tokenUsageLabel: "全周消耗总量", monthlyMetrics: undefined, monthQuotaTotal: quota.scopeLabel, monthTokenUsageRate: undefined,
+  return { reportTitle: "全员用量周报小结", requestsLabel: "全周总请求数", tokenUsageLabel: "全周消耗总量", monthlyMetrics: undefined, monthQuotaTotal: quota.scopeLabel, monthTokenUsageRate: undefined,
     monthConsumedTokens: quota.statusLabel, monthQuotaRemaining: quota.policyLabel,
     totalRequests: `${formatNumber(overview.metrics.requestCount)} 次`,
     quotaSummaryLines: [`💎 额度范围：${quota.scopeLabel}`, `🔥 额度状态：${quota.statusLabel}`, `🧮 超额策略：${quota.policyLabel}`,

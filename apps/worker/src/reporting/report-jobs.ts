@@ -292,12 +292,12 @@ export async function runCompanyWeeklyReport(
   }
 
   const summaryText = [
-    `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
+    `📊 【${enterprise.name}】${presentation.reportTitle} (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
     ...presentation.quotaSummaryLines,
     `⚡ ${presentation.tokenUsageLabel}：${formatTokenVolume(totalTokens)}`,
     `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
-    `🚀 全${context.noun}总请求数：${presentation.totalRequests}`,
+    `🚀 ${presentation.requestsLabel}：${presentation.totalRequests}`,
     `👥 活跃员工总数：${activeEmployees} 人`,
     "━━━━━━━━━━━━━━━━━━",
     "详见上方管理看板长图 👆",
