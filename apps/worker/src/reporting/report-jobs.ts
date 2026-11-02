@@ -1,11 +1,9 @@
-import { sql, type Kysely } from "kysely";
+import { type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
-import { UsageOverviewRepository } from "@qianliu/database";
 import { deliverReport, reportRecipientRef, type DeliveryOptions, type DeliveryStatus } from "./delivery.js";
 import {
   formatDateRange,
   formatLatestRequestTime,
-  formatModelName,
   formatNumber,
   formatPercentage,
   formatTokenVolume,
@@ -20,152 +18,11 @@ import {
   type PersonalWeeklyReportData,
 } from "./templates/personal-weekly-svg.js";
 
-import { completedReportMonth, queryMonthEndAllocation } from "./monthly-period.js";
+import { completedReportMonth } from "./monthly-period.js";
 import { pickPersonalWeeklyQuote } from "./quote-library.js";
 
-export interface ModelUsageSummary {
-  model: string;
-  tokens: number;
-  requestCount: number;
-}
-
-export interface ModelUsageForRange {
-  models: ModelUsageSummary[];
-  totalModels: number;
-}
-
-/** 保留周报、月报与激励的既有 Top-N 调用合同。 */
-export async function queryTopModelsForRange(
-  db: Kysely<Database>, enterpriseId: string, rangeStart: Date, rangeEnd: Date,
-  principalId?: string, limit = 5, employeesOnly = false,
-): Promise<ModelUsageSummary[]> {
-  return (await queryModelUsageForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, limit, employeesOnly)).models;
-}
-
-/** 同一次查询内统计完整模型数，再应用展示条数限制，保持数据快照一致。 */
-export async function queryModelUsageForRange(
-  db: Kysely<Database>,
-  enterpriseId: string,
-  rangeStart: Date,
-  rangeEnd: Date,
-  principalId?: string,
-  limit: number = 5,
-  employeesOnly: boolean = false,
-): Promise<ModelUsageForRange> {
-  try {
-    const principalFilter = principalId ? sql`AND lt.principal_id = ${principalId}` : sql``;
-    const employeeFilter = employeesOnly ? sql`AND EXISTS (SELECT 1 FROM principal pr WHERE pr.id=ar.principal_id AND pr.enterprise_id=ar.enterprise_id AND pr.type='EMPLOYEE')` : sql``;
-    const result = await sql<{
-      model_name: string | null;
-      model_count: string | number | bigint;
-      request_count: string | number | bigint;
-      total_tokens: string | number | bigint;
-    }>`
-      SELECT COALESCE(um.display_name, ar.unified_model) AS model_name,
-             COUNT(*) OVER () AS model_count,
-             COUNT(ar.id) AS request_count,
-             COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0) AS total_tokens
-        FROM ledger_transaction lt
-        JOIN ai_request ar
-          ON ar.id = lt.ai_request_id AND ar.enterprise_id = lt.enterprise_id
-        LEFT JOIN unified_model um
-          ON (um.id = ar.unified_model_id OR um.alias = ar.unified_model)
-         AND um.enterprise_id = ar.enterprise_id
-       WHERE lt.enterprise_id = ${enterpriseId}
-         AND lt.status = 'SETTLED'
-         AND ar.status = 'SUCCEEDED'
-         AND lt.created_at >= ${rangeStart}
-         AND lt.created_at < ${rangeEnd}
-         ${principalFilter}
-         ${employeeFilter}
-       GROUP BY COALESCE(um.display_name, ar.unified_model)
-       ORDER BY total_tokens DESC, request_count DESC
-       LIMIT ${limit}
-    `.execute(db);
-
-    const rows = result.rows || [];
-    if (rows.length > 0) {
-      const models = rows.map((r) => ({
-        model: formatModelName(r.model_name ?? "通用模型"),
-        tokens: Number(r.total_tokens ?? 0),
-        requestCount: Number(r.request_count ?? 0),
-      }));
-      return { models, totalModels: Number(rows[0]!.model_count) };
-    }
-    if (employeesOnly) return { models: [], totalModels: 0 }; // Closed-month reports use the same settled facts as their totals.
-
-    // 备用兜底查询 usage_event
-    const fallbackRows = await db
-      .selectFrom("ai_request as r")
-      .innerJoin("usage_event as u", "u.ai_request_id", "r.id")
-      .leftJoin("unified_model as um", (join) =>
-        join.on((eb) =>
-          eb.and([
-            eb("um.enterprise_id", "=", eb.ref("r.enterprise_id")),
-            eb.or([
-              eb("um.id", "=", eb.ref("r.unified_model_id")),
-              eb("um.alias", "=", eb.ref("r.unified_model")),
-            ]),
-          ]),
-        ),
-      )
-      .select([
-        sql<string>`COALESCE(um.display_name, r.unified_model)`.as("unified_model"),
-        sql<string>`coalesce(sum(u.input_tokens + u.output_tokens), 0)`.as("total_tokens"),
-        sql<string>`count(r.id)`.as("req_count"),
-        sql<string>`count(*) over ()`.as("model_count"),
-      ])
-      .where("r.enterprise_id", "=", enterpriseId)
-      .where("r.status", "=", "SUCCEEDED")
-      .where("r.started_at", ">=", rangeStart)
-      .where("r.started_at", "<", rangeEnd)
-      .$if(employeesOnly, qb => qb.where(sql<boolean>`EXISTS (SELECT 1 FROM principal pr WHERE pr.id=r.principal_id AND pr.enterprise_id=r.enterprise_id AND pr.type='EMPLOYEE')`))
-      .$if(Boolean(principalId), (qb) => qb.where("r.principal_id", "=", principalId!))
-      .groupBy(sql`COALESCE(um.display_name, r.unified_model)`)
-      .orderBy(sql`sum(u.input_tokens + u.output_tokens)`, "desc")
-      .limit(limit)
-      .execute();
-
-    const models = fallbackRows.map((m) => ({
-      model: formatModelName(m.unified_model),
-      tokens: Number(m.total_tokens),
-      requestCount: Number(m.req_count),
-    }));
-    return { models, totalModels: Number(fallbackRows[0]?.model_count ?? 0) };
-  } catch {
-    throw new Error("REPORT_MODEL_FACTS_UNAVAILABLE");
-  }
-}
-
-/**
- * 查询企业月度 Token 额度汇总（全部有效授权 quota_value 与已扣减 used_value）
- * 用于全员周报第 1 行大数字：本月总 Token / 剩余 Token 总量
- */
-export async function queryEnterpriseQuotaSummary(
-  db: Kysely<Database>,
-  enterpriseId: string,
-): Promise<{ quotaTotal: number; quotaUsed: number }> {
-  try {
-    const row = await db
-      .selectFrom("principal_grant as g")
-      .leftJoin("quota_counter as c", "c.grant_id", "g.id")
-      .select([
-        sql<string>`coalesce(sum(g.quota_value), 0)`.as("quota_total"),
-        sql<string>`coalesce(sum(c.used_value), 0)`.as("quota_used"),
-      ])
-      .where("g.enterprise_id", "=", enterpriseId)
-      .where("g.status", "=", "ACTIVE")
-      .executeTakeFirst();
-
-    return {
-      quotaTotal: Number(row?.quota_total ?? 0),
-      quotaUsed: Number(row?.quota_used ?? 0),
-    };
-  } catch {
-    throw new Error("REPORT_QUOTA_FACTS_UNAVAILABLE");
-  }
-}
-
+export { queryTopModelsForRange, queryModelUsageForRange } from "./model-facts.js";
+import { readEmployeeReportFacts } from "./report-facts.js";
 /**
  * 查询员工在统计区间内的最晚物理调用时间
  */
@@ -265,28 +122,14 @@ export async function resolveWecomRecipients(
   return Array.from(new Set(resolvedRecipients));
 }
 
-function periodicContext(db: Kysely<Database>, options: { reportMonth?: string; targetDate?: Date } & DeliveryOptions, enterpriseTimezone: string | null) {
-  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.()) : null;
-  const timezone = monthly ? "Asia/Shanghai" : enterpriseTimezone || "Asia/Shanghai";
+function periodicContext(options: { reportMonth?: string; targetDate?: Date } & DeliveryOptions, enterpriseTimezone: string | null) {
+  const timezone = enterpriseTimezone || "Asia/Shanghai";
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.(), timezone) : null;
   const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date((options.now?.getTime() ?? options.clock?.().getTime() ?? Date.now()) - 24 * 3600_000);
   return { monthly, timezone, anchorDate, divisor: monthly?.days ?? 7,
     period: monthly ? "MONTH" as const : "WEEK" as const,
     noun: monthly ? "月" : "周", fileKind: monthly ? "monthly" : "weekly",
-    quotaCaption: monthly ? "当月分配额度" : "本月总 Token",
-    consumedCaption: monthly ? "额度扣减总量" : "Token 消耗总量（本月）",
-    remainingCaption: monthly ? "月末剩余额度" : "剩余 Token 总量",
-    usageRepo: monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate),
     dateRange: (start: Date, end: Date) => monthly?.dateRange ?? formatDateRange(start, new Date(end.getTime() - 1000), timezone) };
-}
-
-async function companyQuotaView(db: Kysely<Database>, enterpriseId: string, monthly: ReturnType<typeof completedReportMonth> | null, deductedQuota: string, consumedTokens: number) {
-  const current = monthly ? null : await queryEnterpriseQuotaSummary(db, enterpriseId);
-  const total = monthly ? await queryMonthEndAllocation(db, enterpriseId, monthly.end) : current!.quotaTotal;
-  const used = monthly ? Number(deductedQuota) : current!.quotaUsed;
-  const remaining = total === null ? null : Math.max(0, total - used);
-  return { total: total === null ? "未留存" : formatTokenVolume(total),
-    remaining: remaining === null ? "未留存" : formatTokenVolume(remaining),
-    consumed: formatTokenVolume(monthly ? used : consumedTokens) };
 }
 
 export interface RunCompanyWeeklyReportOptions extends DeliveryOptions {
@@ -311,6 +154,7 @@ export interface RunCompanyWeeklyReportResult {
   status: DeliveryStatus | "DRY_RUN" | "NO_RECIPIENTS" | "NO_ACTIVE_ENDPOINT";
   svg?: string;
   pngBuffer?: Buffer;
+  summaryText?: string;
 }
 
 /**
@@ -331,38 +175,19 @@ export async function runCompanyWeeklyReport(
     throw new Error(`Enterprise not found: ${enterpriseId}`);
   }
 
-  const context = periodicContext(db, options, enterprise.timezone);
-  const { monthly, timezone, anchorDate, usageRepo, divisor } = context;
-  const overview = await usageRepo.getOverview({
-    enterpriseId,
-    subjectType: "EMPLOYEE",
-    period: context.period,
-    timezone,
-    anchor: anchorDate,
-  });
-
+  const context = periodicContext(options, enterprise.timezone);
+  const { monthly, timezone, anchorDate, divisor } = context;
+  const facts = await readEmployeeReportFacts(db, { enterpriseId, period: context.period, timezone, anchor: anchorDate, now: options.now ?? options.clock?.() });
+  const overview = facts.overview;
   const rangeStart = new Date(overview.range.from);
   const rangeEnd = new Date(overview.range.to);
   const dateRangeStr = context.dateRange(rangeStart, rangeEnd);
-
   const totalTokens = Number(overview.metrics.realTokens);
   const requestCount = Number(overview.metrics.requestCount);
   const activeEmployees = overview.metrics.activeSubjects;
-
-  // 月度额度视角：本月总 Token（有效授权额度合计）、本月消耗总量（账本真实 Token）、剩余 Token 总量
-  const monthOverview = await usageRepo.getOverview({
-    enterpriseId,
-    subjectType: "EMPLOYEE",
-    period: "MONTH",
-    timezone,
-    anchor: anchorDate,
-  });
-  const monthConsumed = Number(monthOverview.metrics.realTokens);
-  const quota = await companyQuotaView(db, enterpriseId, monthly, overview.metrics.deductedQuota, monthConsumed);
-
-  // 1. 查询模型消耗 Top 3
-  const topModelsData = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, undefined, 3, Boolean(monthly));
-  const totalModelTokens = monthly ? totalTokens : topModelsData.reduce((acc, m) => acc + m.tokens, 0);
+  const quota = facts.quota;
+  const topModelsData = facts.models.models;
+  const totalModelTokens = totalTokens;
 
   const topModels = topModelsData.map((m) => {
     const share = totalModelTokens > 0 ? `${((m.tokens / totalModelTokens) * 100).toFixed(1)}%` : "0.0%";
@@ -393,9 +218,13 @@ export async function runCompanyWeeklyReport(
     enterpriseName: enterprise.name,
     dateRange: dateRangeStr,
     reportMonth: monthly?.label,
-    monthQuotaTotal: quota.total,
-    monthConsumedTokens: quota.consumed,
-    monthQuotaRemaining: quota.remaining,
+    reportTimezone: timezone,
+    monthQuotaTotal: quota.scopeLabel,
+    monthConsumedTokens: quota.statusLabel,
+    monthQuotaRemaining: quota.policyLabel,
+    quotaRows: quota.rows,
+    quotaAsOf: quota.asOfLabel,
+    totalModels: facts.models.totalModels,
     totalRequests: `${formatNumber(requestCount)} 次`,
     totalTokens: formatTokenVolume(totalTokens),
     dailyAvgTokens: formatTokenVolume(totalTokens / divisor, { isDailyAvg: true }),
@@ -457,6 +286,22 @@ export async function runCompanyWeeklyReport(
     recipients = await resolveWecomRecipients(db, enterpriseId, recipients);
   }
 
+  const summaryText = [
+    `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
+    "━━━━━━━━━━━━━━━━━━",
+    `💎 额度范围：${quota.scopeLabel}`,
+    `🔥 额度状态：${quota.statusLabel}`,
+    `🧮 超额策略：${quota.policyLabel}`,
+    `额度${quota.asOfLabel}；${quota.rows.map(row => `${row.provider}（${row.basis}）：${row.detail}`).join("；")}`,
+    "成功请求统计；额度包含失败实耗，按预占归属月计量。",
+    `⚡ 全${context.noun}消耗总量：${formatTokenVolume(totalTokens)}`,
+    `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
+    `🚀 全${context.noun}总请求数：${formatNumber(requestCount)} 次`,
+    `👥 活跃员工总数：${activeEmployees} 人`,
+    "━━━━━━━━━━━━━━━━━━",
+    "详见上方管理看板长图 👆",
+  ].join("\n");
+
   if (dryRun) {
     return {
       enterpriseName: enterprise.name,
@@ -468,6 +313,7 @@ export async function runCompanyWeeklyReport(
       status: "DRY_RUN",
       svg,
       pngBuffer,
+      summaryText,
     };
   }
 
@@ -490,27 +336,13 @@ export async function runCompanyWeeklyReport(
     .where("status", "=", "ACTIVE")
     .executeTakeFirst();
 
-  const summaryText = [
-    `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
-    "━━━━━━━━━━━━━━━━━━",
-    `💎 ${context.quotaCaption}：${quota.total}`,
-    `🔥 ${context.consumedCaption}：${quota.consumed}`,
-    `🧮 ${context.remainingCaption}：${quota.remaining}`,
-    `⚡ 全${context.noun}消耗总量：${formatTokenVolume(totalTokens)}`,
-    `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
-    `🚀 全${context.noun}总请求数：${formatNumber(requestCount)} 次`,
-    `👥 活跃员工总数：${activeEmployees} 人`,
-    "━━━━━━━━━━━━━━━━━━",
-    "详见上方管理看板长图 👆",
-  ].join("\n");
-
   const deliveries = [];
   for (const recipient of recipients) {
     deliveries.push(await deliverReport({ db, kekBase64, enterpriseId,
       type: monthly ? "COMPANY_MONTHLY" : "COMPANY_WEEKLY", periodKey: monthly?.month ?? rangeStart.toISOString(),
       recipientRef: await reportRecipientRef(db, enterpriseId, recipient), targetUserId: recipient, endpointId: endpoint?.id,
       periodStart: rangeStart, periodEnd: rangeEnd,
-      snapshot: { png: pngBuffer.toString("base64"), text: summaryText, filename: `company_${context.fileKind}.png` },
+      snapshot: { facts: facts.snapshotMetadata, png: pngBuffer.toString("base64"), text: summaryText, filename: `company_${context.fileKind}.png` },
       deliveryWindow: options.deliveryWindow, clock: options.clock,
     }));
   }
@@ -550,6 +382,7 @@ export interface PersonalWeeklyItemResult {
   status: DeliveryStatus | "DRY_RUN" | "NO_WECOM_IDENTITY" | "NO_ACTIVE_ENDPOINT";
   mediaId?: string;
   svg?: string;
+  summaryText?: string;
 }
 
 /**
@@ -571,19 +404,13 @@ export async function runPersonalWeeklyReports(
     throw new Error(`Enterprise not found: ${enterpriseId}`);
   }
 
-  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.()) : null;
-  const timezone = monthly ? "Asia/Shanghai" : enterprise.timezone || "Asia/Shanghai";
+  const timezone = enterprise.timezone || "Asia/Shanghai";
+  const monthly = options.reportMonth ? completedReportMonth(options.reportMonth, options.now ?? options.clock?.(), timezone) : null;
   const now = options.now ?? options.clock?.() ?? new Date();
   const anchorDate = monthly?.anchor ?? options.targetDate ?? new Date(now.getTime() - 24 * 3600_000);
 
-  const usageRepo = monthly ? new UsageOverviewRepository(db) : new UsageOverviewRepository(db, () => anchorDate);
-  const overview = await usageRepo.getOverview({
-    enterpriseId,
-    subjectType: "EMPLOYEE",
-    period: monthly ? "MONTH" : "WEEK",
-    ...(monthly ? { timezone: "Asia/Shanghai" } : {}),
-    anchor: anchorDate,
-  });
+  const facts = await readEmployeeReportFacts(db, { enterpriseId, period: monthly ? "MONTH" : "WEEK", timezone, anchor: anchorDate, now });
+  const overview = facts.overview;
 
   const rangeStart = new Date(overview.range.from);
   const rangeEnd = new Date(overview.range.to);
@@ -726,45 +553,15 @@ export async function runPersonalWeeklyReports(
       .executeTakeFirst();
 
     // 查询最晚物理调用时间与主力模型
-    const latest = await queryLatestRequestTime(db, enterpriseId, principalId, rangeStart, rangeEnd, timezone, Boolean(monthly));
-    const latestTime = monthly && latest === "周内深度协同" ? "月内暂无成功请求" : latest;
-    const userModels = await queryTopModelsForRange(db, enterpriseId, rangeStart, rangeEnd, principalId, 1, Boolean(monthly));
-    const topModelName = userModels[0]?.model;
+    const personFacts = facts.personal.get(principalId);
+    const latestParts = personFacts?.latest ? new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(personFacts.latest) : [];
+    const part = (type: string) => latestParts.find(item => item.type === type)?.value ?? "";
+    const latestTime = personFacts?.latest ? `${monthly ? `${part("month")}月${part("day")}日 ` : ""}${part("hour")}:${part("minute")}`
+      : `${monthly ? "月" : "周"}内暂无成功请求`;
+    const topModelName = personFacts?.model;
 
-    // 计算当月剩余额度（本月分配额度 - 本月使用额度）
-    const currentYear = rangeStart.getFullYear();
-    const currentMonth = rangeStart.getMonth();
-    const monthStart = new Date(Date.UTC(currentYear, currentMonth, 1));
-    const nextMonthStart = new Date(Date.UTC(currentYear, currentMonth + 1, 1));
-
-    const grantRow = monthly ? null : await sql<{ allocated_quota: string }>`
-      SELECT COALESCE(SUM(quota_value), 0)::text AS allocated_quota
-        FROM principal_grant
-       WHERE enterprise_id = ${enterpriseId}
-         AND principal_id = ${principalId}
-         AND status = 'ACTIVE'
-         AND (valid_until IS NULL OR valid_until > ${rangeEnd})
-    `.execute(db);
-    const allocatedQuotaNum = monthly ? await queryMonthEndAllocation(db, enterpriseId, monthly.end, principalId)
-      : Number(grantRow?.rows[0]?.allocated_quota ?? 0);
-
-    const monthUsageRow = monthly ? null : await sql<{ month_tokens: string }>`
-      SELECT COALESCE(SUM(lt.total_input_tokens + lt.total_output_tokens), 0)::text AS month_tokens
-        FROM ledger_transaction lt
-       WHERE lt.enterprise_id = ${enterpriseId}
-         AND lt.principal_id = ${principalId}
-         AND lt.status = 'SETTLED'
-         AND lt.created_at >= ${monthStart}
-         AND lt.created_at < ${nextMonthStart}
-    `.execute(db);
-    const monthTokensNum = monthly ? Number(item.deductedQuota) : Number(monthUsageRow?.rows[0]?.month_tokens ?? 0);
-
-    let remainingQuotaValue = "不限";
-    if (allocatedQuotaNum === null) remainingQuotaValue = "历史额度未留存";
-    else if (allocatedQuotaNum > 0) {
-      const remaining = allocatedQuotaNum - monthTokensNum;
-      remainingQuotaValue = remaining > 0 ? formatTokenVolume(remaining) : "0 (已超额)";
-    }
+    const personalQuota = facts.quotaForPrincipal(principalId);
+    const remainingQuotaValue = personalQuota.statusLabel;
 
     const metrics = [
       {
@@ -784,10 +581,12 @@ export async function runPersonalWeeklyReports(
         value: latestTime,
       },
       {
-        label: monthly ? "月末剩余额度" : "本月剩余额度",
+        label: `额度${personalQuota.asOfLabel}`,
         value: remainingQuotaValue,
       },
     ];
+
+    for (const row of personalQuota.rows) metrics.push({ label: `${row.provider} · ${row.basis}`, value: row.detail });
 
     if (topModelName) {
       metrics.push({
@@ -805,6 +604,19 @@ export async function runPersonalWeeklyReports(
 
     const svg = generatePersonalWeeklySvg(cardData);
 
+    const personalSummary = [
+      `👋 ${item.subjectName}，您${monthly ? monthly.label : "上一周"}的 AI 协同小结已生成！`,
+      "━━━━━━━━━━━━━━━━━━",
+      `⚡ ${monthly ? "月" : "周"}总消耗：${formatTokenVolume(tokens)}`,
+      `📈 日均用量：${formatTokenVolume(tokens / divisor, { isDailyAvg: true })}`,
+      `⏱ 最晚请求：${latestTime}`,
+      `额度${personalQuota.asOfLabel}：${remainingQuotaValue}`,
+      ...personalQuota.rows.map(row => `${row.provider}（${row.basis}）：${row.detail}`),
+      "成功请求统计；额度包含失败实耗，按预占归属月计量。",
+      "━━━━━━━━━━━━━━━━━━",
+      "专属记录已送达，快打开看看吧！",
+    ].join("\n");
+
     if (dryRun) {
       results.push({
         personId: identity?.person_id ?? principalId,
@@ -814,27 +626,18 @@ export async function runPersonalWeeklyReports(
         requestCount: requests,
         status: "DRY_RUN",
         svg,
+        summaryText: personalSummary,
       });
       continue;
     }
 
     const pngBuffer = await renderSvgToPng(svg, { fitWidth: 1080 });
 
-    const personalSummary = [
-      `👋 ${item.subjectName}，您${monthly ? monthly.label : "上一周"}的 AI 协同小结已生成！`,
-      "━━━━━━━━━━━━━━━━━━",
-      `⚡ ${monthly ? "月" : "周"}总消耗：${formatTokenVolume(tokens)}`,
-      `📈 日均用量：${formatTokenVolume(tokens / divisor, { isDailyAvg: true })}`,
-      `⏱ 最晚请求：${latestTime}`,
-      "━━━━━━━━━━━━━━━━━━",
-      "专属记录已送达，快打开看看吧！",
-    ].join("\n");
-
     const delivery = await deliverReport({ db, kekBase64, enterpriseId,
       type: monthly ? "PERSONAL_MONTHLY" : "PERSONAL_WEEKLY", periodKey: monthly?.month ?? rangeStart.toISOString(),
       recipientRef: principalId, targetUserId: identity?.provider_user_id, endpointId: endpoint?.id,
       periodStart: rangeStart, periodEnd: rangeEnd,
-      snapshot: { png: pngBuffer.toString("base64"), text: personalSummary, filename: `${monthly ? "monthly" : "weekly"}_${identity?.provider_user_id ?? principalId}.png` },
+      snapshot: { facts: facts.snapshotMetadata, png: pngBuffer.toString("base64"), text: personalSummary, filename: `${monthly ? "monthly" : "weekly"}_${identity?.provider_user_id ?? principalId}.png` },
       deliveryWindow: options.deliveryWindow, clock: options.clock,
     });
 

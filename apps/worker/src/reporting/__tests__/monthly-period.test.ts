@@ -9,6 +9,12 @@ describe("completed Beijing reporting months", () => {
     ["2026-03-01T01:00:00Z","2026-02",28],["2026-10-03T01:00:00Z","2026-09",30]] as const)("%s reports %s", (at, month, days) => {
     expect(completedReportMonth(undefined,new Date(at))).toMatchObject({month,days});
   });
+  it("uses enterprise local months including DST rather than forcing Beijing or server UTC", () => {
+    const month = completedReportMonth("2026-03", new Date("2026-05-01T12:00:00Z"), "America/New_York");
+    expect(month.start.toISOString()).toBe("2026-03-01T05:00:00.000Z");
+    expect(month.end.toISOString()).toBe("2026-04-01T04:00:00.000Z");
+    expect(month.days).toBe(31);
+  });
   it("uses an exclusive next-month boundary and rejects unfinished periods", () => {
     const now=new Date("2026-10-03T00:00:00Z");
     const month=completedReportMonth("2026-09",now);

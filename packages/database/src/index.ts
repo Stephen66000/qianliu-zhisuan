@@ -75,3 +75,5 @@ export { projectAllocationTick, type AllocationScanResult } from "./repositories
 
 export const DATABASE_VERSION = "0.3.0" as const;
 export * from "./report-delivery-repository.js";
+
+export { readQuotaPeriodsInTransaction } from "./repositories/employee-quota-read-repository.js";

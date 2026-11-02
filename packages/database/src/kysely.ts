@@ -1,3 +1,4 @@
+import type { PrincipalQuotaPeriodTable, PrincipalQuotaUsageTable } from "./employee-quota-types.js";
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 import type { CredentialChatProbeTable } from "./repositories/credential-chat-probe.js";
@@ -75,6 +76,8 @@ export type * from "./kysely-ledger-tables.js";
 export type * from "./kysely-allocation-tables.js";
 
 export interface Database {
+  principal_quota_period: PrincipalQuotaPeriodTable;
+  principal_quota_usage: PrincipalQuotaUsageTable;
   credential_chat_probe: CredentialChatProbeTable;
   admin_role: AdminRoleTable;
   kysely_migration: KyselyMigrationTable; kysely_migration_lock: KyselyMigrationLockTable;

@@ -147,7 +147,7 @@ export class UsageOverviewRepository {
       new UsageOverviewRepository(trx, this.now).getOverviewSnapshot(input));
   }
 
-  private async getOverviewSnapshot(input: UsageOverviewQuery): Promise<UsageOverviewResult> {
+  async getOverviewSnapshot(input: UsageOverviewQuery): Promise<UsageOverviewResult> {
     if (input.subjectId) await this.assertOwnedSubject(input);
     const range = await resolveUsageOverviewRange(this.db, input);
     if (!range) throw new UsageOverviewEnterpriseNotFoundError();

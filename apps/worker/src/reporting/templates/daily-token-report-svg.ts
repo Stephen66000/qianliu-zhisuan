@@ -174,6 +174,8 @@ export function generateDailyTokenReportSvg(data: DailyTokenReportData): string 
     <!-- Block 1: 顶栏小结 (公司名 · Token日报 + 日期 + 3大数字) -->
     <text x="${X_LEFT}" y="${headerY}" font-size="20" font-weight="700" fill="#172033">${escapeXml(data.enterpriseName)} · Token日报<tspan dx="12" font-size="12" font-weight="600" fill="#417EE0">${escapeXml(data.reportDate)}</tspan></text>
 
+    <text x="${X_LEFT}" y="${headerY + 20}" font-size="10" fill="#7D8FA4">成功且已结算的员工请求统计</text>
+
     <!-- 3 大核心数字水平排列 (加大列距，充盈空间) -->
     <g transform="translate(${X_LEFT}, ${kpiTopY})">
       <text x="0" y="0" font-size="10.5" font-weight="500" fill="#7D8FA4">昨日总请求次数</text>
