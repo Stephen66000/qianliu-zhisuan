@@ -295,7 +295,7 @@ export async function runCompanyWeeklyReport(
     `📊 【${enterprise.name}】全员用量${context.noun}报小结 (${dateRangeStr})`,
     "━━━━━━━━━━━━━━━━━━",
     ...presentation.quotaSummaryLines,
-    `⚡ 全${context.noun}Token使用量：${formatTokenVolume(totalTokens)}`,
+    `⚡ ${presentation.tokenUsageLabel}：${formatTokenVolume(totalTokens)}`,
     `📈 日均使用水平：${formatTokenVolume(totalTokens / divisor, { isDailyAvg: true })}`,
     `🚀 全${context.noun}总请求数：${presentation.totalRequests}`,
     `👥 活跃员工总数：${activeEmployees} 人`,

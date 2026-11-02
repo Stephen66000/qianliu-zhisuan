@@ -57,6 +57,7 @@ describe("Weekly jobs produce actual 2x images before delivery", () => {
       targetDate, recipients: [memberName], dryRun: true });
     expect(result.status).toBe("DRY_RUN");
     expect(result.dateRange).toBe("9.21 - 9.27");
+    expect(result.summaryText).toContain("⚡ 全周消耗总量：");
     expect(result.svg).toContain('viewBox="0 0 540 776"');
     expect(result.svg).toContain('width="540" height="776"');
     expect(pngSize(result.pngBuffer!)).toEqual([1080, 1552]);

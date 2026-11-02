@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/mac/.codex/worktrees/report-worker-correction/仟流智算/apps/worker
+
+ ✓ src/reporting/__tests__/monthly-report.integration.test.ts (4 tests) 3631ms
+ ✓ src/reporting/__tests__/weekly-report-resolution.integration.test.ts (2 tests) 3341ms
+ ✓ src/reporting/__tests__/company-monthly-contract.test.ts (3 tests) 64ms
+
+ Test Files  3 passed (3)
+      Tests  9 passed (9)
+   Start at  13:26:49
+   Duration  10.45s (transform 954ms, setup 0ms, collect 2.91s, tests 7.04s, environment 0ms, prepare 138ms)
+
