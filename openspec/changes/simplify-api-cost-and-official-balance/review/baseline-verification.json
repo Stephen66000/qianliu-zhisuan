@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-02",
+  "pr_url": "https://github.com/Stephen66000/qianliu-zhisuan/pull/7",
+  "merged": true,
+  "merge_commit_sha": "ae506fed47d21865420afa91137e8b244072933e",
+  "remote_main_verified_by": "git ls-remote origin refs/heads/main",
+  "remote_main_sha": "ae506fed47d21865420afa91137e8b244072933e",
+  "local_head_observed": "9a5fd5691338a9b86044ffc0bfbf7298e350eded",
+  "local_branch_observed": "codex/employee-quota-monthly-reporting",
+  "local_main_observed": "448bfe115cdcf74c70b626b9bc96fc8bb6669e23",
+  "worker_commit_ancestor_verified": "f27cb50d63a2387018c62b93a0d8d74426ed816a",
+  "github_combined_statuses": [],
+  "github_workflow_runs": [],
+  "ci_query_limitation": "Workflow connector returns PR-triggered runs only; empty results are not CI pass.",
+  "production_deployment": "NOT_EXECUTED_PER_USER_AND_PR",
+  "production_migration_0092": "NOT_EXECUTED_PER_USER_AND_PR",
+  "production_state_live_verified": false,
+  "business_implementation_executed": false,
+  "git_refs_modified": false
+}

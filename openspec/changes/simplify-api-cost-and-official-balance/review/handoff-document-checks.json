@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-02",
+  "version": "v1.2",
+  "scope": "Documentation and zcode instructions only",
+  "execution_order": "WP0 -> WP1 -> WP2 -> WP3 -> WP4 -> WP5 -> WP6",
+  "spec_scenarios": 42,
+  "additional_integration_cases": 8,
+  "business_cases_executed": 0,
+  "implementation_tasks_completed": 0,
+  "relative_links_and_whitespace_issues": [],
+  "openspec_strict_valid": true,
+  "business_validation_status": "NOT_RUN",
+  "source_baseline": "ae506fed47d21865420afa91137e8b244072933e"
+}
