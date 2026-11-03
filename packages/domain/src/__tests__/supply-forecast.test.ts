@@ -11,7 +11,14 @@
  *   - 覆盖时长
  */
 import { describe, it, expect } from "vitest";
-import { computeForecast, FORECAST_CONFIDENCE, type ForecastInput, type WindowUsage } from "../index.js";
+import {
+  computeForecast,
+  FORECAST_CONFIDENCE,
+  FORECAST_NOT_CALCULABLE_OFFICIAL_SOURCE_MISSING,
+  FORECAST_NOT_CALCULABLE_OFFICIAL_BALANCE_EXPIRED,
+  type ForecastInput,
+  type WindowUsage,
+} from "../index.js";
 
 const T0 = 1_800_000_000_000;
 const H = 3600_000;
@@ -32,6 +39,29 @@ function input(overrides: Partial<ForecastInput> = {}): ForecastInput {
     ...overrides,
   };
 }
+
+describe("WP3/OAB-07 不可计算原因枚举（task 3.4）", () => {
+  it("官方来源缺失/时效过期两个新 reason 常量冻结", () => {
+    expect(FORECAST_NOT_CALCULABLE_OFFICIAL_SOURCE_MISSING).toBe("official_source_missing");
+    expect(FORECAST_NOT_CALCULABLE_OFFICIAL_BALANCE_EXPIRED).toBe("official_balance_expired");
+  });
+
+  it("既有数学不变：余额未知仍产出 remaining_quota_unknown 且无确定耗尽时间", () => {
+    const base: ForecastInput = {
+      rate1h: { tokens: 10, dataPoints: 10, coveredHours: 1 },
+      rate24h: { tokens: 100, dataPoints: 24, coveredHours: 24 },
+      rate7d: { tokens: 700, dataPoints: 168, coveredHours: 168 },
+      remainingQuota: null,
+      resourceExpiresAt: null,
+      nextResetAt: null,
+      now: 0,
+    };
+    const result = computeForecast(base);
+    expect(result.notCalculableReason).toBe("remaining_quota_unknown");
+    expect(result.forecastExhaustAt).toBeNull();
+    expect(result.confidence).toBe(FORECAST_CONFIDENCE.NOT_CALCULABLE);
+  });
+});
 
 describe("computeForecast 多窗口速度", () => {
   it("1h/24h/7d 速度计算", () => {

@@ -245,6 +245,8 @@ export {
   type ForecastInput,
   type ForecastResult,
   type WindowUsage,
+  FORECAST_NOT_CALCULABLE_OFFICIAL_SOURCE_MISSING,
+  FORECAST_NOT_CALCULABLE_OFFICIAL_BALANCE_EXPIRED,
 } from "./supply-forecast.js";
 
 // ===== M4/W16：经营调度（峰谷/成本/额度策略、等价切换、反事实节省）=====

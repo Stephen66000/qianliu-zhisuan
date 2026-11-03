@@ -387,8 +387,12 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
       const beforeDown = await snapshot();
 
       // 回退 0094：down 逐字恢复 0081 种入触发器（参照 rollbackTo 链式回退模式）。
+      // WP3：迁移尾演进至 0096 后回滚链为 0096→0095→0094 三段（rollbackTo 语义
+      // 不变——链末必为 0094；头不写死，同 migration-rollback.ts 既有约定）。
       const rolledBack = await rollbackTo(db, "0094_retire_api_finance_pending_admission");
-      expect(rolledBack).toEqual(["0094_retire_api_finance_pending_admission"]);
+      expect(rolledBack.at(-1)).toBe("0094_retire_api_finance_pending_admission");
+      expect(rolledBack).toContain("0096_official_balance_refresh_request");
+      expect(rolledBack).toContain("0095_official_balance_sync_decouple");
 
       // down 数据不变式：存量行原样保留（D4 留档，无任何数据变更）。
       expect(await snapshot()).toEqual(beforeDown);

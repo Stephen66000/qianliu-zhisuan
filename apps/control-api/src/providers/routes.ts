@@ -14,7 +14,15 @@ import {
   encryptCredential,
   findKnownProvider,
 } from "@qianliu/provider-adapters";
-import { EnterpriseReferenceError, sumAllocatedQuota } from "@qianliu/database";
+import {
+  EnterpriseReferenceError,
+  listOfficialBalanceStates,
+  sumAllocatedQuota,
+} from "@qianliu/database";
+import {
+  readProviderOperatingBalanceRefreshCooldownMs,
+  readProviderOperatingBalanceExpireMs,
+} from "@qianliu/config";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   CreateProviderSchema,
@@ -28,6 +36,7 @@ import {
 } from "./contracts.js";
 import { registerProviderModelDiscoveryRoutes } from "./model-discovery-routes.js";
 import { registerProviderQuotaWindowRoutes } from "./quota-window-routes.js";
+import { registerOfficialBalanceRoutes } from "./official-balance-routes.js";
 import { registerProviderHealthRoutes } from "./health-routes.js";
 import { registerProviderUsageOverviewRoutes } from "./usage-overview-routes.js";
 import { financeReadModelEnabled, shanghaiMonthAt } from "../provider-finance/dashboard-projection.js";
@@ -36,6 +45,7 @@ import { archivedResourceModels } from "./resource-model-visibility.js";
 export function registerProviderRoutes(app: FastifyInstance): void {
   registerProviderModelDiscoveryRoutes(app);
   registerProviderQuotaWindowRoutes(app);
+  registerOfficialBalanceRoutes(app);
   registerProviderHealthRoutes(app);
   registerProviderUsageOverviewRoutes(app);
   // ===== Provider =====
@@ -245,7 +255,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
     const financeRead = await financeReadModelEnabled(
       app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
     );
-    const [resources, snapshots, syncStates, financeViews, archivedModels, providers] = await Promise.all([
+    const [resources, snapshots, syncStates, financeViews, archivedModels, providers, officialBalances] = await Promise.all([
       app.providerRepo.listResources(enterpriseId, archiveFilter),
       app.providerRepo.listCurrentOperatingSnapshots(enterpriseId),
       app.providerRepo.listLatestOperatingSyncStates(enterpriseId),
@@ -253,6 +263,12 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         : app.providerFinanceRepo.listResourceFinanceViews(enterpriseId, shanghaiMonthAt(now), now),
       archivedResourceModels(app.db, enterpriseId),
       app.providerRepo.listProviders(enterpriseId),
+      // WP3 C2：官方余额状态（PROVIDER_SYNC 来源过滤；P2/P3 按请求时读取，可配置）。
+      listOfficialBalanceStates(app.db, enterpriseId, {
+        now,
+        expireMs: readProviderOperatingBalanceExpireMs(process.env),
+        cooldownMs: readProviderOperatingBalanceRefreshCooldownMs(process.env),
+      }),
     ]);
     const providerById = new Map(providers.map((p) => [p.id, p]));
     const allocatedQuotas = new Map<string, string>();
@@ -271,6 +287,9 @@ export function registerProviderRoutes(app: FastifyInstance): void {
       snapshot,
     ]));
     const syncByResource = new Map(syncStates.map((state) => [state.provider_resource_id, state]));
+    const officialBalanceByResource = new Map(officialBalances.map((state) => [
+      state.provider_resource_id, state,
+    ]));
     const financeByResource = new Map(financeViews.map((view) => [view.resourceId, view]));
     const staleBefore = Date.now() - 36 * 60 * 60 * 1_000;
     // 列表只返回指纹，绝不返回密文/明文
@@ -308,6 +327,7 @@ export function registerProviderRoutes(app: FastifyInstance): void {
         created_at: r.created_at,
         updated_at: r.updated_at,
         operating_snapshot: byResource.get(r.id) ?? null,
+        official_balance: officialBalanceByResource.get(r.id) ?? null,
         finance: financeByResource.get(r.id) ?? null,
         operating_sync: sync ? {
           balance_status: sync.balance_status,

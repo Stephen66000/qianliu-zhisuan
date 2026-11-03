@@ -61,6 +61,40 @@ export abstract class ProviderOperatingRepository {
     );
   }
 
+  /**
+   * WP3/OAB-07 官方来源变体：仅 `source='PROVIDER_SYNC'` 快照参与"最新"判定
+   * （ADMIN 手工/BILL 对账快照不混入官方余额域）。既有 listLatestOperatingSnapshots/
+   * listCurrentOperatingSnapshots 语义不变，dashboard 等旧消费方不切换。
+   */
+  async listLatestOfficialOperatingSnapshots(
+    enterpriseId: string,
+  ): Promise<ProviderResourceOperatingSnapshot[]> {
+    const result = await sql<ProviderResourceOperatingSnapshot>`
+      SELECT DISTINCT ON (provider_resource_id) *
+        FROM provider_resource_operating_snapshot
+       WHERE enterprise_id = ${enterpriseId} AND source = 'PROVIDER_SYNC'
+       ORDER BY provider_resource_id, version DESC
+    `.execute(this.db);
+    return result.rows;
+  }
+
+  async listCurrentOfficialOperatingSnapshots(
+    enterpriseId: string,
+    now: Date = new Date(),
+  ): Promise<CurrentProviderOperatingSnapshot[]> {
+    const [snapshots, resources] = await Promise.all([
+      this.listLatestOfficialOperatingSnapshots(enterpriseId),
+      this.listResources(enterpriseId),
+    ]);
+    return projectCurrentOperatingSnapshots(
+      this.db,
+      enterpriseId,
+      snapshots,
+      new Map(resources.map((resource) => [resource.id, resource.mode])),
+      now,
+    );
+  }
+
   async listLatestOperatingSyncStates(enterpriseId: string): Promise<ProviderOperatingSyncState[]> {
     const result = await sql<ProviderOperatingSyncState>`
       WITH ranked AS (

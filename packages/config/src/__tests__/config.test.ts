@@ -5,6 +5,9 @@ import {
   CONFIG_VERSION,
   readFeatureFlags,
   readProviderFinanceMode,
+  readProviderOperatingSyncIntervalMs,
+  readProviderOperatingBalanceExpireMs,
+  readProviderOperatingBalanceRefreshCooldownMs,
   readPositiveIntEnv,
 } from "../index.js";
 
@@ -119,5 +122,33 @@ describe("readPositiveIntEnv（H-1：gateway/control-api 共享）", () => {
 
   it("错误信息含 unitLabel", () => {
     expect(() => readPositiveIntEnv({ FOO: "x" }, "FOO", 42, "字节")).toThrow(/字节/);
+  });
+});
+
+describe("官方余额同步配置（WP3 P1/P2/P3：建议默认值，可配置；P1 按厂商限制可调，DeepSeek 限流未核实）", () => {
+  it("未设 → 建议默认值：P1=900000ms（15min）P2=1800000ms（30min）P3=30000ms（30s）", () => {
+    expect(readProviderOperatingSyncIntervalMs({})).toBe(900_000);
+    expect(readProviderOperatingBalanceExpireMs({})).toBe(1_800_000);
+    expect(readProviderOperatingBalanceRefreshCooldownMs({})).toBe(30_000);
+  });
+
+  it("显式 env → 采用配置值（毫秒）", () => {
+    expect(readProviderOperatingSyncIntervalMs({ PROVIDER_OPERATING_SYNC_INTERVAL_MS: "60000" })).toBe(60_000);
+    expect(readProviderOperatingBalanceExpireMs({ PROVIDER_OPERATING_BALANCE_EXPIRE_MS: "3600000" })).toBe(3_600_000);
+    expect(readProviderOperatingBalanceRefreshCooldownMs({
+      PROVIDER_OPERATING_BALANCE_REFRESH_COOLDOWN_MS: "5000",
+    })).toBe(5_000);
+  });
+
+  it("非法值 → fail-fast 抛错且错误信息含变量名与单位", () => {
+    expect(() => readProviderOperatingSyncIntervalMs({ PROVIDER_OPERATING_SYNC_INTERVAL_MS: "0" }))
+      .toThrow(/PROVIDER_OPERATING_SYNC_INTERVAL_MS/);
+    expect(() => readProviderOperatingSyncIntervalMs({ PROVIDER_OPERATING_SYNC_INTERVAL_MS: "-100" }))
+      .toThrow(/毫秒/);
+    expect(() => readProviderOperatingBalanceExpireMs({ PROVIDER_OPERATING_BALANCE_EXPIRE_MS: "abc" }))
+      .toThrow(/PROVIDER_OPERATING_BALANCE_EXPIRE_MS/);
+    expect(() => readProviderOperatingBalanceRefreshCooldownMs({
+      PROVIDER_OPERATING_BALANCE_REFRESH_COOLDOWN_MS: "1.5",
+    })).toThrow(/PROVIDER_OPERATING_BALANCE_REFRESH_COOLDOWN_MS/);
   });
 });

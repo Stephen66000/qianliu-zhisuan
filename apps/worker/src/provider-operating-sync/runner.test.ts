@@ -11,70 +11,212 @@ let pg: PostgresTestInstance;
 beforeAll(async () => { pg = await startPostgresContainer("pool20_025_operating_sync"); }, 120_000);
 afterAll(async () => { await pg?.stop(); }, 60_000);
 
-describe("POOL20-025 每日经营同步", () => {
-  it("成功追加不可变快照；同日幂等；失败只留原因并保鲜最后成功值", async () => {
+function okFetch(balances: string[]): ProviderOperatingFetch {
+  let calls = 0;
+  const fn = vi.fn(async () => {
+    const total = balances[Math.min(calls, balances.length - 1)];
+    calls += 1;
+    return { ok: true, status: 200, json: async () => ({
+      is_available: true,
+      balance_infos: [{ currency: "CNY", total_balance: total,
+        granted_balance: "8", topped_up_balance: "60" }],
+    }) };
+  }) as unknown as ProviderOperatingFetch;
+  return fn;
+}
+
+async function seedApiResource(
+  db: ReturnType<typeof createKysely>, name: string, kekByte: number,
+): Promise<{ enterpriseId: string; resourceId: string }> {
+  const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
+  const kek = Buffer.alloc(32, kekByte);
+  await db.insertInto("enterprise").values({ id: enterpriseId, name }).execute();
+  await db.insertInto("provider").values({
+    id: providerId, enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek",
+    adapter_type: "OPENAI_COMPATIBLE",
+  }).execute();
+  await db.insertInto("provider_resource").values({
+    id: resourceId, enterprise_id: enterpriseId, provider_id: providerId, name: "DeepSeek API",
+    mode: "API", credential_type: "API_KEY",
+    credential_ciphertext: JSON.stringify(encryptCredential("sk-test", kek)),
+  }).execute();
+  return { enterpriseId, resourceId };
+}
+
+/** 用例隔离：runner 扫描只取 status ∈ ACTIVE/DEGRADED/EXHAUSTED（0005 CHECK 无
+ * DELETED），用合法的 EXPIRED 让用例资源退出后续用例的扫描范围。 */
+async function retireResource(db: ReturnType<typeof createKysely>, resourceId: string): Promise<void> {
+  await db.updateTable("provider_resource").set({ status: "EXPIRED" })
+    .where("id", "=", resourceId).execute();
+}
+
+describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁）", () => {
+  it("周期门禁：P1 内重复 tick 跳过零上游调用；到点恢复；同日多次尝试各留一行；P1 可配置且非法值 fail-fast", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
-      const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
-      const kek = Buffer.alloc(32, 7); const kekBase64 = kek.toString("base64");
-      await db.insertInto("enterprise").values({ id: enterpriseId, name: "经营同步测试" }).execute();
-      const adminId = randomUUID();
-      await db.insertInto("admin_user").values({
-        id: adminId, enterprise_id: enterpriseId, username: "sync-admin",
-        password_hash: "not-used", status: "ACTIVE",
-      }).execute();
-      await db.insertInto("provider").values({
-        id: providerId, enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek", adapter_type: "OPENAI_COMPATIBLE",
-      }).execute();
-      await db.insertInto("provider_resource").values({
-        id: resourceId, enterprise_id: enterpriseId, provider_id: providerId, name: "DeepSeek API",
-        mode: "API", credential_type: "API_KEY", credential_ciphertext: JSON.stringify(encryptCredential("sk-test", kek)),
-      }).execute();
+      const { resourceId } = await seedApiResource(db, "周期门禁测试", 7);
+      const fetch = okFetch(["68", "100", "100"]);
+      const t0 = new Date("2026-08-18T01:00:00Z");
+
+      // T0 首轮：同步成功，attempt.next_sync_at = T0 + P1（默认 15 分钟）。
+      await expect(runProviderOperatingSyncTick({ db, kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch, now: t0 }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const attempt1 = await db.selectFrom("provider_resource_operating_sync_attempt")
+        .selectAll().where("provider_resource_id", "=", resourceId)
+        .orderBy("started_at", "desc").executeTakeFirstOrThrow();
+      expect(attempt1.next_sync_at.toISOString()).toBe("2026-08-18T01:15:00.000Z");
+      expect(attempt1.balance_status).toBe("SUCCESS");
+
+      // T0 同刻重复 tick：P1 门禁命中，零上游调用、零快照、零新增 attempt。
+      await expect(runProviderOperatingSyncTick({ db, kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch, now: t0 }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 0, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      // T0+60s 仍在 P1 窗口内：同样跳过。
+      await expect(runProviderOperatingSyncTick({ db,
+        kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch,
+        now: new Date("2026-08-18T01:01:00Z") }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 0, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
+        .where("provider_resource_id", "=", resourceId).execute()).toHaveLength(1);
+
+      // T0+15min（恰在 next_sync_at）：门禁放行，第二次同步成功——
+      // 0095 放开 daily_uq 后同日第二次尝试各留一行 attempt＋一版快照。
+      await expect(runProviderOperatingSyncTick({ db,
+        kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch,
+        now: new Date("2026-08-18T01:15:00Z") }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+      const attempts = await db.selectFrom("provider_resource_operating_sync_attempt")
+        .selectAll().where("provider_resource_id", "=", resourceId)
+        .orderBy("started_at", "asc").execute();
+      expect(attempts).toHaveLength(2);
+      expect(attempts[0]!.sync_day.toISOString()).toBe(attempts[1]!.sync_day.toISOString());
+      expect(attempts[1]!.balance_status).toBe("SUCCESS");
+      const snapshotCount = await db.selectFrom("provider_resource_operating_snapshot")
+        .select(({ fn }) => fn.countAll<string>().as("count"))
+        .where("provider_resource_id", "=", resourceId)
+        .where("source", "=", "PROVIDER_SYNC").executeTakeFirstOrThrow();
+      expect(Number(snapshotCount.count)).toBe(2);
+
+      // P1 可配置：env 覆盖为 60s，next_sync_at 按 60s 写入。
+      await expect(runProviderOperatingSyncTick({ db,
+        kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch,
+        now: new Date("2026-08-18T01:31:00Z"),
+        env: { PROVIDER_OPERATING_SYNC_INTERVAL_MS: "60000" } }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      const attempt3 = await db.selectFrom("provider_resource_operating_sync_attempt")
+        .selectAll().where("provider_resource_id", "=", resourceId)
+        .orderBy("started_at", "desc").executeTakeFirstOrThrow();
+      expect(attempt3.next_sync_at.toISOString()).toBe("2026-08-18T01:32:00.000Z");
+
+      // P1 非法值 fail-fast：拒绝执行且不产生任何写入。
+      await expect(runProviderOperatingSyncTick({ db,
+        kekBase64: Buffer.alloc(32, 7).toString("base64"), fetch, now: t0,
+        env: { PROVIDER_OPERATING_SYNC_INTERVAL_MS: "abc" } })).rejects.toThrow(/PROVIDER_OPERATING_SYNC_INTERVAL_MS/);
+      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
+        .where("provider_resource_id", "=", resourceId).execute()).toHaveLength(3);
+      await retireResource(db, resourceId);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("资金模式 DARK/OFF 仍执行同步并写入快照（OAB-03 场景：不因旧资金开关关闭而跳过）；纯查询零资金事实写入", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const { enterpriseId, resourceId } = await seedApiResource(db, "资金模式无关测试", 9);
+      const fetch = okFetch(["50"]);
+      const now = new Date("2026-08-20T01:00:00Z");
+      const kekBase64 = Buffer.alloc(32, 9).toString("base64");
+
+      // 资金事实表（含未入 Kysely Database 类型的 resource_purchase_record 充值流水，
+      // 用 raw sql 计数）：快照/attempt 之外零增量。
+      const financeTables = [
+        "provider_finance_event", "provider_subscription_period",
+        "provider_finance_duplicate_candidate", "provider_finance_idempotency",
+        "provider_finance_legacy_cost_resolution", "provider_finance_usage_cost_disposition",
+        "operating_bill_resource_confirmation", "resource_purchase_record",
+      ] as const;
+      const countRows = async (table: (typeof financeTables)[number]): Promise<number> => {
+        const result = await sql<{ count: number }>`
+          SELECT count(*)::int AS count FROM ${sql.table(table)}
+        `.execute(db);
+        return result.rows[0]!.count;
+      };
+      const before = Object.fromEntries(await Promise.all(
+        financeTables.map(async (t) => [t, await countRows(t)]),
+      ));
+
+      // OFF：仍同步（WP2 前该 env 会整体 skip——OAB-03 明确不得因旧资金开关跳过）。
+      const offResult = await runProviderOperatingSyncTick({
+        db, kekBase64, fetch, now, env: { PROVIDER_FINANCE_MODE: "OFF" },
+      });
+      expect(offResult).toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0,
+        notSupported: 0, skippedQuiescentResources: 0 });
+      expect("skipped" in offResult).toBe(false);
+      // DARK：P1 到点后再次同步，同样不受资金模式影响。
+      const darkResult = await runProviderOperatingSyncTick({
+        db, kekBase64, fetch, now: new Date("2026-08-20T01:16:00Z"),
+        env: { PROVIDER_FINANCE_MODE: "DARK" },
+      });
+      expect(darkResult).toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0,
+        notSupported: 0, skippedQuiescentResources: 0 });
+      expect(fetch).toHaveBeenCalledTimes(2);
+
+      const snapshots = await db.selectFrom("provider_resource_operating_snapshot")
+        .select(({ fn }) => fn.countAll<string>().as("count"))
+        .where("enterprise_id", "=", enterpriseId)
+        .where("source", "=", "PROVIDER_SYNC").executeTakeFirstOrThrow();
+      expect(Number(snapshots.count)).toBe(2);
+      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(2);
+
+      // 纯查询断言：快照/attempt 之外零资金表增量（AT-OAB-04 后端锚点）。
+      for (const table of financeTables) {
+        expect(await countRows(table)).toBe(before[table]);
+      }
+      await retireResource(db, resourceId);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("恢复链回归：新隔离被更新官方证据解除；证据不足不恢复；失败保鲜最后成功值与 last_success_data_at", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const { enterpriseId, resourceId } = await seedApiResource(db, "恢复链回归测试", 5);
+      const kekBase64 = Buffer.alloc(32, 5).toString("base64");
       const repo = new ProviderRepository(db);
       await repo.appendOperatingSnapshot(enterpriseId, resourceId, {
-        source: "ADMIN", collected_at: new Date("2026-08-01T00:00:00Z"), currency: "CNY",
+        source: "ADMIN", collected_at: new Date("2026-08-18T00:00:00Z"), currency: "CNY",
         recharge_amount: "100", current_balance: "80", current_period_cost: "20",
         balance_source: "ADMIN", cost_source: "ADMIN",
       });
-      let balanceCalls = 0;
-      const fetch = vi.fn(async () => {
-        balanceCalls += 1;
-        return { ok: true, status: 200, json: async () => ({
-        is_available: true,
-        balance_infos: [{
-          currency: "CNY", total_balance: balanceCalls > 1 ? "100" : "68",
-          granted_balance: "8", topped_up_balance: balanceCalls > 1 ? "92" : "60",
-        }],
-        }) };
-      }) as unknown as ProviderOperatingFetch;
-      const now = new Date("2026-08-18T01:00:00Z");
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now })).resolves.toMatchObject({ snapshotsCreated: 0 });
-      expect(fetch).toHaveBeenCalledTimes(1);
+      const fetch = okFetch(["68", "100", "100"]);
+      const tick = (now: Date, fetchImpl: ProviderOperatingFetch = fetch) =>
+        runProviderOperatingSyncTick({ db, kekBase64, fetch: fetchImpl, now });
+
+      // T1：成功 68（快照 v2，available=true）。
+      await expect(tick(new Date("2026-08-18T01:00:00Z")))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
+      // 新隔离（01:30）晚于 v2（01:00）。
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
         updated_at: new Date("2026-08-18T01:30:00Z") })
         .where("id", "=", resourceId).execute();
-      await sql`
-        INSERT INTO resource_purchase_record
-          (enterprise_id, provider_resource_id, purchase_type, amount, currency,
-           purchased_at, source, created_by, created_at)
-        VALUES (${enterpriseId}::uuid, ${resourceId}::uuid, 'API_RECHARGE', 100, 'CNY',
-                '2026-08-18T02:00:00Z'::timestamptz, 'ADMIN', ${adminId}::uuid,
-                '2026-08-18T02:00:00Z'::timestamptz)
-      `.execute(db);
-      const afterRecharge = new Date("2026-08-18T03:00:00Z");
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
-        .resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
-        .resolves.toMatchObject({ snapshotsCreated: 0 });
-      expect(fetch).toHaveBeenCalledTimes(2);
-      const success = await repo.listLatestOperatingSnapshots(enterpriseId);
-      expect(success[0]).toMatchObject({
-        source: "PROVIDER_SYNC", current_balance: "100.00000000", granted_balance: "8.00000000",
-        topped_up_balance: "92.00000000", balance_source: "PROVIDER_API",
-        current_period_cost: "20.00000000", cost_source: "ADMIN",
-      });
+      // T2（P1 到点）：成功 100 → 快照 v3（01:45）晚于隔离时刻 → BALANCE_SYNC_RECOVERED → DEGRADED。
+      await expect(tick(new Date("2026-08-18T01:45:00Z")))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
       expect(await db.selectFrom("resource_status_event").select(["reason", "to_status"])
@@ -82,94 +224,43 @@ describe("POOL20-025 每日经营同步", () => {
         .executeTakeFirstOrThrow()).toMatchObject({
         reason: "BALANCE_SYNC_RECOVERED", to_status: "DEGRADED",
       });
+
+      // 再隔离（02:05，晚于 v3 01:45）→ T3 取得更新证据（v4，02:10）→ 再次恢复。
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
-        updated_at: new Date("2026-08-18T02:30:00Z") })
+        updated_at: new Date("2026-08-18T02:05:00Z") })
         .where("id", "=", resourceId).execute();
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch, now: afterRecharge }))
-        .resolves.toMatchObject({ snapshotsCreated: 0, failed: 0 });
-      expect(fetch).toHaveBeenCalledTimes(2);
+      await expect(tick(new Date("2026-08-18T02:10:00Z")))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
+          skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
 
+      // 证据不足：新隔离（02:30）后仅有 provider_balance_available=NULL 的快照（v5，02:50）
+      // → 不恢复；本轮上游失败也只留 attempt 失败原因，不覆盖最后成功快照。
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
-        updated_at: new Date("2026-08-18T04:00:00Z") })
+        updated_at: new Date("2026-08-18T02:30:00Z") })
         .where("id", "=", resourceId).execute();
       await db.insertInto("provider_resource_operating_snapshot").values({
-        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 4,
-        source: "PROVIDER_SYNC", collected_at: new Date("2026-08-18T05:00:00Z"),
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 5,
+        source: "PROVIDER_SYNC", collected_at: new Date("2026-08-18T02:50:00Z"),
         currency: "CNY", current_balance: "100", provider_balance_available: null,
         balance_source: "PROVIDER_API", usage_calculation: "SYSTEM_LEDGER",
       }).execute();
-      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch,
-        now: new Date("2026-08-18T06:00:00Z") }))
-        .resolves.toMatchObject({ snapshotsCreated: 0, failed: 0 });
-      expect(fetch).toHaveBeenCalledTimes(2);
+      const failedFetch = vi.fn(async () => { throw new Error("offline"); }) as unknown as ProviderOperatingFetch;
+      await expect(tick(new Date("2026-08-18T03:00:00Z"), failedFetch))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 0, failed: 1, notSupported: 0,
+          skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "EXHAUSTED" });
 
-      const failedFetch = vi.fn(async () => { throw new Error("offline"); }) as unknown as ProviderOperatingFetch;
-      await expect(runProviderOperatingSyncTick({
-        db, kekBase64, fetch: failedFetch, now: new Date("2026-08-19T01:00:00Z"),
-      })).resolves.toMatchObject({ snapshotsCreated: 0, failed: 1 });
-      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(4);
+      // 失败保鲜：快照历史不新增（v1 ADMIN＋v2/v3/v4 同步＋v5 直插 = 5）；
+      // 最新 attempt FAILED/UPSTREAM_UNAVAILABLE；last_success_data_at = 最后成功采集时刻。
+      expect(await repo.listOperatingSnapshotHistory(enterpriseId, resourceId)).toHaveLength(5);
       const states = await repo.listLatestOperatingSyncStates(enterpriseId);
-      expect(states[0]).toMatchObject({ balance_status: "FAILED", cost_status: "NOT_SUPPORTED", error_code: "UPSTREAM_UNAVAILABLE" });
-      expect(states[0]?.last_success_data_at?.toISOString()).toBe(now.toISOString());
-    } finally {
-      await db.destroy();
-    }
-  });
-
-  it("资金停写门禁：DARK/OFF 零写入零上游调用；ACTIVE 行为不变", async () => {
-    const db = createKysely(pg.connectionString);
-    try {
-      await migrateToLatest(db);
-      const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
-      const kek = Buffer.alloc(32, 9); const kekBase64 = kek.toString("base64");
-      await db.insertInto("enterprise").values({ id: enterpriseId, name: "停写门禁测试" }).execute();
-      await db.insertInto("provider").values({
-        id: providerId, enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek", adapter_type: "OPENAI_COMPATIBLE",
-      }).execute();
-      await db.insertInto("provider_resource").values({
-        id: resourceId, enterprise_id: enterpriseId, provider_id: providerId, name: "DeepSeek API",
-        mode: "API", credential_type: "API_KEY", credential_ciphertext: JSON.stringify(encryptCredential("sk-test", kek)),
-      }).execute();
-      const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({
-        is_available: true,
-        balance_infos: [{ currency: "CNY", total_balance: "50", granted_balance: "0", topped_up_balance: "50" }],
-      }) })) as unknown as ProviderOperatingFetch;
-      const now = new Date("2026-08-20T01:00:00Z");
-
-      // DARK/OFF：整个 tick 零扫描、零快照、零 attempt、零上游调用（fail-closed）。
-      for (const mode of ["DARK", "OFF"] as const) {
-        await expect(runProviderOperatingSyncTick({
-          db, kekBase64, fetch, now, env: { PROVIDER_FINANCE_MODE: mode },
-        })).resolves.toMatchObject({
-          resourcesScanned: 0, snapshotsCreated: 0, failed: 0, notSupported: 0,
-          skippedQuiescentResources: 0, skipped: "FINANCE_MODE_INACTIVE",
-        });
-      }
-      expect(fetch).toHaveBeenCalledTimes(0);
-      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
-        .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(0);
-      const darkSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
-        .select(({ fn }) => fn.countAll<string>().as("count"))
-        .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
-      expect(Number(darkSnapshots.count)).toBe(0);
-
-      // ACTIVE（显式 env）：本企业快照 + attempt 正常写入，与门禁引入前一致。
-      // 结果计数是全库口径（同容器其他用例资源也在扫描范围），故按本企业 DB 状态断言。
-      await runProviderOperatingSyncTick({
-        db, kekBase64, fetch, now, env: { PROVIDER_FINANCE_MODE: "ACTIVE" },
-      });
-      expect(fetch).toHaveBeenCalledTimes(1);
-      const activeSnapshots = await db.selectFrom("provider_resource_operating_snapshot")
-        .select(({ fn }) => fn.countAll<string>().as("count"))
-        .where("enterprise_id", "=", enterpriseId)
-        .where("source", "=", "PROVIDER_SYNC").executeTakeFirstOrThrow();
-      expect(Number(activeSnapshots.count)).toBe(1);
-      expect(await db.selectFrom("provider_resource_operating_sync_attempt").select("id")
-        .where("enterprise_id", "=", enterpriseId).execute()).toHaveLength(1);
+      expect(states[0]).toMatchObject({ balance_status: "FAILED", cost_status: "NOT_SUPPORTED",
+        error_code: "UPSTREAM_UNAVAILABLE" });
+      expect(states[0]?.last_success_data_at?.toISOString()).toBe("2026-08-18T02:10:00.000Z");
+      await retireResource(db, resourceId);
     } finally {
       await db.destroy();
     }
