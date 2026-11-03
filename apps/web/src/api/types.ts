@@ -139,6 +139,50 @@ export interface PrincipalCleanupPreview {
   canDelete: boolean;
 }
 
+/** WP3 C2：官方余额状态（GET /provider-resources `official_balance` 字段；形状对齐
+ * packages/database OfficialBalanceState，Date 序列化为 ISO 字符串；OAB-05 无任何合计字段）。 */
+export interface ProviderOfficialBalanceState {
+  provider_resource_id: string;
+  supported: boolean;
+  status: "UNSUPPORTED" | "NEVER_SYNCED" | "OK" | "FAILED" | "EXPIRED" | "SYNCING";
+  /** OAB-04 叠加：最新成功快照超过时效阈值（P2，判定在后端）。 */
+  expired: boolean;
+  /** OAB-04 叠加：最新 attempt（任意 outcome）为 FAILED。 */
+  last_attempt_failed: boolean;
+  total_balance: string | null;
+  currency: string | null;
+  composition: { granted: string | null; topped: string | null } | null;
+  available: boolean | null;
+  /** 最新成功（PROVIDER_SYNC）快照采集时间；无成功快照 → null。 */
+  last_success_at: string | null;
+  last_attempt: {
+    at: string;
+    outcome: "SUCCESS" | "FAILED" | "NOT_SUPPORTED";
+    reason: string | null;
+  } | null;
+  /** 冷却/在途到期时间；为空表示立即可刷（前端不推算 P3）。 */
+  next_refresh_at: string | null;
+}
+
+/** WP3 task 3.2 / OAB-03：POST /provider-resources/:id/official-balance/refresh 三态响应
+ * （200：ACCEPTED 附 result；IN_PROGRESS / COOLDOWN 附 retry_after_seconds，一律消费后端值）。 */
+export interface OfficialBalanceRefreshResult {
+  state: "ACCEPTED" | "IN_PROGRESS" | "COOLDOWN";
+  retry_after_seconds?: number;
+  result?: {
+    outcome: "SUCCEEDED" | "FAILED";
+    collected_at?: string;
+    error_code?: string;
+    balance?: {
+      currency: string;
+      total_balance: string;
+      granted_balance: string;
+      topped_up_balance: string;
+      available: boolean;
+    };
+  };
+}
+
 /** GET /provider-resources 列表元素（后端已裁剪为公开视图，无密文）。 */
 export interface ProviderResourceItem {
   id: string;
@@ -168,6 +212,8 @@ export interface ProviderResourceItem {
   created_at: string;
   updated_at: string;
   operating_snapshot: ProviderResourceOperatingSnapshot | null;
+  /** WP3 C2：官方余额状态（official-balance-states.ts 同源；旧后端/旧快照缺省为 undefined）。 */
+  official_balance?: ProviderOfficialBalanceState | null;
   finance?: ResourceFinanceView | null;
   allocated_quota?: string | null;
   operating_sync?: {

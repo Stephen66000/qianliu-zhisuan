@@ -8,6 +8,8 @@ const costProjection = vi.hoisted(() => ({
   total: "0.00100000" as string | null,
   line: "0.00100000" as string | null,
   status: undefined as string | undefined,
+  currency: undefined as string | undefined,
+  sourceStatus: undefined as string | undefined,
 }));
 
 vi.mock("../api/hooks", () => ({
@@ -46,6 +48,8 @@ vi.mock("../api/hooks", () => ({
         billingRuleSnapshot: {
           ruleType: "API_PRICE", effectiveFrom: "2026-08-01T00:00:00.000Z",
           cacheHitPrice: "0.000001", cacheMissPrice: "0.000002", outputPrice: "0.000004",
+          currency: costProjection.currency,
+          sourceStatus: costProjection.sourceStatus,
         },
       }],
     }],
@@ -69,6 +73,8 @@ describe("POOL20-031/032 请求决策详情", () => {
     costProjection.total = "0.00100000";
     costProjection.line = "0.00100000";
     costProjection.status = undefined;
+    costProjection.currency = undefined;
+    costProjection.sourceStatus = undefined;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: clipboardWrite },
@@ -83,6 +89,31 @@ describe("POOL20-031/032 请求决策详情", () => {
     render(<RequestDrilldown requestId="request-1" />);
     expect(screen.getAllByText("未记录费用，不计入")).toHaveLength(2);
     expect(screen.queryByText("未知")).not.toBeInTheDocument();
+  });
+
+  // ACE-01（WP4-S2 合同 5）：结算汇总改"API费用估算"；settlement 无行内币种字段 → 回退 ¥。
+  it("结算汇总使用 API费用估算 命名并在无币种时回退 ¥", () => {
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.getByText("API费用估算")).toBeInTheDocument();
+    expect(screen.getByText("¥0.00")).toBeInTheDocument();
+    expect(screen.queryByText("API 费用")).not.toBeInTheDocument();
+  });
+
+  // ACE-02 场景 3＋WP4-S2 合同 5：行内币种字段消费 + 价格依据待核实角标
+  // （billing_rule_snapshot.sourceStatus 随结算冻结，旧快照缺省按 UNVERIFIED 解释）。
+  it("计量明细与计价决策消费行内币种，UNVERIFIED 显示价格依据待核实", () => {
+    costProjection.currency = "USD";
+    costProjection.sourceStatus = "UNVERIFIED";
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.getAllByText(/USD 0.00（价格依据待核实）/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("估算费用")).toBeInTheDocument();
+  });
+
+  it("VERIFIED 规则计价的金额不显示价格依据待核实角标", () => {
+    costProjection.sourceStatus = "VERIFIED";
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.queryByText(/价格依据待核实/)).not.toBeInTheDocument();
+    expect(screen.getByText(/估算 ¥0.00/)).toBeInTheDocument();
   });
 
   it("拆分调度与计价，默认摘要展示并折叠可复制的技术详情", async () => {

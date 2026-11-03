@@ -29,6 +29,23 @@ function isTabId(value: string | null): value is TabId {
     value === "procurement"
   );
 }
+/** 需要等待 bill 数据的页签（WP4-S4）：总览渲染账单本体；采购复盘需要 status 做现行/历史分流。 */
+function billRequiredFor(tab: TabId): boolean {
+  return tab === "overview" || tab === "procurement";
+}
+
+/** 更新时间戳：总览页取账单/分析两者较旧者，其余页签取分析时间。 */
+function ledgerTimestamp(
+  tab: TabId,
+  billGeneratedAt: string | undefined,
+  analysisGeneratedAt: string,
+): string {
+  return tab === "overview" && billGeneratedAt !== undefined
+    && billGeneratedAt < analysisGeneratedAt
+    ? billGeneratedAt
+    : analysisGeneratedAt;
+}
+
 export function OperatingBillPage() {
   const flags = useFeatureFlags();
   const [params] = useSearchParams();
@@ -41,23 +58,26 @@ export function OperatingBillPage() {
     tab === "value" ||
     tab === "finance" ||
     (tab === "procurement" && flags.FEATURE_PROCUREMENT_REVIEW);
-  const bill = useOperatingBill(month, tab === "overview");
+  // WP4-S4：bill 查询全页签启用——CLOSED 历史标识横幅需要 status/version，
+  // 采购复盘页需要 status 做现行/历史分流（D5／AFR-06）。
+  const bill = useOperatingBill(month, true);
   const analysis = useOperatingAnalysis(month, reporting);
   useRedirectOnUnauthorized(bill.error ?? analysis.error);
   if (requested === "subjects")
     return <Navigate replace to={`/operating-bill/employees?month=${month}`} />;
   if (tab === "procurement" && !flags.FEATURE_PROCUREMENT_REVIEW)
     return <Navigate replace to={`/operating-bill?month=${month}`} />;
+  const billRequired = billRequiredFor(tab);
   const refresh = () => {
     void analysis.refetch();
-    if (tab === "overview") void bill.refetch();
+    if (billRequired) void bill.refetch();
   };
   const error = analysis.error ?? (tab === "overview" ? bill.error : null);
   return (
-    <OperatingBillShell active={tab} month={month}>
-      {analysis.isLoading || (tab === "overview" && bill.isLoading) ? (
+    <OperatingBillShell active={tab} month={month} status={bill.data?.status} version={bill.data?.version}>
+      {analysis.isLoading || (billRequired && bill.isLoading) ? (
         <LoadingState label="正在汇总经营账单…" rows={5} />
-      ) : !analysis.data || (tab === "overview" && !bill.data) ? (
+      ) : !analysis.data || (billRequired && !bill.data) ? (
         <ErrorState
           message={error?.message ?? "经营账单加载失败"}
           onRetry={refresh}
@@ -68,11 +88,7 @@ export function OperatingBillPage() {
             <span>
               更新于{" "}
               {accountTime(
-                tab === "overview" &&
-                  bill.data &&
-                  bill.data.generatedAt < analysis.data.generatedAt
-                  ? bill.data.generatedAt
-                  : analysis.data.generatedAt,
+                ledgerTimestamp(tab, bill.data?.generatedAt, analysis.data.generatedAt),
               )}
             </span>
             <Button
@@ -106,7 +122,7 @@ export function OperatingBillPage() {
           ) : tab === "finance" ? (
             <FinancialLedgerSection analysis={analysis.data} />
           ) : (
-            <OperatingProcurement data={analysis.data} />
+            <OperatingProcurement data={analysis.data} status={bill.data?.status} />
           )}
         </div>
       )}

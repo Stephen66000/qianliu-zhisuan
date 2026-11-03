@@ -57,6 +57,7 @@ vi.mock("../api/hooks", () => ({
     useRetireResourceRouteMock(resourceId) ?? { isPending: false, mutate: vi.fn(), isError: false },
   useRestoreResourceRoute: () => ({ isPending: false, mutate: vi.fn(), isError: false }),
   useEnableResourceRoute: () => ({ isPending: false, mutate: vi.fn(), isError: false }),
+  useRefreshOfficialBalance: () => ({ isPending: false, mutate: vi.fn(), isError: false, error: null }),
 }));
 
 vi.mock("../api/v2-hooks", () => ({
@@ -114,7 +115,7 @@ async function detectModels(user: ReturnType<typeof userEvent.setup>) {
 /**
  * 资金标签页现在按 `activation-state` 在「初始化向导」（未激活）与「日常资金面板」
  * （`strict_writes_enabled=true`）之间切换。本组用例验证的是**已激活**账本上的
- * 日常充值／订阅入口，因此显式声明已激活状态；其余资金读接口维持原有空数据回退。
+ * 日常订阅登记入口，因此显式声明已激活状态；其余资金读接口维持原有空数据回退。
  */
 function financeReadFallback(path: string, mode: ProviderFinanceMode) {
   if (path.startsWith("/provider-finance/activation-state")) {
@@ -211,30 +212,33 @@ describe("厂商资源四 Tab", () => {
     expect(screen.queryByText(/0\.08795916|2413\.38532146/)).not.toBeInTheDocument();
   });
 
-  it("DARK增加充值与订阅Tab，统一充值订阅入口且入账保持关闭", async () => {
+  it("DARK增加套餐与订阅Tab，订阅登记入口且入账保持关闭；摘要不再含 API 余额卡", async () => {
     const user = userEvent.setup();
     getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "600",
         apiRecharges: [{ currency: "CNY", amount: "600" }], apiOperatingCosts: [],
-        codingPlanOrders: [], codingPlanFixedCostCny: "0", operatingCostCny: "0",
+        codingPlanOrders: [], codingPlanFixedCostCny: "600", operatingCostCny: "600",
         operatingCostByCurrency: [], currentApiBalances: [{ currency: "CNY", amount: "498.39" }],
         currentApiBalancesComplete: true, complete: true, gaps: [] }
       : financeReadFallback(path, "DARK"));
     renderPage("/resources", "DARK");
     expect(screen.getAllByRole("tab")).toHaveLength(5);
-    await user.click(screen.getByRole("tab", { name: "充值与订阅" }));
+    // AFR-04：日常管理命名从“充值与订阅”调整为“套餐与订阅”。
+    expect(screen.getByRole("tab", { name: "套餐与订阅" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "套餐与订阅" }));
     expect(await screen.findByText("人民币实付")).toBeInTheDocument();
-    expect(screen.getByText("当前 API 余额")).toBeInTheDocument();
-    expect(screen.getByText("CNY 498.39")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "充值／订阅" })).toBeInTheDocument();
+    expect(screen.getByText("Coding Plan 支出")).toBeInTheDocument();
+    // AFR-01：API 经营成本/当前 API 余额卡随内部资金管理退役，不再在现行摘要区出现。
+    expect(screen.queryByText("API 经营成本")).not.toBeInTheDocument();
+    expect(screen.queryByText("当前 API 余额")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "订阅登记" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "新增订阅" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "充值／订阅" }));
-    await user.click(screen.getByRole("button", { name: "Coding Plan" }));
+    await user.click(screen.getByRole("button", { name: "订阅登记" }));
     expect(screen.getByLabelText("厂商产品模型")).toHaveValue(resource.id);
     expect(screen.getByRole("button", { name: "入账确认" })).toBeDisabled();
   });
 
-  it("ACTIVE从充值订阅按钮登记Coding Plan并包含自然月周期入口", async () => {
+  it("ACTIVE从订阅登记入口登记Coding Plan并包含自然月周期入口", async () => {
     const user = userEvent.setup();
     getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
       ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
@@ -246,8 +250,7 @@ describe("厂商资源四 Tab", () => {
     postMock.mockResolvedValue({ event: { id: "event-1" }, periodId: "period-1" });
     renderPage("/resources?tab=finance", "ACTIVE");
     // 资金标签页先异步读取 activation-state 才渲染日常面板，因此这里等待入口出现。
-    await user.click(await screen.findByRole("button", { name: "充值／订阅" }));
-    await user.click(screen.getByRole("button", { name: "Coding Plan" }));
+    await user.click(await screen.findByRole("button", { name: "订阅登记" }));
     await user.type(screen.getByLabelText("订阅金额"), "199");
     await user.type(screen.getByLabelText("人民币实付"), "199");
     await user.type(screen.getByLabelText("服务周期开始日"), "2026-09-19");
@@ -262,6 +265,76 @@ describe("厂商资源四 Tab", () => {
         occurred_at: expect.any(String), description: "九月订阅",
         evidence_ref: "invoice-2026-09", idempotency_key: expect.any(String) },
     ));
+  });
+
+  // AFR-01 场景1：打开 API 资源时不得出现资金初始化或余额维护（充值）表单。
+  it("API 资源不出现充值表单，登记表单只面向 Coding Plan", async () => {
+    const user = userEvent.setup();
+    const apiResource: ProviderResourceItem = {
+      ...resource, id: "33333333-3333-4333-8333-333333333333",
+      name: "DeepSeek API", mode: "API",
+    };
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [apiResource, resource] }, error: null, isLoading: false, refetch: vi.fn(),
+    });
+    getMock.mockImplementation(async (path: string) =>
+      path.startsWith("/provider-finance/summary")
+        ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
+          apiRecharges: [], apiOperatingCosts: [], codingPlanOrders: [],
+          codingPlanFixedCostCny: "0", operatingCostCny: "0",
+          operatingCostByCurrency: [], currentApiBalances: [],
+          currentApiBalancesComplete: true, complete: true, gaps: [] }
+        : financeReadFallback(path, "ACTIVE"));
+    renderPage("/resources?tab=finance", "ACTIVE");
+    await user.click(await screen.findByRole("button", { name: "订阅登记" }));
+    expect(screen.queryByLabelText("充值金额")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "API 充值" })).not.toBeInTheDocument();
+    expect(screen.queryByText("当前余额")).not.toBeInTheDocument();
+    const select = screen.getByLabelText("厂商产品模型") as HTMLSelectElement;
+    const values = Array.from(select.options).map((option) => option.value).filter(Boolean);
+    expect(values).toEqual([resource.id]);
+    // 旧资金事实保留只读入口（AFR-06）。
+    expect(screen.getByText(/历史资金记录（旧口径，只读）/)).toBeInTheDocument();
+  });
+
+  it("历史资金记录只读区渲染旧口径事件与来源标签", async () => {
+    useProviderResourcesMock.mockReturnValue({
+      data: { resources: [resource] }, error: null, isLoading: false, refetch: vi.fn(),
+    });
+    getMock.mockImplementation(async (path: string) => {
+      if (path.startsWith("/provider-finance/summary")) {
+        return { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "0",
+          apiRecharges: [], apiOperatingCosts: [], codingPlanOrders: [],
+          codingPlanFixedCostCny: "0", operatingCostCny: "0",
+          operatingCostByCurrency: [], currentApiBalances: [],
+          currentApiBalancesComplete: true, complete: true, gaps: [] };
+      }
+      if (path.includes("/finance/events")) {
+        return { items: [
+          { id: "evt-1", providerResourceId: resource.id, eventType: "API_RECHARGE",
+            accountAmount: "120", accountCurrency: "CNY", cashPaidCny: "120",
+            occurredAt: "2026-09-05T02:00:00.000Z", externalReference: "DS-9",
+            description: "历史充值", source: "MIGRATION", createdAt: "2026-09-05T02:00:00.000Z" },
+          { id: "evt-2", providerResourceId: resource.id, eventType: "CODING_PLAN_RENEWAL",
+            accountAmount: "199", accountCurrency: "CNY", cashPaidCny: "199",
+            occurredAt: "2026-09-01T00:00:00.000Z", externalReference: null,
+            description: null, source: "SYSTEM_RENEWAL", createdAt: "2026-09-01T00:00:00.000Z" },
+        ], total: 2 };
+      }
+      return financeReadFallback(path, "ACTIVE");
+    });
+    renderPage("/resources?tab=finance", "ACTIVE");
+    expect(await screen.findByText(/历史资金记录（旧口径，只读）/)).toBeInTheDocument();
+    expect(screen.getByText(/API 资金管理已退役/)).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "来源" })).toBeInTheDocument();
+    expect(screen.getByText("API 充值")).toBeInTheDocument();
+    expect(screen.getByText("历史迁移")).toBeInTheDocument();
+    // “系统续订”同时出现在续订小字与来源列，两处均为来源标识。
+    expect(screen.getAllByText("系统续订").length).toBeGreaterThanOrEqual(1);
+    // 只读区不提供任何写操作按钮。
+    const historyRegion = screen.getByText(/历史资金记录（旧口径，只读）/).closest("section");
+    expect(historyRegion).not.toBeNull();
+    expect(within(historyRegion as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
@@ -321,7 +394,7 @@ describe("POOL-010 厂商经营快照", () => {
     await user.type(screen.getByLabelText("厂商总额度"), "30000000");
     expect(screen.getByLabelText("厂商总额度")).toHaveValue("30,000,000");
     expect(screen.queryByLabelText("套餐费用")).not.toBeInTheDocument();
-    expect(screen.getByText(/订阅金额和服务周期在“充值与订阅”中登记/)).toBeInTheDocument();
+    expect(screen.getByText(/订阅金额和服务周期在“套餐与订阅”中登记/)).toBeInTheDocument();
     expect(screen.queryByLabelText("厂商已用额度")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("厂商剩余额度")).not.toBeInTheDocument();
     expect(screen.getByText(/已用额度取当前周期内该资源的账本扣减/)).toBeInTheDocument();
@@ -355,7 +428,9 @@ describe("POOL-010 厂商经营快照", () => {
     renderPage();
     await user.click(screen.getByRole("button", { name: "登记资源" }));
     expect(screen.queryByLabelText("当前余额")).not.toBeInTheDocument();
-    expect(screen.getByText(/API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理/)).toBeInTheDocument();
+    // AFR-01：API 资金登记措辞退役，引导只指向费用估算与官方余额参考。
+    expect(screen.getByText(/API 资金期初与充值已退役/)).toBeInTheDocument();
+    expect(screen.queryByText(/资金账本管理/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("厂商总额度")).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("模式"), "CODING_PLAN");
@@ -462,7 +537,10 @@ describe("POOL-010 厂商经营快照", () => {
       refetch: vi.fn(),
     });
     renderPage();
-    expect(screen.getByText("资金账本未启用")).toBeInTheDocument();
+    // WP4-S2 合同 2：API 资源不再显示"资金账本未启用"（官方余额列替代；该夹具
+    // useProviderResources mock 无 official_balance 字段 → 降级"暂无官方数据"）。
+    expect(screen.queryByText("资金账本未启用")).not.toBeInTheDocument();
+    expect(screen.getByText("暂无官方数据")).toBeInTheDocument();
     expect(screen.queryByText("充值 CNY 109.41")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "更新经营数据" })).not.toBeInTheDocument();
     expect(patchMock).not.toHaveBeenCalled();

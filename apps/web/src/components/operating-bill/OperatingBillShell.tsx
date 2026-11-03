@@ -70,6 +70,8 @@ export function operatingBillMonth(value: string | null): string {
 export function OperatingBillShell({
   active,
   month,
+  status,
+  version,
   children,
 }: {
   active: OperatingBillSection;
@@ -136,6 +138,17 @@ export function OperatingBillShell({
           ))}
         </div>
       </nav>
+      {/* WP4-S4（AFR-06）：已关账版本＝历史口径只读渲染，顶部明确历史标识；
+          金额与数据源零变化（D5），仅加历史识别。 */}
+      {status === "CLOSED" ? (
+        <p
+          className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle px-3 py-2 text-[13px] text-ql-fg-secondary"
+          role="status"
+        >
+          已关账版本（历史口径，只读）
+          {typeof version === "number" && version > 0 ? ` · v${version}` : ""}
+        </p>
+      ) : null}
       {children}
     </div>
   );

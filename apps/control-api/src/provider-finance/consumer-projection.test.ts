@@ -21,15 +21,26 @@ const planFinance: ResourceFinanceView = { resourceId: "plan-1", providerCode: "
     requestCount: "200",
   } };
 
-// projectFinanceUtilization 属资源复盘路由（resource-insights/routes.ts），不在 S3a 合同
-// 范围（其 API 余额/费用投影走资金读模型，处置归 WP2/WP4），既有断言原样保留。
-it("projects the same API balance and cost into utilization", () => {
+// 断言迁移（WP4-S2 / WP2 遗留②收口＋AFR-07/D5）：原用例断言资金账户 498.4/108.43/600
+// 覆盖 API 行——该兜底随内部资金管理退役（apiCost/currency 与预算利用率由基础行
+// applyApiBudgetFacts 按 C1 同源估算计算，finance 开/关双路同源同值；ACE-06）。
+// 改断言：资金账户值不再进入 API 行，currentBalance/purchaseCashAmount 恒 null，
+// 基础行估算与利用率字段原样透传。
+it("keeps API utilization projection同源：funding account values must not override estimation fields", () => {
   const row = { resourceId: "resource-1", mode: "API", budgetStatus: "ACTIVE",
-    budgetAmount: "200", budgetCurrency: "CNY" } as ResourceUtilizationRow;
-  expect(projectFinanceUtilization(row, apiFinance)).toMatchObject({
-    currentBalance: "498.4", apiCost: "108.43", purchaseCashAmount: "600",
+    budgetAmount: "200", budgetCurrency: "CNY",
+    apiCost: "108.43000000", currency: "CNY",
     utilizationRate: "0.54215000", budgetDifference: "91.57000000",
+    utilizationBasis: "API_MONTHLY_BUDGET", utilizationStatus: "OVER_BUDGET",
+    notCalculableReason: null } as ResourceUtilizationRow;
+  expect(projectFinanceUtilization(row, apiFinance)).toMatchObject({
+    apiCost: "108.43000000", currency: "CNY",
+    utilizationRate: "0.54215000", budgetDifference: "91.57000000",
+    utilizationBasis: "API_MONTHLY_BUDGET", notCalculableReason: null,
+    currentBalance: null, purchaseCashAmount: null,
   });
+  expect(projectFinanceUtilization(row, apiFinance))
+    .not.toMatchObject({ currentBalance: "498.4", purchaseCashAmount: "600" });
 });
 
 /**

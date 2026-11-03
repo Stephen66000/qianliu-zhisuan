@@ -81,6 +81,8 @@ export interface AttemptMetering {
     multiplier?: string | null;
     currency?: string;
     priority?: number;
+    /** ACE-02 场景 3：价格依据核实状态随结算快照冻结；旧数据缺省按 UNVERIFIED 解释。 */
+    sourceStatus?: "VERIFIED" | "UNVERIFIED";
   } | null;
 }
 

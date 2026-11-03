@@ -73,6 +73,14 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
   });
 
+  // ACE-01（WP4-S2 合同 5）：指标卡与排名表头统一"API费用估算"措辞，不宣称实际扣款。
+  it("指标卡与排名表头使用 API费用估算 命名", () => {
+    renderPanel();
+    expect(screen.getAllByText("API费用估算").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("columnheader", { name: "API费用估算" })).toBeInTheDocument();
+    expect(screen.queryByText("API 费用")).not.toBeInTheDocument();
+  });
+
   it("指标保留数值，移除计量说明与技术来源文案", () => {
     useUsageOverviewMock.mockReturnValue({
       isLoading: false, error: null, refetch: vi.fn(),

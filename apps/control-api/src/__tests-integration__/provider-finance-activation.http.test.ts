@@ -547,7 +547,12 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
 
     // strict_writes 已开启：W5（CODING_PLAN 订阅写）在纯套餐激活后立即可用——
     // 企业从未登记任何 API 资金事实（AFR-04：套餐初始化不因 API 余额缺失阻断）。
-    const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    // AT-AFR-03 修复（WP4-S6，总指挥授权）：业务时间改取北京昨天 T02:00（恒为过去时刻）。
+    // 原夹具取北京"今天"后拼 T02:00:00Z（=北京今天 10:00），在北京 00:00–10:00 窗口
+    // 位于未来，被 validateOrdinaryOccurredAt 拒绝（400"业务时间不能晚于当前时间"）；
+    // occurred_at 与 service_period_start 受 assertSameShanghaiDay 约束须同上海日，故同改。
+    // 用例语义（业务时间合法的纯套餐草稿）与断言/流程零变化。
+    const today = new Date(Date.now() + 8 * 3_600_000 - 24 * 3_600_000).toISOString().slice(0, 10);
     const subscription = await app.inject({ method: "POST",
       url: `/provider-resources/${seeded.planResourceId}/finance/subscriptions`,
       headers: { cookie: seeded.superCookie },

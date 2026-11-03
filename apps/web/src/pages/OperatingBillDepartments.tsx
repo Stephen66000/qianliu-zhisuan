@@ -51,8 +51,9 @@ export function OperatingBillDepartmentsPage() {
     month = operatingBillMonth(params.get("month"));
   const query = useDepartmentAccounts(month);
   useRedirectOnUnauthorized(query.error);
+  // WP4-S4（AFR-06）：CLOSED 月部门页走冻结证据（409 机制不动），历史标识由 Shell 横幅渲染。
   return (
-    <OperatingBillShell active="departments" month={month}>
+    <OperatingBillShell active="departments" month={month} status={query.data?.status}>
       {query.isLoading ? (
         <LoadingState label="正在汇总部门账…" rows={5} />
       ) : !query.data ? (

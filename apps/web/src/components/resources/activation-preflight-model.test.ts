@@ -64,7 +64,8 @@ describe("结构化缺口分组", () => {
       gap({ code: "LEGACY_RECORD_UNCLOSED", category: "LEGACY_RECORD", legacyRecordId: "cccccccc-dddd" }),
     ]);
     expect(groups.map((group) => group.category)).toEqual(["OPENING_BALANCE", "LEGACY_RECORD", "USAGE"]);
-    expect(groups[0]!.label).toBe("API 期初余额");
+    // WP4-S3 / AFR-01：API 期初类别标签已标注退役（服务端不再产生该类缺口）。
+    expect(groups[0]!.label).toBe("API 期初余额（已退役）");
 
     const label = (id: string) => (id === "res-1" ? "Kimi · 主账号" : id.slice(0, 8));
     expect(gapLocator(gap({ resourceId: "res-1", accountCurrency: "USD", month: "2026-08" }), label))

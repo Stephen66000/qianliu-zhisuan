@@ -11,7 +11,7 @@ import { accountTime } from "./AccountShared";
 import { BillCard, SectionHeading } from "./BillShared";
 
 const labels: Record<string, string> = {
-  API_RECHARGE: "API 充值",
+  API_RECHARGE: "API 充值（历史）",
   CODING_PLAN_PURCHASE: "套餐采购",
   CODING_PLAN_RENEWAL: "套餐续费",
   REVERSAL: "实付冲销",

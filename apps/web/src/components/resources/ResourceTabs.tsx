@@ -8,7 +8,7 @@ const RESOURCE_TABS: Array<{ id: ResourceTab; label: string }> = [
   { id: "usage-overview", label: "用量总览" },
   { id: "quota-windows", label: "额度窗口" },
   { id: "supply-health", label: "供给与健康" },
-  { id: "finance", label: "充值与订阅" },
+  { id: "finance", label: "套餐与订阅" },
 ];
 
 function tabFromLocation(requested: string | null, hash: string, financeEnabled: boolean): ResourceTab {

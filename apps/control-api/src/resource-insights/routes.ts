@@ -217,30 +217,12 @@ export function projectFinanceUtilization(
   if (resource.mode === "CODING_PLAN") {
     return projectCodingPlanUtilization(resource, finance);
   }
-  const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
-  const next = { ...resource,
-    apiCost: resource.apiCost ?? account?.monthlyApiCost ?? null,
-    currentBalance: account?.balanceState === "NORMAL" ? account.balance : null,
-    purchaseCashAmount: account?.monthlyRecharge ?? "0.00000000",
-    currency: account?.currency ?? null };
-  if (next.budgetStatus !== "ACTIVE" || next.budgetAmount === null
-    || next.budgetCurrency === null) return { ...next, utilizationRate: null,
-    utilizationBasis: null, utilizationStatus: "NOT_CONFIGURED",
-    notCalculableReason: "MONTHLY_BUDGET_NOT_CONFIGURED" };
-  if (!account || account.balanceState !== "NORMAL") return { ...next,
-    utilizationRate: null, utilizationBasis: null, utilizationStatus: "UNKNOWN",
-    notCalculableReason: account?.balanceState ?? "API_FINANCE_ACCOUNT_NOT_UNIQUE" };
-  if (account.currency !== next.budgetCurrency) return { ...next, utilizationRate: null,
-    utilizationBasis: null, utilizationStatus: "UNKNOWN",
-    notCalculableReason: "BUDGET_CURRENCY_MISMATCH" };
-  const spend = new MoneyDecimal(resource.apiCost ?? account.monthlyApiCost);
-  const budget = new MoneyDecimal(next.budgetAmount);
-  return { ...next, utilizationRate: spend.div(budget).toDecimalPlaces(8).toFixed(8),
-    budgetDifference: budget.minus(spend).toDecimalPlaces(8).toFixed(8),
-    utilizationBasis: "API_MONTHLY_BUDGET",
-    utilizationStatus: spend.gte(budget) ? "OVER_BUDGET"
-      : spend.gte(budget.times("0.8")) ? "WARNING" : "NORMAL",
-    notCalculableReason: null };
+  // WP2 遗留②收口（WP4-S2 合同 7；AFR-07/D5）：API 行退出资金读模型投影——
+  // apiCost/currency 与预算利用率已由基础行 applyApiBudgetFacts 按 C1 同源估算计算
+  // （finance 开/关双路同源同值，ACE-06）；内部余额不再从资金账户取值，充值兜底串
+  // （monthlyRecharge ?? "0.00000000"）不再产出，两字段恒 null（web v2-types 已为
+  // string | null）。CODING_PLAN 分支零改动（W5/W6 域）。
+  return { ...resource, currentBalance: null, purchaseCashAmount: null };
 }
 
 function projectCodingPlanUtilization(

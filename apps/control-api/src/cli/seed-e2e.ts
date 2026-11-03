@@ -13,6 +13,7 @@ import { seedPool043OperatingBill } from "./seed-e2e-pool043.js";
 import { IDS } from "./seed-e2e-ids.js";
 import { seedE2eCatalog } from "./seed-e2e-catalog.js";
 import { seedE2eOperations } from "./seed-e2e-operations.js";
+import { seedWp4CostOfficialBalance } from "./seed-e2e-wp4.js";
 
 function assertDedicatedDatabase(databaseUrl: string): void {
   const url = new URL(databaseUrl);
@@ -41,6 +42,8 @@ async function main(): Promise<void> {
         route_candidate, ai_request, resource_status_event, model_route, unified_model,
         quota_counter, principal_grant, principal_key, employee_login, principal,
         provider_resource_operating_snapshot,
+        provider_resource_operating_sync_attempt,
+        operating_bill_period, provider_finance_event, provider_finance_runtime_state,
         provider_resource, provider, operation_log, admin_session, admin_user, enterprise
       RESTART IDENTITY CASCADE
     `.execute(db);
@@ -267,6 +270,7 @@ async function main(): Promise<void> {
           billing_rule_id: IDS.billingRule,
           rule_version: "e2e-v1",
           multiplier: "1",
+          settled_at: now,
         },
         {
           id: IDS.streamLedgerLine,
@@ -286,6 +290,7 @@ async function main(): Promise<void> {
           billing_rule_id: IDS.billingRule,
           rule_version: "e2e-v1",
           multiplier: "1",
+          settled_at: new Date(now.getTime() + 5_000),
         },
         {
           id: IDS.ledgerLine2,
@@ -305,6 +310,7 @@ async function main(): Promise<void> {
           billing_rule_id: IDS.billingRule,
           rule_version: "e2e-v1",
           multiplier: "1",
+          settled_at: now,
         },
       ])
       .execute();
@@ -347,6 +353,7 @@ async function main(): Promise<void> {
 
     await seedPool043OperatingBill(db, IDS.enterprise, IDS.admin, IDS.resource, now);
     await seedPool042Dashboard(db, IDS.enterprise, IDS.principal, IDS.key, now);
+    await seedWp4CostOfficialBalance(db, IDS.enterprise, IDS.admin, IDS.principal, IDS.key, now);
 
     console.log(
       JSON.stringify({

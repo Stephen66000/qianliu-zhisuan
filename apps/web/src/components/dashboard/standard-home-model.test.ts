@@ -192,20 +192,23 @@ describe("tokenQualityLabel（质量文案三态）", () => {
 });
 
 describe("costGapLabel（缺口码映射全表）", () => {
-  it("六个缺口码逐一映射，分隔符为顿号", () => {
+  it("仍产缺口码逐一映射，分隔符为顿号", () => {
     expect(costGapLabel("API_USAGE_COST_UNKNOWN:1")).toBe("存在未知 API 费用");
     expect(costGapLabel("API_LEGACY_ARCHIVED")).toBe("历史账期费用尚未确认");
     expect(costGapLabel("API_USAGE_COST_NOT_MIGRATED:1")).toBe("该历史区间金额未迁移（不可计算）");
     expect(costGapLabel("API_COST_CURRENCY_MISSING:1")).toBe("有费用缺少币种");
     expect(costGapLabel("API_COST_CURRENCY_CONFLICT:1")).toBe("有费用币种与计价规则冲突");
-    expect(costGapLabel("OPENING_BALANCE_MISSING:1")).toBe("有账户缺少期初余额");
     expect(costGapLabel("SUBSCRIPTION_PERIOD_AMBIGUOUS:1")).toBe("有套餐用量匹配多个订阅周期");
     expect(costGapLabel("SUBSCRIPTION_FEE_MISSING:1")).toBe("有订阅周期缺少已确认套餐费用");
     expect(costGapLabel("SUBSCRIPTION_PERIOD_MISSING:1")).toBe("有套餐用量缺少订阅周期");
     expect(costGapLabel("CASH_PAID_CNY_MISSING:1")).toBe("有充值或套餐采购未登记现金支出");
-    expect(costGapLabel("API_USAGE_COST_UNKNOWN:1、OPENING_BALANCE_MISSING:1")).toBe(
-      "存在未知 API 费用、有账户缺少期初余额",
+    expect(costGapLabel("API_USAGE_COST_UNKNOWN:1、CASH_PAID_CNY_MISSING:1")).toBe(
+      "存在未知 API 费用、有充值或套餐采购未登记现金支出",
     );
+    // 断言迁移（WP4-S4 合同 1 / AFR-07）：OPENING_BALANCE_MISSING 已随后端停产
+    // （provider-finance-gaps.ts 恒 0），现行视图不再出现"缺少期初余额"待补文案；
+    // 未知码回退原码字符串的行为保持不变。
+    expect(costGapLabel("OPENING_BALANCE_MISSING:1")).toBe("OPENING_BALANCE_MISSING:1");
   });
 });
 
@@ -422,8 +425,10 @@ describe("buildOverviewCards（双期可比性与费用完整性）", () => {
 
   it("缺口码映射：未登记现金支出与未知费用", () => {
     expect(costGapLabel("API_USAGE_COST_UNKNOWN:2")).toContain("存在未知 API 费用");
-    expect(costGapLabel("CASH_PAID_CNY_MISSING:1、OPENING_BALANCE_MISSING:1"))
-      .toContain("有账户缺少期初余额");
+    // 断言迁移（WP4-S4 合同 1 / AFR-07）：组合串中移除已停产的 OPENING_BALANCE_MISSING，
+    // 改用仍产的 API_COST_CURRENCY_MISSING 验证多码拼接。
+    expect(costGapLabel("CASH_PAID_CNY_MISSING:1、API_COST_CURRENCY_MISSING:1"))
+      .toContain("有费用缺少币种、有充值或套餐采购未登记现金支出");
     expect(costGapLabel("UNKNOWN_NEW_CODE")).toBe("UNKNOWN_NEW_CODE");
   });
 });

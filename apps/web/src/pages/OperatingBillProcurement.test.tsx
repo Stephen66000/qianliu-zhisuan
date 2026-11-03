@@ -14,9 +14,11 @@ let result: {
 vi.mock("../api/operating-analysis", () => ({
   useOperatingAnalysis: () => result,
 }));
+// WP4-S4：采购复盘页需要 bill.status 做现行/历史分流（D5／AFR-06），mock 提供最小形状。
+let billStatus: "DRAFT" | "CLOSED" = "DRAFT";
 vi.mock("../api/operating-bills", () => ({
   useOperatingBill: () => ({
-    data: undefined,
+    data: { month: "2026-08", status: billStatus, version: 0, generatedAt: "2026-08-03T00:00:00Z" },
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -31,6 +33,7 @@ function show(tab = "procurement") {
 }
 beforeEach(() => {
   refresh.mockReset();
+  billStatus = "DRAFT";
   result = {
     data: analysisFixture,
     isLoading: false,
@@ -49,19 +52,40 @@ describe("经营分析报表", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("¥313.00").length).toBeGreaterThan(0);
   });
-  it("同一月内分开到账与实付，套餐费用与利用率独立成五列表格", () => {
+  it("现行月（DRAFT）复盘表退役期初/充值/期末列，保留实付与 API 费用估算（WP4-S4 / AFR-07）", () => {
     show();
+    // 断言迁移（WP4-S4 合同 6）：资金轨迹列（期初余额/充值到账/期末余额）按裁定退役；
+    // apiSpend 数据源已为同源估算（WP1 合同 §3 S3c），列名改"API 费用估算"；实付保留。
+    expect(screen.queryByRole("columnheader", { name: "期初余额" })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "充值到账" })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "期末余额" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "实付（人民币）" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "API 费用估算" })).toBeInTheDocument();
+    const row = screen
+      .getAllByText("2026-08")
+      .map((el) => el.closest("tr"))
+      .find(Boolean)!;
+    expect(within(row).getByText("¥15.00")).toBeInTheDocument();
+    expect(within(row).queryByText("¥20.00")).not.toBeInTheDocument();
+    expect(within(row).queryByText("100%")).not.toBeInTheDocument();
+    const planTable = screen.getByRole("heading", { name: "套餐采购与峰值利用率" }).closest("section")!;
+    expect(within(planTable).getAllByRole("columnheader")).toHaveLength(5);
+    expect(within(planTable).getByText("100%")).toBeInTheDocument();
+    expect(within(planTable).getByText("50%")).toBeInTheDocument();
+  });
+  it("关账历史版本（CLOSED）保留期初/充值/期末旧口径列（WP4-S4 / AFR-06）", () => {
+    billStatus = "CLOSED";
+    show();
+    expect(screen.getByRole("columnheader", { name: "期初余额" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "充值到账" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "期末余额" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "API 消耗" })).toBeInTheDocument();
     const row = screen
       .getAllByText("2026-08")
       .map((el) => el.closest("tr"))
       .find(Boolean)!;
     expect(within(row).getByText("¥20.00")).toBeInTheDocument();
     expect(within(row).getByText("¥15.00")).toBeInTheDocument();
-    expect(within(row).queryByText("100%")).not.toBeInTheDocument();
-    const planTable = screen.getByRole("heading", { name: "套餐采购与峰值利用率" }).closest("section")!;
-    expect(within(planTable).getAllByRole("columnheader")).toHaveLength(5);
-    expect(within(planTable).getByText("100%")).toBeInTheDocument();
-    expect(within(planTable).getByText("50%")).toBeInTheDocument();
   });
   it("套餐 Token 与峰值比例同表，切换厂商读取对应事实", async () => {
     show("plans");

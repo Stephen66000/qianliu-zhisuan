@@ -118,7 +118,9 @@ function emptyHome(): StandardHomeSummary {
       billStatus: "DRAFT",
       current: {
         totalSpends: [], apiSpends: [], packageCosts: [],
-        incompleteReason: "期初余额待补",
+        // fixture 迁移（WP4-S4 / AFR-07）：原"期初余额待补"为资金域待补字样，
+        // 现行视图后端不产该类文案；改用透传型原始 reason 验证同一回退行为。
+        incompleteReason: "OPERATING_SNAPSHOT_MISSING",
       },
       previous: null,
     },
@@ -284,7 +286,7 @@ describe("标准版首页（两分区）", () => {
     expect(within(tokenCard).getByText(/不计算百分比/)).toBeInTheDocument();
     expect(within(tokenCard).queryByText(/较上月同期 \+\d/)).not.toBeInTheDocument();
     const costCard = screen.getByTestId("home-cost-card");
-    expect(within(costCard).getByText("期初余额待补")).toBeInTheDocument();
+    expect(within(costCard).getByText("OPERATING_SNAPSHOT_MISSING")).toBeInTheDocument();
     expect(within(costCard).getByText("上月同期 暂无可比数据")).toBeInTheDocument();
   });
 

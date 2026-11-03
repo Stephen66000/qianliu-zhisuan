@@ -360,7 +360,9 @@ describe("provider finance routes", () => {
         utilizationRate: "0.45000000", utilizationBasis: "CODING_PLAN_SUBSCRIPTION_PERIOD",
         notCalculableReason: null, servicePeriodStart: "2026-09-02",
         servicePeriodEnd: "2026-10-02" }),
-      expect.objectContaining({ resourceId: apiResourceId, currentBalance: "65.00000000" }),
+      // 断言迁移（WP4-S2 / WP2 遗留②收口＋AFR-07）：utilization API 行不再从资金账户
+      // 投影内部余额（资金账户 65.00 退出展示），currentBalance 恒 null。
+      expect.objectContaining({ resourceId: apiResourceId, currentBalance: null }),
     ]));
     const dashboard = await app.inject({ method: "GET", url: "/dashboard", headers: { cookie } });
     expect(dashboard.json()).toMatchObject({ monthlyPackagePayment: "199.00000000",

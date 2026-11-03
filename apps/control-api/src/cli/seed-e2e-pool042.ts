@@ -77,12 +77,14 @@ export async function seedPool042Dashboard(
       upstream_attempt_id: IDS.flashAttempt, provider_resource_id: IDS.resource,
       principal_id: principalId, resource_mode: "API", raw_input_tokens: 150n,
       raw_output_tokens: 30n, raw_cache_tokens: 20n, raw_reasoning_tokens: 0n,
-      api_cost: "3.2", usage_quality: "PROVIDER_REPORTED", created_at: flashAt },
+      api_cost: "3.2", usage_quality: "PROVIDER_REPORTED",
+      created_at: flashAt, settled_at: flashAt },
     { ai_request_id: IDS.proRequest, enterprise_id: enterpriseId, usage_event_id: IDS.proUsage,
       upstream_attempt_id: IDS.proAttempt, provider_resource_id: IDS.resource,
       principal_id: principalId, resource_mode: "API", raw_input_tokens: 200n,
       raw_output_tokens: 50n, raw_cache_tokens: 40n, raw_reasoning_tokens: 0n,
-      api_cost: "4.8", usage_quality: "PROVIDER_REPORTED", created_at: proAt },
+      api_cost: "4.8", usage_quality: "PROVIDER_REPORTED",
+      created_at: proAt, settled_at: proAt },
   ]).execute();
   await db.insertInto("provider_resource_operating_snapshot").values([
     {

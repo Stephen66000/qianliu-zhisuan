@@ -21,7 +21,8 @@ export interface ResourceUtilizationRow {
   realTokens: string;
   apiCost: string | null;
   deductedQuota: string;
-  purchaseCashAmount: string;
+  /** API 行经 projectFinanceUtilization 收口后恒 null（WP2 遗留②；充值/余额退出展示投影）。 */
+  purchaseCashAmount: string | null;
   currency: string | null;
   budgetAmount: string | null;
   budgetCurrency: string | null;

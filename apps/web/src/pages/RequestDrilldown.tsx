@@ -15,7 +15,7 @@ import { LoadingState } from "../components/states/LoadingState";
 import { ErrorState } from "../components/states/ErrorState";
 import { StatusTag } from "../components/dashboard/StatusTag";
 import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../lib/format";
-import { unavailableUsageCostLabel } from "../lib/usage-cost";
+import { costMoneyText, unavailableUsageCostLabel } from "../lib/usage-cost";
 
 interface RequestDrilldownProps {
   requestId: string;
@@ -71,12 +71,12 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             <Field label="缓存 Token" value={formatCount(settlement.totalCacheTokens)} />
             <Field label="扣减额度" value={formatCount(settlement.totalDeductedQuota)} />
             <Field
-              label="API 费用"
+              label="API费用估算"
               value={
                 unavailableUsageCostLabel(settlement.totalApiCost, settlement.apiCostStatus)
                   ?? (settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
                     ? "套餐内"
-                    : `¥${formatMoney(settlement.totalApiCost!)}`)
+                    : costMoneyText(settlement.totalApiCost!))
               }
             />
             <Field label="Attempt 数" value={String(settlement.attemptCount)} />
@@ -208,7 +208,7 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                         {m.reasoningTokens !== "0" ? ` · 推理 ${m.reasoningTokens}` : ""}
                         {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                         {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
-                          ? ` · 费用 ${formatMoney(m.apiCost)} 元`
+                          ? ` · 估算 ${costMoneyText(m.apiCost, m.billingRuleSnapshot?.currency)}${priceBasisSuffix(m.billingRuleSnapshot)}`
                           : m.apiCostStatus === "EXCLUDED_NO_RECORDED_COST"
                             ? ` · ${unavailableUsageCostLabel(m.apiCost, m.apiCostStatus)}`
                           : " · 套餐内"}
@@ -260,7 +260,8 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                       <Field label="生效时间" value={snapshot?.effectiveFrom ? formatDateTimeFull(snapshot.effectiveFrom) : "—"} />
                       <Field label="单价（缓存/输入/输出）" value={prices} />
                       <Field label="倍率" value={metering.multiplier ? `×${metering.multiplier}` : "—"} />
-                      <Field label="最终费用" value={metering.apiCost !== null ? `¥${formatMoney(metering.apiCost)}`
+                      <Field label="估算费用" value={metering.apiCost !== null
+                        ? `${costMoneyText(metering.apiCost, snapshot?.currency)}${priceBasisSuffix(snapshot)}`
                         : metering.apiCostStatus === "EXCLUDED_NO_RECORDED_COST"
                           ? unavailableUsageCostLabel(metering.apiCost, metering.apiCostStatus)! : "套餐内"} />
                     </div>
@@ -366,6 +367,15 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
       </p>
     </div>
   );
+}
+
+/**
+ * ACE-02 场景 3：UNVERIFIED 规则计价的金额必须呈现"价格依据待核实"。
+ * 数据源＝结算时冻结在 ledger_line.billing_rule_snapshot 的 sourceStatus（gateway
+ * billing.ts 随快照写入，gateway-requests 路由原样透出）；旧快照缺省按 UNVERIFIED 解释。
+ */
+function priceBasisSuffix(snapshot: { sourceStatus?: "VERIFIED" | "UNVERIFIED" } | null | undefined): string {
+  return snapshot?.sourceStatus === "VERIFIED" ? "" : "（价格依据待核实）";
 }
 
 function diagnosticCategory(category: string): string {

@@ -65,7 +65,8 @@ describe("部门主体账", () => {
   it("沿用员工表格，待归属引导到使用主体", async () => {
     show();
     expect(
-      await screen.findByRole("columnheader", { name: "DeepSeek API 消费" }),
+      // 断言迁移（WP4-S4 合同 7 / ACE-01）：列头改估算命名。
+      await screen.findByRole("columnheader", { name: "DeepSeek API 费用估算" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "补齐历史归属" })).toHaveAttribute("href", "/principals");

@@ -21,6 +21,7 @@ import type {
   DeploymentLogsResult,
   DeploymentStatus,
   GatewayRequestDetail,
+  OfficialBalanceRefreshResult,
   GrantsResult,
   ModelRoutesResult,
   OperationLogsResult,
@@ -231,6 +232,21 @@ export function useSyncQuotaWindow(resourceId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quotaWindows(resourceId) });
+    },
+  });
+}
+
+/** WP3 C2 / OAB-03：管理员手动刷新官方余额。三态（ACCEPTED/IN_PROGRESS/COOLDOWN）由后端给出，
+ * 冷却展示一律消费 official_balance.next_refresh_at（不前端推算 P1/P2/P3）；成功后刷新资源列表。 */
+export function useRefreshOfficialBalance(resourceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      post<OfficialBalanceRefreshResult>(
+        `/provider-resources/${resourceId}/official-balance/refresh`,
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.providerResources });
     },
   });
 }

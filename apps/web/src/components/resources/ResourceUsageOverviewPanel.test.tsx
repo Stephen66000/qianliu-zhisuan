@@ -86,7 +86,10 @@ describe("厂商资源用量总览", () => {
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "余额可承载 Token" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "已用额度" })).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "余额 / 剩余额度" })).toBeInTheDocument();
+    // 断言迁移（WP4-S2 合同 4）：列头拆分为官方余额＋剩余额度。
+    expect(screen.getByRole("columnheader", { name: "官方余额" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "剩余额度" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "余额 / 剩余额度" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "所属资源余额 / 剩余额度" })).not.toBeInTheDocument();
     const providerRow = screen.getAllByText("DeepSeek")[0]!.closest("tr")!;
     expect(within(providerRow).getByText(/预计耗尽/)).toBeVisible();

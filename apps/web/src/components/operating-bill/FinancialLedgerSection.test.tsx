@@ -54,7 +54,7 @@ function analysisFixture(): OperatingAnalysis {
 }
 
 describe("FinancialLedgerSection 财务账", () => {
-  it("只展示真实分析数据，并区分官方余额与内部账本余额", () => {
+  it("只展示真实分析数据，官方余额可见且内部账本余额列退役（WP4-S4 / AFR-07）", () => {
     const analysis = analysisFixture();
     const model = buildFinancialLedgerModel(analysis);
     expect(model.rows).toHaveLength(1);
@@ -67,12 +67,17 @@ describe("FinancialLedgerSection 财务账", () => {
     expect(screen.getByText("官方账户可用余额")).toBeInTheDocument();
     expect(screen.getByText("CNY 356.61")).toBeInTheDocument();
     expect(screen.getByText("实际可用资金以厂商官方余额为准")).toBeInTheDocument();
-    expect(screen.getByText("仟流内部账本余额")).toBeInTheDocument();
+    // 断言迁移（WP4-S4 合同 5 / AFR-07）：内部账本余额卡与"月末账本余额"列退役，
+    // 模型层 endingBalance 字段照常产出（历史数据不改写）。
+    expect(screen.queryByText("仟流内部账本余额")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "月末账本余额" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "API 费用估算" })).toBeInTheDocument();
+    expect(screen.getByText("年度综合费用（含 API 估算）")).toBeInTheDocument();
     expect(screen.getAllByText("¥ 725.65").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥ 104.55").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥ 621.10").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥ 1,221.10").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("¥ 495.45").length).toBeGreaterThan(0);
+    expect(screen.queryByText("¥ 495.45")).toBeNull();
     expect(screen.getByText("2026-09")).toBeInTheDocument();
     expect(screen.queryByText("2026-08")).toBeNull();
     for (const stale of ["¥ 120.49", "¥ 200.00", "¥ 47.41", "¥ 32.10"]) {
@@ -80,15 +85,19 @@ describe("FinancialLedgerSection 财务账", () => {
     }
   });
 
-  it("CSV 与页面共用同一真实模型", () => {
+  it("CSV 与页面共用同一真实模型（余额列退役，WP4-S4 / AFR-07）", () => {
     const csv = financialLedgerCsv(buildFinancialLedgerModel(analysisFixture()));
     expect(csv).toContain("2026-09,621.10000000,600.00000000,1221.10,104.55405484");
     expect(csv).toContain("725.65405484");
-    expect(csv).toContain("495.44594516,CNY");
+    // 断言迁移：内部余额列不再导出；表头改"API费用估算"，币种列更名"估算币种"。
+    expect(csv).toContain("API费用估算");
+    expect(csv).toContain("估算币种");
+    expect(csv).not.toContain("月末账本余额");
+    expect(csv).not.toContain("495.44594516");
     expect(csv).not.toContain("120.49");
   });
 
-  it("多币种余额不混加", () => {
+  it("多币种估算不混加（内部余额列已退役，模型层保守语义不变）", () => {
     const analysis = analysisFixture();
     analysis.apiAccounts.push({ ...analysis.apiAccounts[0]!, currency: "USD",
       totals: { ...analysis.apiAccounts[0]!.totals, endingBalance: "9.00" },

@@ -7,7 +7,7 @@ import { QueryGate } from "../states/QueryGate";
 import { formatDateTimeFull } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { operatingDraftFromResource } from "./resource-form-contract";
-import { ISOLATED, MODE_LABEL, ResourceFinanceColumn, ResourceQuotaColumn } from "./resource-page-display";
+import { ISOLATED, MODE_LABEL, OFFICIAL_BALANCE_STATUS_LABEL, ResourceFinanceColumn, ResourceQuotaColumn } from "./resource-page-display";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 
 export function resourceModelNames(resource: Pick<ProviderResourceItem, "upstream_models" | "display_upstream_models">) {
@@ -51,7 +51,7 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                 <th className="py-2 pr-4 font-medium">名称</th>
                 <th className="py-2 pr-4 font-medium">厂商/模型</th>
                 <th className="py-2 pr-4 font-medium">模式</th>
-                <th className="py-2 pr-4 font-medium">资金</th>
+                <th className="py-2 pr-4 font-medium">官方余额 / 订阅</th>
                 <th className="py-2 pr-4 font-medium">额度数据</th>
                 <th className="py-2 pr-4 font-medium">数据时间</th>
                 <th className="py-2 pr-4 font-medium">状态</th>
@@ -88,12 +88,16 @@ export function ResourceTable({ model }: { model: ResourcesPageModel }) {
                   </td>
                   <td
                     className="break-words py-2.5 pr-4 align-top text-ql-fg-secondary"
-                    title={r.operating_sync ? [
-                      r.operating_sync.data_status,
-                      `余额 ${r.operating_sync.balance_status}`,
-                      `费用 ${r.operating_sync.cost_status}`,
-                      r.operating_sync.failure_reason,
-                    ].filter(Boolean).join(" · ") : undefined}
+                    title={[
+                      r.operating_sync?.data_status,
+                      r.official_balance
+                        ? `官方余额 ${OFFICIAL_BALANCE_STATUS_LABEL[r.official_balance.status]}`
+                        : null,
+                      r.official_balance?.last_success_at
+                        ? `最近成功 ${formatDateTimeFull(r.official_balance.last_success_at)}`
+                        : null,
+                      r.official_balance?.last_attempt?.reason ?? r.operating_sync?.failure_reason,
+                    ].filter(Boolean).join(" · ") || undefined}
                   >
                     <span className="block leading-5">
                       {r.operating_snapshot

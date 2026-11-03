@@ -89,7 +89,10 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
 
     expect(screen.queryByText("估算计量")).not.toBeInTheDocument();
     expect(screen.queryByText("精确计量")).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "余额 / 剩余额度" })).toBeInTheDocument();
+    // WP4-S2 合同 4：列头"余额 / 剩余额度"拆分——官方余额（API，C2 数据链归 S4/移交，
+    // 先降级"—"）与剩余额度（套餐）两列。
+    expect(screen.getByRole("columnheader", { name: "官方余额" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "剩余额度" })).toBeInTheDocument();
     expect(screen.queryByText("ql-unknown-model")).not.toBeInTheDocument();
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
@@ -113,6 +116,8 @@ describe("厂商总览额度单位", () => {
   it.each(["POINT", "TOKEN", "CREDIT"])("剩余额度保留厂商 %s 单位，分配额度保留授权 Token 单位", (quotaUnit) => {
     render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "1200", allocatedQuota: "2500" })]} />);
     const row = screen.getByText("基础厂商").closest("tr")!;
+    // 断言迁移（WP4-S2 合同 4）：余额列拆分为官方余额＋剩余额度两列，套餐剩余额度右移一列。
+    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
     expect(within(row).getByText(`1,200 ${quotaUnit}`)).toBeVisible();
     fireEvent.click(within(row).getByRole("button", { name: "展开基础厂商 Coding Plan详情" }));
     const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
@@ -147,16 +152,20 @@ describe("厂商总览额度单位", () => {
   it("未知额度保留占位，不伪装成零额度", () => {
     render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "POINT", remainingQuota: null, allocatedQuota: null })]} />);
     const row = screen.getByText("基础厂商").closest("tr")!;
-    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
+    expect(within(row).getAllByRole("cell")[3]).toHaveTextContent(/^—$/);
     fireEvent.click(within(row).getByRole("button"));
     const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
     expect(within(details).getByText("分配额度").nextElementSibling).toHaveTextContent(/^—$/);
   });
 
   it.each(["CNY", "USD"])("API 余额保留 %s 金额口径，分配额度使用 Token", (currency) => {
+    // 断言迁移（WP4-S2 合同 4＋AFR-07）：API 行内部余额（currentBalance）退出展示——
+    // usage-overview 链暂无 C2 字段，官方余额列降级"—"；"余额待补"提示不再存在。
     render(<ResourceBreakdown items={[item({ currency, quotaUnit: "POINT", currentBalance: "12.34", allocatedQuota: "2500" })]} />);
     const row = screen.getByText("基础厂商").closest("tr")!;
-    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(`${currency} 12.34`);
+    expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
+    expect(within(row).queryByText(`${currency} 12.34`)).not.toBeInTheDocument();
+    expect(within(row).queryByText(/余额待补/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/POINT/)).not.toBeInTheDocument();
     fireEvent.click(within(row).getByRole("button"));
     expect(screen.getByRole("region", { name: "基础厂商 API详情" })).toHaveTextContent("2,500 Token");

@@ -122,7 +122,9 @@ export function MetricGrid({ totals, quotaScope }: { totals: OperatingBillMetric
               ? null
               : "¥0.00",
     },
-    { label: "API 消费", value: accountApiMoney(totals) },
+    // WP4-S4（ACE-01）：部门/项目/员工 live 账行 apiCost 已是 effectiveReportedApiCostSql
+    // 同源估算口径（WP1 合同 §3），统一估算命名；CLOSED 月由 Shell 历史横幅标识。
+    { label: "API 费用估算", value: accountApiMoney(totals) },
     {
       label: "套餐分摊",
       value:

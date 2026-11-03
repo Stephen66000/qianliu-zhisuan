@@ -45,32 +45,45 @@ export function OperatingBillOverview({
     ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
     : "不限";
 
+  // WP4-S4（总指挥裁定）：历史/现行分流维度＝bill.status。CLOSED＝已关账历史版本
+  // （保留期初/充值/期末等旧口径三卡与原标签，数据源零变化，AFR-06）；DRAFT＝现行
+  // 新口径（AFR-07 退役三卡与待补提示；ACE-01/07 估算命名＋综合费用含 API 估算标注）。
+  const closed = bill.status === "CLOSED";
   const provisionalBalance = bill.summary.endingBalance === null
     && (bill.summary.provisionalEndingBalances?.length ?? 0) > 0;
-  const metrics = [
+  const hasUnknownApiCost = bill.gaps.some((gap) => gap.code === "API_COST_UNKNOWN");
+  const metrics: string[][] = [
     ["本月分配额度", allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"],
     ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
     ["token使用率", usageRate],
     ["本月剩余额度", remainingQuota],
-    [
-      "期初余额",
-      currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency),
-    ],
-    [
-      "本月充值",
-      currencyFacts(
-        bill.summary.rechargeAmounts,
-        bill.summary.monthlyRecharge ?? null,
-        bill.summary.endingBalanceCurrency,
-      ),
-    ],
-    [
-      provisionalBalance ? "期末余额（暂算）" : "期末余额",
-      provisionalBalance
-        ? currencyFacts(bill.summary.provisionalEndingBalances, null)
-        : currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency),
-    ],
-    ["API 花费", currencyFacts(apiSpends, null)],
+    ...(closed ? [
+      [
+        "期初余额",
+        currencyFacts(bill.summary.openingBalances, bill.summary.openingBalance ?? null, bill.summary.endingBalanceCurrency),
+      ],
+      [
+        "本月充值",
+        currencyFacts(
+          bill.summary.rechargeAmounts,
+          bill.summary.monthlyRecharge ?? null,
+          bill.summary.endingBalanceCurrency,
+        ),
+      ],
+      [
+        provisionalBalance ? "期末余额（暂算）" : "期末余额",
+        provisionalBalance
+          ? currencyFacts(bill.summary.provisionalEndingBalances, null)
+          : currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency),
+      ],
+      ["API 花费", currencyFacts(apiSpends, null)],
+    ] : [
+      // ACE-01/AFR-07：现行月 API 金额＝估算口径命名；gaps 含 API_COST_UNKNOWN 时附完整性提示。
+      [
+        hasUnknownApiCost ? "API费用估算（含待计价）" : "API费用估算",
+        currencyFacts(apiSpends, null),
+      ],
+    ]),
     [
       "套餐费用",
       currencyFacts(
@@ -82,7 +95,9 @@ export function OperatingBillOverview({
         "CNY",
       ),
     ],
-    ["本月总花费", currencyFacts(totalSpends, null)],
+    // ACE-07：综合费用＝套餐计入费用＋API 费用估算（按币种），标注含 API 估算口径；
+    // CLOSED 历史版本保留原"本月总花费"标签（旧口径，不冒充估算）。
+    [closed ? "本月总花费" : "综合费用（含 API 估算）", currencyFacts(totalSpends, null)],
     [
       "套餐综合利用率",
       (planUtilization === undefined
@@ -100,21 +115,9 @@ export function OperatingBillOverview({
           <BillStat key={label} label={label!} value={value!} />
         ))}
       </div>
-      {bill.gaps.some((gap) => gap.code === "API_OPENING_BALANCE_MISSING") ||
-      bill.providers.some((row) => row.mode === "API" &&
-        (row.apiSpendStatus === "OPENING_BALANCE_MISSING" ||
-          row.apiSpendReason === "MISSING_OPENING_BALANCE")) ? (
-        <p
-          role="alert"
-          className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning"
-        >
-          期初余额未登记，请前往{" "}
-          <Link className="underline" to="/resources">
-            厂商资源
-          </Link>{" "}
-          补充资金记录。
-        </p>
-      ) : null}
+      {/* WP4-S4（AFR-07／WP2 遗留③）：API_OPENING_BALANCE_MISSING/OPENING_BALANCE_MISSING
+          已随后端停产（monthly-operating-cost.ts 改产 BRIDGE_UNAVAILABLE 且不产缺口），
+          "期初余额未登记→补充资金记录"提示整段退役；现行视图不据此阻断费用估算。 */}
       <BalanceQualityNotice gaps={bill.gaps} provisionalBalance={provisionalBalance} />
       {bill.gaps.some(gap=>gap.code==='API_COST_UNKNOWN')?<p role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">存在尚未计价的 API 请求，当前金额仅包含已确认部分。<Link className="underline" to="/usage">核查用量</Link></p>:null}
       <BillCard className="overflow-hidden">
@@ -123,7 +126,9 @@ export function OperatingBillOverview({
           headers={[
             "厂商 / 资源",
             "采购形态",
-            "API 花费",
+            // CLOSED 历史版本保留原列名（冻结值可能为旧资金口径，AFR-06 不改名冒充估算）；
+            // DRAFT 现行月数据源为同源估算（WP1 合同 §3），按 ACE-01 统一命名。
+            closed ? "API 花费" : "API费用估算",
             "套餐费用",
             "月度花费",
             "使用主体",
@@ -143,7 +148,13 @@ export function OperatingBillOverview({
               </Cell>
               <Cell>{row.mode === "API" ? "API" : "Coding Plan"}</Cell>
               <Num>
-                {row.apiCost === null ? (row.apiSpendReason ?? "—") : currencyMoney(row.apiCost, row.apiSpendCurrency ?? row.currency)}
+                {row.apiCost === null
+                  ? (row.apiSpendStatus === "BRIDGE_UNAVAILABLE"
+                    // WP4-S4（WP1 合同 §5④）：桥接不可算属历史资金口径事实，
+                    // 用中性说明，不与估算缺口文案混格。
+                    ? "桥接不可核算（历史资金口径）"
+                    : row.apiSpendReason ?? "—")
+                  : currencyMoney(row.apiCost, row.apiSpendCurrency ?? row.currency)}
               </Num>
               <Num>
                 {currencyMoney(
