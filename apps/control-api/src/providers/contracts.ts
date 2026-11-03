@@ -130,16 +130,39 @@ export function financeManagedOperatingSnapshotError(
   snapshot: z.output<typeof OperatingSnapshotSchema>,
 ): string | null {
   if (snapshot.source !== "ADMIN") return null;
+  // AFR-01 / O2（WP2-S3）：API 分支文案调整为退役口径（判定逻辑不变）——
+  // 资金字段不再指向“充值与订阅模块”，而是明确已退役、不接受手填。
   const financeFields = mode === "API"
-    ? ["recharge_amount", "current_balance", "cumulative_cost", "current_period_cost",
-      "cost_period_start", "cost_period_end", "balance_updated_at"] as const
+    ? API_ONLY_OPERATING_FIELDS
     : ["package_cost", "effective_from", "effective_until"] as const;
   const populated = financeFields.filter((field) => {
     const value = snapshot[field];
     return value !== null && value !== undefined && value !== "";
   });
+  if (populated.length === 0) return null;
+  return mode === "API"
+    ? `API 内部资金管理已退役，资金字段不接受手填：${populated.join(", ")}`
+    : `资金字段只能在充值与订阅模块登记：${populated.join(", ")}`;
+}
+
+/**
+ * AFR-01 / R1（WP2-S3）：O1a 手填快照导入（POST /operating-bill-snapshot-imports）的
+ * API 资金字段守卫。不能复用 `financeManagedOperatingSnapshotError`——该函数仅对 ADMIN
+ * 源生效，而 O1a 硬编码 BILL_RECONCILIATION 源恒放行。本判定对 API 模式资源携带 7 个
+ * 资金字段任一非空即拒绝（不论快照日期），CP 侧字段与既有 `operatingSnapshotModeError`
+ * 校验不动（plan §4a-R1）。
+ */
+export function retiredApiFundingSnapshotFieldsError(
+  mode: "API" | "CODING_PLAN",
+  snapshot: z.output<typeof OperatingSnapshotSchema>,
+): string | null {
+  if (mode !== "API") return null;
+  const populated = API_ONLY_OPERATING_FIELDS.filter((field) => {
+    const value = snapshot[field];
+    return value !== null && value !== undefined && value !== "";
+  });
   return populated.length > 0
-    ? `资金字段只能在充值与订阅模块登记：${populated.join(", ")}` : null;
+    ? `API 内部资金管理已退役，资金字段不再接受手填导入：${populated.join(", ")}` : null;
 }
 
 export const CreateResourceSchema = z.object({

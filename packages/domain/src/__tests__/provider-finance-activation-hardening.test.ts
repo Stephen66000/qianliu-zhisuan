@@ -619,22 +619,21 @@ describe("collectPlanAttributionGaps 精确缺口结构", () => {
   });
 });
 
-describe("collectUsageClassificationGaps 分类与 Token 守恒", () => {
-  it("未分类带 token → UNKNOWN_COST；已解析遗留成本不再报", () => {
+describe("collectUsageClassificationGaps 分类与 Token 守恒（WP2-S4 / R5 迁移）", () => {
+  // 断言迁移（WP2-S4 / AFR-01 场景3 / plan §4a-R5）：API 行费用分类缺口
+  // （UNKNOWN_COST/MISSING_API_CURRENCY/CONFLICTING_API_CURRENCY/MISSING_SETTLEMENT_TIME）
+  // 随 API 内部资金管理退役摘除——API 用量分类状态与激活完整性无关（AFR-04），
+  // Token 守恒（所有行）保留。原逐码缺口断言已随退役合同失效。
+  it("API 行未分类（UNKNOWN_COST，已解析与否）不再产出激活缺口；Token 守恒照常", () => {
     const line = apiLine({ apiCostStatus: "UNKNOWN_COST", legacyCostResolved: false });
     const resolved = apiLine({ id: "aaaaaaaa-0000-4000-8000-000000000003", apiCostStatus: "UNKNOWN_COST", legacyCostResolved: true });
     const gaps: ActivationGap[] = [];
     const conserved = collectUsageClassificationGaps(factInput({ ledgerLines: [line, resolved] }), emptyPlan(), gaps);
     expect(conserved).toBe(true);
-    expect(gaps).toHaveLength(1);
-    expect(gaps[0]).toMatchObject({
-      code: "UNKNOWN_COST", category: "USAGE",
-      message: "API 用量费用状态未明确（UNKNOWN_COST）",
-      resourceId: API_RESOURCE, ledgerLineId: line.id, month: "2026-09",
-    });
+    expect(gaps).toEqual([]);
   });
 
-  it("零 Token 的未知费用仍报缺口，已知费用的未分类排空行不误报", () => {
+  it("零 Token 未知费用、已知费用的未分类行同样不再报激活缺口（视图层口径由 S5 承接）", () => {
     const tokens = { rawInputTokens: "0", rawOutputTokens: "0", rawCacheTokens: "0", rawReasoningTokens: "0" };
     const explicit = apiLine({ ...tokens, id: "aaaaaaaa-0000-4000-8000-0000000000e1",
       usageEventId: "bbbbbbbb-0000-4000-8000-0000000000e1",
@@ -652,11 +651,10 @@ describe("collectUsageClassificationGaps 分类与 Token 守恒", () => {
     expect(collectUsageClassificationGaps(
       factInput({ ledgerLines: [explicit, unclassified, knownCost], usageEvents }), emptyPlan(), gaps,
     )).toBe(true);
-    expect(gaps.filter((entry) => entry.code === "UNKNOWN_COST").map((entry) => entry.ledgerLineId))
-      .toEqual([explicit.id, unclassified.id]);
+    expect(gaps).toEqual([]);
   });
 
-  it("已定价缺币种 / 币种冲突 / 缺结算时间各自成缺口且 detail 精确", () => {
+  it("已定价缺币种 / 币种冲突 / 缺结算时间不再成激活缺口（R5）", () => {
     const missingCurrency = apiLine({
       id: "aaaaaaaa-0000-4000-8000-000000000011", apiCostCurrency: null, apiCostStatus: "PRICED_USAGE",
     });
@@ -670,14 +668,7 @@ describe("collectUsageClassificationGaps 分类与 Token 守恒", () => {
     collectUsageClassificationGaps(
       factInput({ ledgerLines: [missingCurrency, conflict, noSettledAt] }), emptyPlan(), gaps,
     );
-    expect(gaps.map((entry) => [entry.code, entry.detail])).toEqual([
-      ["MISSING_API_CURRENCY", null],
-      ["CONFLICTING_API_CURRENCY", "USD vs CNY"],
-      ["MISSING_SETTLEMENT_TIME", null],
-    ]);
-    expect(gaps[0]!.message).toBe("已定价 API 用量缺少结算币种");
-    expect(gaps[1]!.message).toBe("结算币种与计价规则快照币种冲突");
-    expect(gaps[2]!.message).toBe("用量缺少结算时间");
+    expect(gaps).toEqual([]);
   });
 
   it("Token 不守恒（数值不符或事件缺失）→ 返回 false 并逐行报缺口；守恒则 true", () => {
@@ -702,12 +693,25 @@ describe("collectUsageClassificationGaps 分类与 Token 守恒", () => {
     expect(clean).toBe(true);
   });
 
-  it("缺口按行号稳定排序输出；修复目标改变币种后冲突随之改变", () => {
-    const later = apiLine({ id: "aaaaaaaa-0000-4000-8000-0000000000b2", apiCostStatus: "UNKNOWN_COST" });
-    const earlier = apiLine({ id: "aaaaaaaa-0000-4000-8000-0000000000a1", apiCostStatus: "UNKNOWN_COST" });
+  it("缺口按行号稳定排序输出（Token 守恒缺口迁移后仍是按行 id 排序的稳定输出）", () => {
+    // 断言迁移（WP2-S4 / R5）：原用 UNKNOWN_COST 行验证排序；分类缺口退役后
+    // 改用 TOKEN_CONSERVATION_MISMATCH 行验证同一“按行 id 稳定排序”性质。
+    const later = apiLine({ id: "aaaaaaaa-0000-4000-8000-0000000000b2",
+      usageEventId: "bbbbbbbb-0000-4000-8000-0000000000b2" });
+    const earlier = apiLine({ id: "aaaaaaaa-0000-4000-8000-0000000000a1",
+      usageEventId: "bbbbbbbb-0000-4000-8000-0000000000a1" });
     const gaps: ActivationGap[] = [];
-    collectUsageClassificationGaps(factInput({ ledgerLines: [later, earlier] }), emptyPlan(), gaps);
+    const usageEvents = [
+      { id: "bbbbbbbb-0000-4000-8000-0000000000a1", inputTokens: "1", outputTokens: "2",
+        cacheTokens: "0", reasoningTokens: "0" },
+      { id: "bbbbbbbb-0000-4000-8000-0000000000b2", inputTokens: "1", outputTokens: "2",
+        cacheTokens: "0", reasoningTokens: "0" },
+    ];
+    const conserved = collectUsageClassificationGaps(
+      factInput({ ledgerLines: [later, earlier], usageEvents }), emptyPlan(), gaps);
+    expect(conserved).toBe(false);
     expect(gaps.map((entry) => entry.ledgerLineId)).toEqual([earlier.id, later.id]);
+    expect(gaps.every((entry) => entry.code === "TOKEN_CONSERVATION_MISMATCH")).toBe(true);
   });
 });
 
@@ -761,10 +765,20 @@ describe("computeUsageDebitDeltas 状态迁移增量", () => {
   });
 });
 
-describe("projectAccountBalances 投影与守恒缺口", () => {
+describe("projectAccountBalances 投影与守恒缺口（WP2-S4 / R8：API 账户豁免两类守恒缺口，CP 保留）", () => {
   function scopeAccount(resourceId: string, currency: string): ActivationScopeAccountInput {
     return { resourceId, currency: currency as "CNY", sources: ["PRICED_USAGE"] };
   }
+
+  // R8 裁定后，缺口发射按资源 mode 判定：夹具需显式提供 scope 资源。
+  const apiScopeResource: ActivationScopeResourceInput = {
+    resourceId: API_RESOURCE, mode: "API", providerId: "p", providerCode: "deepseek",
+    providerName: "DeepSeek", resourceName: "DeepSeek API", status: "ACTIVE",
+    hasPostCutoverLedgerLine: false, hasCrossingSnapshot: false, hasPostCutoverPurchase: false,
+  };
+  const planScopeResource: ActivationScopeResourceInput = {
+    ...apiScopeResource, resourceId: PLAN_RESOURCE, mode: "CODING_PLAN",
+  };
 
   it("真实分量与虚拟事实叠加：-5 + 期初100 + 充值10 = 105；公式失配与负余额各自成缺口", () => {
     const baseComponents = { ...emptyBalanceComponents(), usageDebits: "5.00000000" };
@@ -792,45 +806,51 @@ describe("projectAccountBalances 投影与守恒缺口", () => {
     expect(gaps).toEqual([]);
   });
 
-  it("公式失配失败关闭：落库余额与共享公式重算不一致即缺口，detail 精确到双向金额", () => {
-    // 虚拟期初 300 保证投影余额为正，从而只触发公式失配一种缺口
-    const mismatched = factInput({
+  it("公式失配：API 账户不再产出缺口（R8），CP 账户仍失败关闭且 detail 精确到双向金额", () => {
+    // 断言迁移（总指挥 R8 裁定 / AFR-04）：原 API 正控随资金守恒退役摘除；
+    // formulaMatches 字段照常产出；CP 账户正控保留原精确断言。
+    const apiMismatch = factInput({
+      resources: [apiScopeResource],
       accountComponents: [{
         resourceId: API_RESOURCE, currency: "CNY" as const,
         components: { ...emptyBalanceComponents(), usageDebits: "5.00000000" },
         reportedBalance: "-4.00000000",
       }],
-      draft: normalizeDraftItem(minimalDraft({
-        api_opening_balances: [{
-          resource_id: API_RESOURCE, account_currency: "CNY", account_amount: "300",
-          occurred_at: "2026-08-31T16:00:00.000Z", description: "期初",
-          evidence_ref: "evidence://o", source_record_id: null,
-        }],
-      }), API_RESOURCE),
+    });
+    const apiGaps: ActivationGap[] = [];
+    const apiBalances = projectAccountBalances(apiMismatch, emptyPlan(), new Map([
+      [`${API_RESOURCE}:CNY`, scopeAccount(API_RESOURCE, "CNY")],
+    ]), apiGaps);
+    expect(apiGaps).toEqual([]);
+    expect(apiBalances[0]!.formulaMatches).toBe(false);
+
+    // CP 正控：components 为正（recharges 300）保证投影余额为正，从而只触发公式失配
+    // 一种缺口（虚拟资助事实仅 API 草稿可用，CP 无法靠草稿垫正余额）。
+    const mismatched = factInput({
+      resources: [planScopeResource],
+      accountComponents: [{
+        resourceId: PLAN_RESOURCE, currency: "CNY" as const,
+        components: { ...emptyBalanceComponents(), recharges: "300.00000000" },
+        reportedBalance: "-4.00000000",
+      }],
     });
     const mismatchGaps: ActivationGap[] = [];
     projectAccountBalances(mismatched, emptyPlan(), new Map([
-      [`${API_RESOURCE}:CNY`, scopeAccount(API_RESOURCE, "CNY")],
+      [`${PLAN_RESOURCE}:CNY`, scopeAccount(PLAN_RESOURCE, "CNY")],
     ]), mismatchGaps);
     expect(mismatchGaps).toHaveLength(1);
     expect(mismatchGaps[0]!.code).toBe("BALANCE_FORMULA_MISMATCH");
     expect(mismatchGaps[0]!.category).toBe("BALANCE");
     expect(mismatchGaps[0]!.message).toBe("账户余额与共享公式重算结果不一致，必须先完成对账");
-    expect(mismatchGaps[0]!.detail).toBe("重算 -5.00000000 ≠ 已落库 -4.00000000");
+    expect(mismatchGaps[0]!.detail).toBe("重算 300.00000000 ≠ 已落库 -4.00000000");
     // 落库余额为 null 时不做校验、不报缺口（虚拟期初 300 保持投影为正）
     const nullReported = factInput({
+      resources: [apiScopeResource],
       accountComponents: [{
         resourceId: API_RESOURCE, currency: "CNY" as const,
         components: { ...emptyBalanceComponents(), usageDebits: "5.00000000" },
         reportedBalance: null,
       }],
-      draft: normalizeDraftItem(minimalDraft({
-        api_opening_balances: [{
-          resource_id: API_RESOURCE, account_currency: "CNY", account_amount: "300",
-          occurred_at: "2026-08-31T16:00:00.000Z", description: "期初",
-          evidence_ref: "evidence://o", source_record_id: null,
-        }],
-      }), API_RESOURCE),
     });
     const nullGaps: ActivationGap[] = [];
     const nullBalances = projectAccountBalances(nullReported, emptyPlan(), new Map([
@@ -840,31 +860,42 @@ describe("projectAccountBalances 投影与守恒缺口", () => {
     expect(nullGaps).toEqual([]);
   });
 
-  it("投影余额为负 → NEGATIVE_BALANCE 缺口，detail 即负余额金额", () => {
-    const negative = factInput({
+  it("投影余额为负：API 账户不再产出缺口（R8），CP 账户仍报 NEGATIVE_BALANCE 且 detail 即负余额金额", () => {
+    // 断言迁移（总指挥 R8 裁定 / AFR-04）：API 账户负余额不再阻断纯套餐初始化；
+    // balance 证据字段照常产出；CP 账户正控保留原精确断言（ resourceId 改套餐资源）。
+    const apiNegative = factInput({
+      resources: [apiScopeResource],
       accountComponents: [{
         resourceId: API_RESOURCE, currency: "CNY" as const,
         components: { ...emptyBalanceComponents(), usageDebits: "300.00000000" },
         reportedBalance: "-300.00000000",
       }],
-      draft: normalizeDraftItem(minimalDraft({
-        api_opening_balances: [{
-          resource_id: API_RESOURCE, account_currency: "CNY", account_amount: "100",
-          occurred_at: "2026-08-31T16:00:00.000Z", description: "期初",
-          evidence_ref: "evidence://o", source_record_id: null,
-        }],
-      }), API_RESOURCE),
+    });
+    const apiGaps: ActivationGap[] = [];
+    const apiBalances = projectAccountBalances(apiNegative, emptyPlan(), new Map([
+      [`${API_RESOURCE}:CNY`, scopeAccount(API_RESOURCE, "CNY")],
+    ]), apiGaps);
+    expect(apiBalances[0]!.balance).toBe("-300.00000000");
+    expect(apiGaps).toEqual([]);
+
+    const negative = factInput({
+      resources: [planScopeResource],
+      accountComponents: [{
+        resourceId: PLAN_RESOURCE, currency: "CNY" as const,
+        components: { ...emptyBalanceComponents(), usageDebits: "300.00000000" },
+        reportedBalance: "-300.00000000",
+      }],
     });
     const negativeGaps: ActivationGap[] = [];
     const balances = projectAccountBalances(negative, emptyPlan(), new Map([
-      [`${API_RESOURCE}:CNY`, scopeAccount(API_RESOURCE, "CNY")],
+      [`${PLAN_RESOURCE}:CNY`, scopeAccount(PLAN_RESOURCE, "CNY")],
     ]), negativeGaps);
-    expect(balances[0]!.balance).toBe("-200.00000000");
+    expect(balances[0]!.balance).toBe("-300.00000000");
     expect(negativeGaps).toEqual([{
       code: "NEGATIVE_BALANCE", category: "BALANCE",
       message: "投影余额为负，必须先完成对账",
-      resourceId: API_RESOURCE, accountCurrency: "CNY", legacyRecordId: null,
-      ledgerLineId: null, month: null, detail: "-200.00000000",
+      resourceId: PLAN_RESOURCE, accountCurrency: "CNY", legacyRecordId: null,
+      ledgerLineId: null, month: null, detail: "-300.00000000",
     }]);
   });
 

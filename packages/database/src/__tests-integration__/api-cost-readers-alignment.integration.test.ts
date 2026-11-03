@@ -117,9 +117,8 @@ describe("跨读取方同源核对（ACE-06 服务层）", () => {
     await seedLine(f, { at: new Date("2026-09-05T10:00:00+08:00"), cost: "1.05", status: "PRICED_USAGE" });
     await seedLine(f, { at: new Date("2026-09-06T10:00:00+08:00"), cost: "0",
       status: "CONFIRMED_ZERO_NO_UPSTREAM" });
-    // 同期窗口的 incompleteReason 仍沿用资金域权威缺口码（S3a 冲突记录，见
-    // dashboard-home-costs.ts 头注）：补 API_OPENING_BALANCE 使 OPENING_BALANCE_MISSING
-    // 不计数，从而验证金额段同源时窗口理由为 null。
+    // WP2-S5（AFR-07）：OPENING_BALANCE_MISSING 已停产（countFinanceGaps 恒 0），
+    // 期初事件对窗口缺口段不再有影响；该插入保留为"期初事件不改变金额段"的反控制。
     await db.insertInto("provider_finance_event").values({
       enterprise_id: f.enterpriseId, provider_resource_id: f.resourceId,
       event_type: "API_OPENING_BALANCE", account_amount: "100", account_currency: "CNY",
@@ -174,9 +173,10 @@ describe("跨读取方同源核对（ACE-06 服务层）", () => {
     expect(overview.providerSummaries.find((row) => row.mode === "API"))
       .toMatchObject({ monthlyCost: "2.50000000" });
     expect(window.totalSpends).toEqual([{ currency: "CNY", amount: "2.50000000" }]);
-    // 冲突记录（dashboard-home-costs.ts 头注）：金额不依赖资金事实，但窗口缺口段保留
-    // 资金域权威口径——已计价行缺 API_OPENING_BALANCE 事件仍标记 OPENING_BALANCE_MISSING。
-    expect(window.incompleteReason).toBe("OPENING_BALANCE_MISSING:1");
+    // 断言迁移（WP2-S5 / AFR-07＋WP2 plan §4.5，WP1 合同 §4 裁定 1 收口）：
+    // countFinanceGaps 停产 OPENING_BALANCE_MISSING（恒 0）——无任何资金表数据时
+    // 估算照常产生且窗口无"待补期初"提示（ACE-03 场景1 的正面语义）。
+    expect(window.incompleteReason).toBeNull();
   });
 
   it("混币按币种分列、绝不混加（ACE-07）：首页为 null+分列，总览为明确币种不一致", async () => {

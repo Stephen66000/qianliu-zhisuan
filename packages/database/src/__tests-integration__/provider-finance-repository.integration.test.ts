@@ -91,6 +91,10 @@ describe("ProviderFinanceRepository", () => {
         enterprise_id: isolatedEnterpriseId, provider_id: isolatedProviderId,
         name: "DeepSeek API", mode: "API", credential_type: "API_KEY",
         created_at: new Date("2026-08-01T00:00:00Z") }).execute();
+      // 0094 退役种入触发器后 PENDING 行需夹具显式构造；0083 资源级 ADMIN 期初 DB 合同语义不变。
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: isolatedEnterpriseId, provider_resource_id: isolatedResourceId,
+        state: "PENDING" }).execute();
       await db.insertInto("principal").values({ id: isolatedPrincipalId,
         enterprise_id: isolatedEnterpriseId, type: "EMPLOYEE", name: "Cost User" }).execute();
       await db.insertInto("principal_key").values({ id: isolatedKeyId,
@@ -200,13 +204,21 @@ describe("ProviderFinanceRepository", () => {
         accountAmount: "10", accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
         evidenceRef: "opening-correction", idempotencyKey: randomUUID(),
       });
-      await repo.reverseFinanceEvent({
+      // 断言迁移（WP2-S3 / AFR-01 / plan §4.1-R6）：API 资金事实的冲销已退役——
+      // repo 守卫抛 API_FUNDING_RETIRED 且零写入（原“冲销后余额 60”分支不再可达）。
+      const eventsBeforeReversal = await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", apiResourceId).execute();
+      await expect(repo.reverseFinanceEvent({
         enterpriseId, eventId: first.id, adminId, reason: "wrong recharge",
         evidenceRef: "reversal-proof", idempotencyKey: randomUUID(),
-      });
+      })).rejects.toMatchObject({ code: "API_FUNDING_RETIRED" });
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", apiResourceId).execute())
+        .toHaveLength(eventsBeforeReversal.length);
+      // 冲销不再发生：余额 = 期初 50 + 更正 10 + 充值 100 = 160。
       expect(await repo.getCurrentBalance(
         enterpriseId, apiResourceId, "CNY", new Date("2026-09-02T02:00:00.000Z"),
-      )).toMatchObject({ state: "NORMAL", balance: "60.00000000" });
+      )).toMatchObject({ state: "NORMAL", balance: "160.00000000" });
       const financeCase = await repo.createReconciliationCase({
         enterpriseId, resourceId: apiResourceId, adminId, accountCurrency: "CNY",
         providerConfirmedBalance: "65", balanceAsOf: new Date("2026-09-02T02:00:00.000Z"),
@@ -278,8 +290,10 @@ describe("ProviderFinanceRepository", () => {
         .set({ period_start: new Date("2026-09-02T16:00:00.000Z") })
         .where("id", "=", result.periodId).execute())
         .rejects.toThrow(/subscription period/);
+      // 断言迁移（WP2-S3 / AFR-01）：API 充值（实付 100）不再被冲销（见上一用例的
+      // API_FUNDING_RETIRED 迁移），9 月现金流出 = 100 + 套餐 199 = 299。
       expect(await repo.getMonthlyFinanceSummary(enterpriseId, "2026-09")).toMatchObject({
-        cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
+        cashOutflowCny: "299.00000000", codingPlanFixedCostCny: "199.00000000",
         operatingCostCny: "199.00000000", complete: true,
       });
     } finally { await db.destroy(); }
@@ -396,20 +410,21 @@ describe("ProviderFinanceRepository", () => {
       expect(detail).toEqual(expect.objectContaining({
         candidateId: expect.any(String), confirmationToken: expect.any(String),
       }));
-      const confirmationKey = randomUUID();
-      const confirmed = await repo.confirmDuplicateCandidate({
-        enterpriseId, candidateId: detail!.candidateId, adminId,
-        confirmationToken: detail!.confirmationToken, requestHash: detail!.requestHash,
-        idempotencyKey: confirmationKey,
-      });
-      expect(confirmed).toMatchObject({ replayed: false });
+      // 断言迁移（WP2-S3 / AFR-01 / plan §4.1-R6）：API_RECHARGE 候选确认已退役——
+      // repo 守卫抛 API_FUNDING_RETIRED；候选保持 PENDING、零事件写入。
+      // （原“确认 201＋重放 replayed”成功断言迁移到下方隔离企业的 Coding Plan 候选用例。）
+      const eventsBeforeConfirm = await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", apiResourceId).execute();
       await expect(repo.confirmDuplicateCandidate({
         enterpriseId, candidateId: detail!.candidateId, adminId,
         confirmationToken: detail!.confirmationToken, requestHash: detail!.requestHash,
-        idempotencyKey: confirmationKey,
-      })).resolves.toMatchObject({ replayed: true });
+        idempotencyKey: randomUUID(),
+      })).rejects.toMatchObject({ code: "API_FUNDING_RETIRED" });
       expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
-        .where("id", "=", detail!.candidateId).executeTakeFirst()).toEqual({ status: "CONSUMED" });
+        .where("id", "=", detail!.candidateId).executeTakeFirst()).toEqual({ status: "PENDING" });
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", apiResourceId).execute())
+        .toHaveLength(eventsBeforeConfirm.length);
       let expiredDetail: typeof detail;
       try {
         await repo.recordRecharge({ ...base, idempotencyKey: randomUUID() });
@@ -521,6 +536,10 @@ describe("ProviderFinanceRepository", () => {
         enterprise_id: enterpriseId, provider_id: provider.id, name: "Monthly carryover API",
         mode: "API", credential_type: "API_KEY", created_at: new Date("2026-08-01T00:00:00Z"),
       }).execute();
+      // 0094 退役种入触发器后 PENDING 行需夹具显式构造；0083 资源级 ADMIN 期初 DB 合同语义不变。
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId,
+        state: "PENDING" }).execute();
       const finance = new ProviderFinanceRepository(db);
       await finance.recordOpeningBalance({ enterpriseId, resourceId, adminId,
         accountAmount: "100", accountCurrency: "CNY", occurredAt: PROVIDER_FINANCE_CUTOVER,
@@ -573,7 +592,11 @@ describe("ProviderFinanceRepository", () => {
         name: "Incomplete API", mode: "API", credential_type: "API_KEY",
         created_at: new Date("2026-08-01T00:00:00.000Z"),
       }).execute();
-      // PENDING 财务状态由 0081 自动播种触发器生成（已激活企业的 API 资源），无需手工插入。
+      // 0094 退役种入触发器（原由 0081 自动播种）后 PENDING 行需夹具显式构造；
+      // 0083 资源级 ADMIN 期初 DB 合同语义不变。
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: incompleteResourceId,
+        state: "PENDING" }).execute();
       const finance = new ProviderFinanceRepository(db);
       await finance.recordOpeningBalance({
         enterpriseId, resourceId: incompleteResourceId, adminId, accountAmount: "10",
@@ -626,6 +649,128 @@ describe("ProviderFinanceRepository", () => {
       expect(await repo.getCurrentBalance(
         enterpriseId, apiResourceId, "USD", new Date("2026-09-02T02:00:00.000Z"),
       )).toMatchObject({ state: "MISSING_OPENING_BALANCE", balance: null });
+    } finally { await db.destroy(); }
+  });
+
+  // WP2-S3（AFR-01 / plan §4.1-R6）：repo 守卫按事实模式拆分——隔离企业中验证
+  // API 事实冲销抛 API_FUNDING_RETIRED、Coding Plan 事实冲销与候选确认照常。
+  it("retires API funding facts at repo level while Coding Plan reversal and confirmation keep working", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      const repo = new ProviderFinanceRepository(db);
+      const isolatedEnterpriseId = randomUUID();
+      const isolatedAdminId = randomUUID();
+      const isolatedApiId = randomUUID();
+      const isolatedPlanId = randomUUID();
+      const isolatedProviderId = randomUUID();
+      await db.insertInto("enterprise").values({ id: isolatedEnterpriseId,
+        name: "Retirement Guards" }).execute();
+      await db.insertInto("admin_user").values({ id: isolatedAdminId,
+        enterprise_id: isolatedEnterpriseId, username: `retired-${isolatedAdminId}`,
+        password_hash: "not-used", status: "ACTIVE" }).execute();
+      await db.insertInto("provider").values({ id: isolatedProviderId,
+        enterprise_id: isolatedEnterpriseId, code: "deepseek", name: "DeepSeek",
+        adapter_type: "OPENAI_COMPATIBLE" }).execute();
+      await db.insertInto("provider_resource").values([
+        { id: isolatedApiId, enterprise_id: isolatedEnterpriseId, provider_id: isolatedProviderId,
+          name: "Isolated API", mode: "API", credential_type: "API_KEY",
+          created_at: new Date("2026-08-01T00:00:00Z") },
+        { id: isolatedPlanId, enterprise_id: isolatedEnterpriseId, provider_id: isolatedProviderId,
+          name: "Isolated Plan", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+          created_at: new Date("2026-08-01T00:00:00Z") },
+      ]).execute();
+      // 0083 ADMIN 期初触发器前置：企业已激活＋资源 PENDING。
+      await db.insertInto("provider_finance_runtime_state").values({
+        enterprise_id: isolatedEnterpriseId, strict_writes_enabled: true,
+        activated_at: new Date("2026-09-01T00:00:00+08:00"),
+        activated_by_admin_user_id: isolatedAdminId,
+      }).execute();
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: isolatedEnterpriseId, provider_resource_id: isolatedApiId,
+        state: "PENDING" }).execute();
+
+      // 1) API 事实冲销：同码拒绝、零写入（recordRecharge 经 recordSimpleEvent，
+      //    守卫不在共享 Tx 原语上——直插/repo 写仍可用于历史夹具）。
+      //    0083 触发器要求同币种期初先于充值存在，故期初夹具先行（MIGRATION 源钉切换时点）。
+      await db.insertInto("provider_finance_event").values({
+        enterprise_id: isolatedEnterpriseId, provider_resource_id: isolatedApiId,
+        event_type: "API_OPENING_BALANCE", account_amount: "0", account_currency: "CNY",
+        cash_paid_cny: null, occurred_at: PROVIDER_FINANCE_CUTOVER, external_reference: null,
+        reversal_of_event_id: null, correction_of_event_id: null,
+        reconciliation_case_id: null, description: null, evidence_ref: "repo-guard-fixture",
+        source: "MIGRATION", idempotency_key: randomUUID(),
+        created_by_admin_user_id: isolatedAdminId,
+      }).execute();
+      const recharge = await repo.recordRecharge({ enterpriseId: isolatedEnterpriseId,
+        resourceId: isolatedApiId, adminId: isolatedAdminId, accountAmount: "30",
+        accountCurrency: "CNY", cashPaidCny: "30",
+        occurredAt: new Date("2026-09-05T01:00:00+08:00"), evidenceRef: "repo-guard-recharge",
+        idempotencyKey: randomUUID() });
+      const apiEventsBefore = await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", isolatedApiId).execute();
+      await expect(repo.reverseFinanceEvent({
+        enterpriseId: isolatedEnterpriseId, eventId: recharge.id, adminId: isolatedAdminId,
+        reason: "should be retired", evidenceRef: "reversal-proof",
+        idempotencyKey: randomUUID(),
+      })).rejects.toMatchObject({ code: "API_FUNDING_RETIRED" });
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("provider_resource_id", "=", isolatedApiId).execute())
+        .toHaveLength(apiEventsBefore.length);
+
+      // 2) Coding Plan 事实冲销照常：REVERSAL 事件落库、周期标记 reversed_by_event_id。
+      const purchase = await repo.recordSubscription({
+        enterpriseId: isolatedEnterpriseId, resourceId: isolatedPlanId,
+        adminId: isolatedAdminId, kind: "PURCHASE", productName: "Kimi Coding Plan",
+        accountAmount: "199", accountCurrency: "CNY", cashPaidCny: "199",
+        occurredAt: new Date("2026-09-05T01:00:00+08:00"),
+        periodStart: new Date("2026-09-04T16:00:00Z"),
+        periodEndExclusive: new Date("2026-10-04T16:00:00Z"),
+        externalReference: "repo-guard-plan-1", idempotencyKey: randomUUID(),
+      });
+      const reversed = await repo.reverseFinanceEvent({
+        enterpriseId: isolatedEnterpriseId, eventId: purchase.event.id,
+        adminId: isolatedAdminId, reason: "plan cancelled", evidenceRef: "reversal-proof",
+        idempotencyKey: randomUUID(),
+      });
+      expect(reversed).toMatchObject({ eventType: "REVERSAL",
+        reversalOfEventId: purchase.event.id, replayed: false });
+      expect(await db.selectFrom("provider_subscription_period").select("reversed_by_event_id")
+        .where("id", "=", purchase.periodId).executeTakeFirstOrThrow())
+        .toEqual({ reversed_by_event_id: reversed.id });
+
+      // 3) Coding Plan 重复候选确认照常：候选创建 → 确认消费 → 幂等重放。
+      const purchaseBase = { enterpriseId: isolatedEnterpriseId, resourceId: isolatedPlanId,
+        adminId: isolatedAdminId, kind: "PURCHASE" as const, productName: "Kimi Coding Plan",
+        accountAmount: "5", accountCurrency: "CNY" as const, cashPaidCny: "5",
+        occurredAt: new Date("2026-09-06T01:00:00+08:00"),
+        periodStart: new Date("2026-09-05T16:00:00Z"),
+        periodEndExclusive: new Date("2026-10-05T16:00:00Z"),
+        evidenceRef: "repo-guard-duplicate" };
+      await repo.recordSubscription({ ...purchaseBase, idempotencyKey: randomUUID() });
+      let planDetail: { candidateId: string; confirmationToken: string; requestHash: string };
+      try {
+        await repo.recordSubscription({ ...purchaseBase, idempotencyKey: randomUUID() });
+        throw new Error("expected DUPLICATE_CONFIRMATION_REQUIRED");
+      } catch (error) {
+        planDetail = (error as { detail: typeof planDetail }).detail;
+      }
+      const confirmationKey = randomUUID();
+      const confirmed = await repo.confirmDuplicateCandidate({
+        enterpriseId: isolatedEnterpriseId, candidateId: planDetail.candidateId,
+        adminId: isolatedAdminId, confirmationToken: planDetail.confirmationToken,
+        requestHash: planDetail.requestHash, idempotencyKey: confirmationKey,
+      });
+      // 套餐分支返回 { event, periodId }；重放标记在 event 内。
+      expect(confirmed).toMatchObject({ event: { replayed: false },
+        periodId: expect.any(String) });
+      await expect(repo.confirmDuplicateCandidate({
+        enterpriseId: isolatedEnterpriseId, candidateId: planDetail.candidateId,
+        adminId: isolatedAdminId, confirmationToken: planDetail.confirmationToken,
+        requestHash: planDetail.requestHash, idempotencyKey: confirmationKey,
+      })).resolves.toMatchObject({ event: { replayed: true } });
+      expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
+        .where("id", "=", planDetail.candidateId).executeTakeFirst())
+        .toEqual({ status: "CONSUMED" });
     } finally { await db.destroy(); }
   });
 });

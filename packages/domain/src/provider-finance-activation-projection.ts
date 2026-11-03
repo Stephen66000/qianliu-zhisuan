@@ -83,7 +83,20 @@ export type {
 
 // ===== 主投影的子步骤（缺口收集器） =====
 
-/** 旧购买记录唯一关闭（PFH-02）。 */
+/**
+ * 旧购买记录唯一关闭（PFH-02）。
+ *
+ * WP2-S4（plan §4a-R4/R5 ＋ 总指挥中途裁定 3）两条线，区分「服务端扫描」与「草稿显式提交」：
+ * - R5 豁免：服务端扫描到的未解决 **API_RECHARGE** 旧记录不再作为激活前置要求——
+ *   API 充值迁移入口已随 API 内部资金管理退役，记录无法再被解决；未被草稿引用时
+ *   不产生任何缺口（不阻塞纯套餐初始化，AFR-04）。
+ * - R4 反静默：**草稿显式引用** API 类旧记录的关闭决定仍在预检阶段产出明确缺口
+ *   （NO_GO＋退役说明文案）——用户在预检阶段即得知其草稿引用了已退役的 API 类
+ *   legacy 记录，不会被静默忽略后混合激活；激活侧（协调器 validateCandidate）再以
+ *   `CANDIDATE_CONTAINS_RETIRED_API_FACTS` 硬拒绝。
+ * - **PACKAGE_PURCHASE 类照常**：关闭要求与 MIGRATED 绑定 / ALREADY_REPRESENTED
+ *   一致性校验全部保留。
+ */
 function collectLegacyResolutionGaps(input: ActivationProjectionInput, gaps: ActivationGap[]): void {
   const resolutionByRecord = new Map<string, NormalizedActivationCandidate["legacyPurchaseResolutions"][number]>();
   for (const resolution of input.draft.legacyPurchaseResolutions) {
@@ -104,6 +117,18 @@ function collectLegacyResolutionGaps(input: ActivationProjectionInput, gaps: Act
   }
   for (const record of [...input.legacyPurchases].sort((left, right) => compareStrings(left.id, right.id))) {
     if (record.alreadyMigratedEventId !== null) continue;
+    if (record.purchaseType === "API_RECHARGE") {
+      // WP2-S4 / R4 反静默：草稿显式提交的 API 充值旧记录关闭决定 → 明确缺口（NO_GO），
+      // 说明文案点明退役；R5 只豁免未被草稿引用的服务端扫描记录。
+      if (resolutionByRecord.has(record.id)) {
+        gaps.push(gap("LEGACY_RECORD_UNCLOSED", "LEGACY_RECORD",
+          "该旧购买记录是 API 充值（purchase_type=API_RECHARGE），其关闭/迁移已随"
+          + "API 内部资金管理退役，初始化草稿不再接受对它的关闭决定；"
+          + "请移除该 legacy_purchase_resolutions 行并仅提交套餐所需事实", {
+            resourceId: record.resourceId, legacyRecordId: record.id }));
+      }
+      continue;
+    }
     const resolution = resolutionByRecord.get(record.id);
     if (!resolution) {
       gaps.push(gap("LEGACY_RECORD_UNCLOSED", "LEGACY_RECORD",
@@ -241,10 +266,10 @@ export function projectActivationCandidate(
   // --- 激活范围、资源模式与期初时点（失败关闭） ---
   collectScopeAndModeGaps(input, resourcesById, cutoverAt, gaps);
 
-  // --- 期初余额：必要账户必须且仅有一条（PFH-01） ---
+  // --- 期初余额：必要账户必须且仅有一条（PFH-01；API 资源段已随 R5 退役） ---
   const { scopeAccounts, realOpenings, draftOpenings } = resolveOpeningAccounts(input, resourcesById, gaps);
 
-  // --- 旧购买记录唯一关闭（PFH-02） ---
+  // --- 旧购买记录唯一关闭（PFH-02；API_RECHARGE 记录已随 R4/R5 退出前置） ---
   collectLegacyResolutionGaps(input, gaps);
 
   // --- 草稿行自身必填项（防御性：合同已强制，这里保证投影不依赖校验层） ---
@@ -253,7 +278,7 @@ export function projectActivationCandidate(
   // --- Coding Plan 用量唯一归属（PFH-03） ---
   collectPlanAttributionGaps(plan, gaps);
 
-  // --- 全部月份守恒（PFH-05） ---
+  // --- 全部月份守恒（PFH-05；激活域只消费套餐/现金码集，见 facts.ts loadMonthlyGaps） ---
   const monthlyDelta = computeMonthlyGapDeltas(input, plan, new Set(
     [...draftOpenings.keys()].filter((key) => !realOpenings.has(key))), window);
   const operatingBillsComplete = monthlyDelta.every((entry) => entry.gaps.length === 0);
@@ -264,7 +289,7 @@ export function projectActivationCandidate(
     }
   }
 
-  // --- 用量费用分类与 Token 守恒（失败关闭 #4、#6） ---
+  // --- 用量费用分类与 Token 守恒（Token 守恒保留；API 分类缺口已随 R5 摘除） ---
   const tokenConserved = collectUsageClassificationGaps(input, plan, gaps);
 
   // --- 余额投影与守恒（PFH-05，复用共享聚合语义） ---

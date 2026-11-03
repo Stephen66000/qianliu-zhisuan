@@ -294,7 +294,12 @@ export class ProviderFinanceEventRepository {
       idempotencyKey: input.idempotencyKey, duplicateCandidateId: candidate.id,
       duplicateConfirmationToken: input.confirmationToken,
     };
-    if (candidate.event_type === "API_RECHARGE") return this.recordRecharge(common);
+    // AFR-01 / plan §4.1-R6（WP2-S3）：API 充值候选的确认随 API 资金写管理退役——
+    // 候选保持 PENDING、零写入；Coding Plan 候选确认照常。
+    if (candidate.event_type === "API_RECHARGE") {
+      throw new ProviderFinanceError("API_FUNDING_RETIRED",
+        "API 内部资金管理已退役，API 充值候选不再接受确认，请使用官方账户余额与 API 费用估算");
+    }
     if (candidate.event_type === "CODING_PLAN_PURCHASE" || candidate.event_type === "CODING_PLAN_RENEWAL") {
       return this.recordSubscription({
         ...common, autoRenew: typeof payload.autoRenew === "boolean" ? payload.autoRenew : undefined, kind: candidate.event_type === "CODING_PLAN_PURCHASE" ? "PURCHASE" : "RENEWAL",
@@ -358,6 +363,21 @@ export class ProviderFinanceEventRepository {
         .where("enterprise_id", "=", input.enterpriseId).where("id", "=", input.eventId)
         .forUpdate().executeTakeFirst();
       if (!original) throw new ProviderFinanceError("NOT_FOUND", "资金事件不存在");
+      // AFR-01 / plan §4.1-R6（WP2-S3）：API 资金事实的冲销随 API 资金写管理一并退役。
+      // 事件类型与资源模式一一对应（0083 触发器强制 API_*/CODING_PLAN_* 与资源模式一致），
+      // 故按 original.event_type 前缀判定即可覆盖全部 API 事实（含 W10 对账调整、
+      // MIGRATION 期初/充值/历史消耗）。REVERSAL 行本身无模式前缀——"冲销的冲销"在
+      // 路由层可达（0083 触发器会在落库时失败关闭），此处按原事件所属资源模式兜底：
+      // API 资源上的 REVERSAL 同码拒绝并保持零写入，套餐冲销链不受影响。
+      const isApiFundingFact = original.event_type.startsWith("API_")
+        || (original.event_type === "REVERSAL" && (await trx
+          .selectFrom("provider_resource").select("mode")
+          .where("enterprise_id", "=", input.enterpriseId)
+          .where("id", "=", original.provider_resource_id).executeTakeFirst())?.mode === "API");
+      if (isApiFundingFact) {
+        throw new ProviderFinanceError("API_FUNDING_RETIRED",
+          "API 内部资金管理已退役，历史资金事实不可冲销，请使用官方账户余额与 API 费用估算");
+      }
       const eventInput: FinanceEventInput = {
         enterpriseId: input.enterpriseId, resourceId: original.provider_resource_id,
         adminId: input.adminId, accountAmount: money(new Money(original.account_amount).negated()),

@@ -27,7 +27,6 @@ import {
   writeActivationAuditTx,
 } from "./provider-finance-activation-writes.js";
 import { applyUsageRepairsTx, type UsageRepairApplyResult } from "./provider-finance-usage-repairs.js";
-import type { FinanceCurrency } from "./provider-finance-types.js";
 
 /**
  * 企业级原子激活协调器（WP03 任务 3.3、3.4；design §7）。
@@ -35,20 +34,25 @@ import type { FinanceCurrency } from "./provider-finance-types.js";
  * 事务边界只有一处：`activate()` 里那一个 `SERIALIZABLE` 事务。
  * 内部全部通过 3.1/3.2 的 Tx 原语落库，因此不存在"被调用方法自行开事务"的裂口。
  *
- * 顺序（design §7）：
+ * 顺序（design §7；WP2-S4 初始化/激活合同切分为套餐所需范围）：
  *  1. 校验会话企业二次确认；
  *  2. 先 try 取 legacy 命名空间锁，再 try 取 v1 64 位命名空间锁，任一失败立即
  *     `409 ACTIVATION_IN_PROGRESS`，**不排队等待**；
  *  3. 幂等重放（同键同候选直接返回首次回执）；
- *  4. 锁候选行并校验状态、TTL、候选哈希、GO 结论、未激活；
+ *  4. 锁候选行并校验状态、TTL、候选哈希、GO 结论、未激活；**并拒绝仍携带已退役
+ *     API 资金事实的候选**（`CANDIDATE_CONTAINS_RETIRED_API_FACTS`，AFR-01 场景3；
+ *     CA 预检合同已拒绝此类草稿，这里挡住 0079 时代持久化的旧候选与一切旁路）；
  *  5. 校验静默租约有效且剩余 ≥5 分钟；
  *  6. 锁内重算事实水位与候选投影，水位不一致立即 `CANDIDATE_STALE`；
- *  7. 排空门禁：豁免**候选已冻结**的固定修复行，其余未结算/未分类行与在途工作一律拒绝；
- *  8. 写入期初、充值、购买、跨切换周期；
- *  9. 关闭旧购买记录；
+ *  7. 排空门禁：未结算/未分类行中在途工作一律拒绝（API 用量计数已随 R3 移除，
+ *     见仓储 `collectDrainReport`）；
+ *  8. 写入套餐所需事实（购买/跨切换周期；API 期初/充值/历史消耗草稿已不可达）；
+ *  9. 关闭旧套餐购买记录（API 充值旧记录不再要求关闭，AFR-01）；
  * 10. 按固定主键集修复四字段并逐行复验非目标哈希；
  * 11. 对**真实事实**重跑完整窗口守恒（不再携带草稿虚拟事实）；
- * 12. 写入严格写激活、范围资源 READY、候选 `PREVIEWED → ACTIVATED` 与不可变回执 + 审计；
+ * 12. 写入严格写激活、候选 `PREVIEWED → ACTIVATED` 与不可变回执 + 审计
+ *     （原「范围资源 READY」步骤随 R5 移除：资源级资金就绪退役，`promoteResourceFinanceReady`
+ *     repo 方法保留存档）；
  * 13. 提交。
  *
  * 第 7 步刻意排在第 6 步之后（而不是紧随租约门禁）：豁免集取自候选存档的
@@ -204,6 +208,13 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
     }
     // 过期与终态判定集中在基座仓储，避免两处各写一遍状态机。
     this.assertCandidateUsable(candidate, now);
+    // WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：候选行已在此处 `FOR UPDATE` 锁定、
+    // 尚未写入任何事实——这是**最早的拒绝点**（总指挥 S4 中途裁定 2 批准）。
+    // CA 预检合同（ActivationDraftSchema）已拒绝含 API 资金事实的新草稿；这里挡住
+    // 0079 时代持久化的旧候选、数据库层直插候选与一切旁路，保证「拒绝并说明原因，
+    // 不静默激活」。判定依据是 candidate_draft 内容而非候选哈希（哈希覆盖三类字段，
+    // 但改草稿规范化会改变哈希语义，见 inv-wp2 §2.2）。
+    await this.assertCandidateFreeOfRetiredApiFacts(trx, candidate);
     if (candidate.decision !== "GO_CANDIDATE") {
       throw new ProviderFinanceActivationError(
         "CANDIDATE_NOT_READY", "候选预检结论不是 GO_CANDIDATE，不能激活", { gaps: candidate.gaps });
@@ -225,6 +236,51 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
       throw new ProviderFinanceActivationError("ALREADY_ACTIVATED", "该企业已启用严格资金写");
     }
     return candidate;
+  }
+
+  /**
+   * 拒绝仍携带已退役 API 资金事实的候选（WP2-S4 / AFR-01 场景3、plan §4a-R4）。
+   *
+   * 三类 API 资金草稿键任一非空即拒绝；`legacy_purchase_resolutions` 中引用
+   * **API_RECHARGE** 旧购买记录（`resource_purchase_record.purchase_type`，事实类型判定
+   * 以 DB 为准——草稿行只携带 legacy_record_id，类型不在草稿内）的关闭决定同样拒绝：
+   * API 充值迁移入口已退役，该决定无法再被执行。预检侧（domain
+   * collectLegacyResolutionGaps）已对同一引用产出 NO_GO＋退役说明缺口（反静默）。
+   */
+  private async assertCandidateFreeOfRetiredApiFacts(
+    trx: Transaction<Database>, candidate: ActivationCandidateView,
+  ): Promise<void> {
+    const draft = candidate.candidateDraft;
+    if (!draft) return; // 0079 之前的候选：交给 reverifyCandidate 的既有 CANDIDATE_STALE 分支。
+    if (draft.api_opening_balances.length > 0 || draft.historical_api_recharges.length > 0
+      || draft.historical_api_costs.length > 0) {
+      throw new ProviderFinanceActivationError(
+        "CANDIDATE_CONTAINS_RETIRED_API_FACTS",
+        "过时候选包含已退役的 API 资金事实"
+        + "（api_opening_balances/historical_api_recharges/historical_api_costs），不能激活；"
+        + "API 内部资金管理已退役，请重新预检仅含套餐所需事实的初始化草稿",
+        { keys: [
+          ...(draft.api_opening_balances.length > 0 ? ["api_opening_balances"] : []),
+          ...(draft.historical_api_recharges.length > 0 ? ["historical_api_recharges"] : []),
+          ...(draft.historical_api_costs.length > 0 ? ["historical_api_costs"] : []),
+        ] });
+    }
+    const legacyRecordIds = draft.legacy_purchase_resolutions.map((row) => row.legacy_record_id);
+    if (legacyRecordIds.length === 0) return;
+    const rows = await sql<{ id: string; purchase_type: string }>`
+      SELECT id, purchase_type::text AS purchase_type
+        FROM resource_purchase_record
+       WHERE enterprise_id=${candidate.enterpriseId}::uuid
+         AND id IN (${sql.join(legacyRecordIds.map((id) => sql`${id}::uuid`), sql`, `)})`.execute(trx);
+    const apiRechargeIds = rows.rows
+      .filter((row) => row.purchase_type === "API_RECHARGE").map((row) => row.id);
+    if (apiRechargeIds.length > 0) {
+      throw new ProviderFinanceActivationError(
+        "CANDIDATE_CONTAINS_RETIRED_API_FACTS",
+        "过时候选包含引用已退役 API 充值旧记录（purchase_type=API_RECHARGE）的关闭决定，不能激活；"
+        + "API 充值迁移已随 API 内部资金管理退役，请重新预检仅含套餐所需事实的初始化草稿",
+        { legacyRecordIds: apiRechargeIds });
+    }
   }
 
   // ===== 步骤 5：静默租约 =====
@@ -250,13 +306,10 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
   /**
    * 排空门禁（PFA-09）。
    *
-   * 唯一的豁免出口是**候选已冻结的固定修复行主键**：切换时点之后创建、
-   * `settled_at IS NULL` 但已被候选判定为确定性可修复的终态行，会在同一事务的第 10 步
-   * 被按主键 `FOR UPDATE` 修复，因此不应被当成"在途结算"拦下（否则 PFH-04 主路径不可达）。
-   *
-   * 豁免集严格等于候选存档的 `usage_repair_baseline`，而本方法只在候选复验通过后调用，
-   * 所以预检后新增的行、非候选行、以及任何在途工作（`IN_PROGRESS` 请求 /
-   * 未结束 `upstream_attempt` / `PENDING` 交易）**一律不豁免**。
+   * 豁免集严格等于候选存档的 `usage_repair_baseline`（行级一致性由候选复验
+   * `assertSameBaseline` 保护）。WP2-S4 / R3：原「未分类 API 用量行」计数已随 API
+   * 资金管理退役恒为 0（见仓储 `collectDrainReport`）；在途工作（`IN_PROGRESS` 请求 /
+   * 未结束 `upstream_attempt` / `PENDING` 交易）仍一律不豁免。
    */
   private async assertDrained(
     trx: Transaction<Database>, enterpriseId: string, candidate: ActivationCandidateView,
@@ -423,7 +476,8 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
       conservationFailures: [],
     };
     await this.enableStrictWrites(trx, input, now);
-    await this.markScopeResourcesReady(trx, input, reverified, now);
+    // WP2-S4 / R5：原 markScopeResourcesReady（对 scope 内 API 资源 promote READY）已移除——
+    // 资源级资金就绪随 API 资金管理退役；strict_writes 置位、候选 ACTIVATED、审计保留。
     await this.activateCandidateRow(trx, input, candidate.candidateId, receipt, now);
     await writeActivationAuditTx(trx, {
       enterpriseId: input.enterpriseId, adminId: input.adminId,
@@ -454,27 +508,6 @@ export class ProviderFinanceActivationCoordinator extends ProviderFinanceActivat
         strict_writes_enabled=true, activated_at=EXCLUDED.activated_at,
         activated_by_admin_user_id=EXCLUDED.activated_by_admin_user_id, updated_at=EXCLUDED.updated_at
     `.execute(trx);
-  }
-
-  /** 激活范围内每个 API 资源按必要币种置为 READY（PFH-07）。 */
-  private async markScopeResourcesReady(
-    trx: Transaction<Database>, input: ActivateInput, reverified: ReverifiedCandidate, now: Date,
-  ): Promise<void> {
-    const currenciesByResource = new Map<string, FinanceCurrency[]>();
-    for (const account of reverified.scope.accounts) {
-      const list = currenciesByResource.get(account.resourceId) ?? [];
-      list.push(account.currency);
-      currenciesByResource.set(account.resourceId, list);
-    }
-    const apiResourceIds = reverified.scope.resources
-      .filter((resource) => resource.mode === "API")
-      .map((resource) => resource.resourceId).sort();
-    for (const resourceId of apiResourceIds) {
-      await this.promoteResourceFinanceReady({
-        enterpriseId: input.enterpriseId, resourceId, adminId: input.adminId,
-        requiredCurrencies: currenciesByResource.get(resourceId) ?? [], now,
-      }, trx);
-    }
   }
 
   /** `PREVIEWED → ACTIVATED` 与回执在同一事务内原子完成，绝不落 `ACTIVATING`。 */

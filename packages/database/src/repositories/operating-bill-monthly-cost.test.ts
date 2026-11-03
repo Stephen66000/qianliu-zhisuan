@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { apiBalanceGaps } from "./operating-bill-monthly-cost.js";
 
 describe("POOL20-043 余额桥接缺口字段", () => {
+  // WP2-S5（AFR-07＋WP2 plan §4.5）：OPENING_BALANCE_MISSING 状态位已停产——运行时
+  // 不会再产生该行（API_OPENING_BALANCE_MISSING 映射恒空）；本用例保留验证映射结构
+  //（结构按合同保留，历史冻结快照形状/其余状态照旧）。
   it.each([
     ["OPENING_BALANCE_MISSING", "opening_balance"],
     ["ENDING_BALANCE_MISSING", "ending_balance"],

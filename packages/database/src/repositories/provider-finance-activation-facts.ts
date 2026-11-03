@@ -366,6 +366,22 @@ async function loadAccountComponents(
   return rows;
 }
 
+/**
+ * 激活域的月度缺口消费集（plan §4a-R5，WP2-S4）。
+ *
+ * 初始化/激活合同已切分为**套餐所需范围**（AFR-01 场景3、AFR-04）：激活投影只消费
+ * 套餐/现金码集——`SUBSCRIPTION_PERIOD_MISSING`（订阅覆盖类）与 `CASH_PAID_CNY_MISSING`
+ * （现金证据，含历史充值与套餐采购）。API 资金域码（API_USAGE_COST_UNKNOWN /
+ * API_COST_CURRENCY_MISSING / API_COST_CURRENCY_CONFLICT / OPENING_BALANCE_MISSING）
+ * 在此**不再进入激活投影**；权威 `countFinanceGaps` 本身不动（视图层口径由 S5 统一处置）。
+ * 过滤放在激活域自己的消费点（facts 组装处），预检 / 锁内复验 / 激活后守恒复算
+ * 三个调用方共用同一条路径，口径必然一致。
+ */
+const ACTIVATION_MONTHLY_GAP_CODES: ReadonlySet<string> = new Set([
+  "SUBSCRIPTION_PERIOD_MISSING",
+  "CASH_PAID_CNY_MISSING",
+]);
+
 async function loadMonthlyGaps(
   db: Executor, enterpriseId: string, window: readonly ConservationMonth[],
 ): Promise<MonthlyGapFactRow[]> {
@@ -375,7 +391,9 @@ async function loadMonthlyGaps(
       new Date(entry.start), new Date(entry.endExclusive));
     rows.push({
       month: entry.month,
-      gaps: gaps.map((row) => ({ code: row.code, count: Number(row.count) })),
+      gaps: gaps
+        .filter((row) => ACTIVATION_MONTHLY_GAP_CODES.has(row.code))
+        .map((row) => ({ code: row.code, count: Number(row.count) })),
     });
   }
   return rows;
@@ -465,8 +483,8 @@ export async function buildFactWatermark(
              AND id IN (
                SELECT line.usage_event_id FROM ledger_line line
                 WHERE line.enterprise_id=${input.enterpriseId}::uuid
-                  AND COALESCE(line.settled_at,line.created_at)>=${cutover}
-                  AND COALESCE(line.settled_at,line.created_at)<=${snapshotAt}
+                  AND COALESCE(settled_at,created_at)>=${cutover}
+                  AND COALESCE(settled_at,created_at)<=${snapshotAt}
              )
            ORDER BY id`.execute(db),
       sql`SELECT id, provider_resource_id, upstream_model, rule_type, rule_version, effective_from,

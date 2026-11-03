@@ -108,10 +108,13 @@ describe("POOL20-043 月度经营金额", () => {
     })).toMatchObject({ apiSpend: null, apiSpendStatus: "NEGATIVE_BALANCE_BRIDGE" });
   });
 
+  // 断言迁移（WP2-S5 / AFR-07＋WP2 plan §4.5＋总指挥 S5 裁定）：OPENING_BALANCE_MISSING
+  // 状态停产；期初事实缺席 → BRIDGE_UNAVAILABLE（桥接不可算、无资金待补含义，apiSpend
+  // 恒 null），不再转嫁为币种冲突/负桥接。
   it.each([
-    [{ opening_balance: null }, "OPENING_BALANCE_MISSING"],
-    [{ opening_currency: null }, "OPENING_BALANCE_MISSING"],
-    [{ opening_at: null }, "OPENING_BALANCE_MISSING"],
+    [{ opening_balance: null }, "BRIDGE_UNAVAILABLE"],
+    [{ opening_currency: null }, "BRIDGE_UNAVAILABLE"],
+    [{ opening_at: null }, "BRIDGE_UNAVAILABLE"],
     [{ ending_balance: null }, "ENDING_BALANCE_MISSING"],
     [{ ending_currency: null }, "ENDING_BALANCE_MISSING"],
     [{ ending_at: null }, "ENDING_BALANCE_MISSING"],
@@ -182,15 +185,19 @@ describe("POOL20-043 月度经营金额", () => {
       row: row({ opening_balance: null }), recharges: [], ledgerApiCost: "1",
       periodStart: new Date("2026-07-31T16:00:00Z"),
     });
+    // 断言迁移（WP2-S5 / AFR-07）：期初缺席状态位 OPENING_BALANCE_MISSING →
+    // BRIDGE_UNAVAILABLE（apiSpendReason 恒 null，无"待补期初"文案）；桥接读模型
+    // fail-closed 语义（apiSpends/totalSpends 置空）保持不变。
     expect(summarizeMonthlyOperatingCosts([missingApi, planResource()])).toMatchObject({
       apiSpend: null, packageCost: "30.00000000", totalSpend: null,
-      openingBalance: null, endingBalance: "90.00000000", apiSpendStatus: "OPENING_BALANCE_MISSING",
+      openingBalance: null, endingBalance: "90.00000000", apiSpendStatus: "BRIDGE_UNAVAILABLE",
+      apiSpendReason: null,
       apiSpends: [], packageCosts: [{ currency: "CNY", amount: "30.00000000" }],
       totalSpends: [],
     });
     expect(summarizeMonthlyOperatingCosts([apiResource(), missingApi])).toMatchObject({
       apiSpend: null, packageCost: "0.00000000", totalSpend: null,
-      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpends: [], totalSpends: [],
+      apiSpendStatus: "BRIDGE_UNAVAILABLE", apiSpendReason: null, apiSpends: [], totalSpends: [],
     });
   });
 
@@ -227,10 +234,12 @@ describe("POOL20-043 月度经营金额", () => {
   });
 
   it("独立金额只有全部资源已知且单币种时才生成标量，明细始终保留", () => {
+    // 断言迁移（WP2-S5 / AFR-07）：合成缺期初资源改用停产后的诚实状态位
+    // BRIDGE_UNAVAILABLE（原 OPENING_BALANCE_MISSING/"待补期初余额" 已停产）。
     const missingOpening = {
       ...apiResource(), resourceId: "missing-opening", openingBalance: null,
       openingBalanceCurrency: null, apiSpend: null, apiSpendCurrency: null,
-      apiSpendStatus: "OPENING_BALANCE_MISSING" as const, apiSpendReason: "待补期初余额",
+      apiSpendStatus: "BRIDGE_UNAVAILABLE" as const, apiSpendReason: null,
     };
     expect(summarizeMonthlyOperatingCosts([apiResource(), missingOpening])).toMatchObject({
       openingBalance: null,
@@ -321,22 +330,24 @@ describe("POOL20-043 月度经营金额", () => {
     expect(summarizeMonthlyOperatingCosts([{
       ...apiResource(), apiSpend: null, rechargeAmount: null, apiSpendStatus: "CURRENCY_MISMATCH",
     }])).toMatchObject({ apiSpendStatus: "CURRENCY_MISMATCH", apiSpend: null, packageCost: "0.00000000" });
+    // 断言迁移（WP2-S5 / AFR-07）：合成不可算资源的停产状态位 → BRIDGE_UNAVAILABLE；
+    // fail-closed（apiSpend/totalSpend/currency 置空）保持，"待补期初余额"文案随之退役。
     expect(summarizeMonthlyOperatingCosts([
       apiResource(), {
         ...apiResource(), resourceId: "api-incomplete-usd", currency: "USD", apiSpend: null,
-        apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpendReason: "待补期初余额",
+        apiSpendStatus: "BRIDGE_UNAVAILABLE", apiSpendReason: null,
       },
     ])).toMatchObject({
-      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null, currency: null,
+      apiSpendStatus: "BRIDGE_UNAVAILABLE", apiSpend: null, totalSpend: null, currency: null,
     });
     expect(summarizeMonthlyOperatingCosts([
       apiResource(), {
         ...apiResource(), resourceId: "api-incomplete-null", currency: null, apiSpend: null,
-        apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpendReason: "待补期初余额",
+        apiSpendStatus: "BRIDGE_UNAVAILABLE", apiSpendReason: null,
       },
     ])).toMatchObject({
-      apiSpendStatus: "OPENING_BALANCE_MISSING", apiSpend: null, totalSpend: null,
-      currency: null, apiSpendReason: "待补期初余额",
+      apiSpendStatus: "BRIDGE_UNAVAILABLE", apiSpend: null, totalSpend: null,
+      currency: null, apiSpendReason: null,
     });
   });
 });

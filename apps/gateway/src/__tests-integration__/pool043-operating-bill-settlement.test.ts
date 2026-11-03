@@ -90,18 +90,32 @@ function currentShanghaiMonth(): string {
   return `${shanghai.getUTCFullYear()}-${String(shanghai.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+// 断言迁移（WP2-S5 补遗——WP1 验证缺口，见 WP2 plan §4b S2 复审记录 1）：
+// 依据＝ACE-04＋WP1 api-estimation-contract §1＋WP2 plan §4b。WP1 提交 9bf1560 已把
+// draft apiCost 切 estimatedApiCostFields（单币种已计价部分照出＝ACE-04"展示已计价
+// 部分＋缺口说明"），本辅助断言由旧桥接口径（MIXED→apiCost null）迁移为：
+//   - summary/providers 的 apiCost/totalCost ＝ 估算已计价部分金额（expectedApiCost；
+//     全部未计价/多币种时为 null，按夹具实际值字面断言）；
+//   - subjects 的 apiCost/totalAllocatedCost 仍为账本 usage 事实口径——含未知费用行的
+//     主体不冒充已知金额（knownAmount fail-closed），保持 null；
+//   - gaps 仍含 API_COST_UNKNOWN（真实用量缺口保留，AFR-07）；
+//   - 关账后冻结断言同样按新口径执行（冻结的是新口径值）。
 function expectUnknownApiCostBill(
   bill: Awaited<ReturnType<OperatingBillRepository["getBill"]>>,
   providerResourceId: string,
   principalId: string,
   status: "DRAFT" | "CLOSED",
+  expectedApiCost: string | null,
+  expectedResourceApiCost = expectedApiCost,
 ): void {
   expect(bill).toMatchObject({
     status,
-    summary: { apiCost: null, totalCost: null },
+    summary: { apiCost: expectedApiCost, totalCost: expectedApiCost },
   });
+  // 资源级金额为该资源自身账本行的估算已知部分（按资源互斥切分）：summary 的已知
+  // 部分可来自其他资源的已计价行，故资源级期望值独立参数化（默认与 summary 相同）。
   expect(bill.providers.find((provider) => provider.providerResourceId === providerResourceId))
-    .toMatchObject({ apiCost: null, totalCost: null });
+    .toMatchObject({ apiCost: expectedResourceApiCost, totalCost: expectedResourceApiCost });
   expect(bill.subjects.find((subject) => subject.principalId === principalId))
     .toMatchObject({ apiCost: null, totalAllocatedCost: null });
   expect(bill.gaps).toEqual(expect.arrayContaining([
@@ -865,11 +879,13 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
       });
 
       const billRepo = new OperatingBillRepository(db);
+      // 中断零用量场景：无已计价行 → 估算已知部分为 null（不冒充精确 0）。
       expectUnknownApiCostBill(
         await billRepo.getBill(fixture.enterpriseId, currentShanghaiMonth()),
         fixture.resourceId,
         fixture.employeeId,
         "DRAFT",
+        null,
       );
       await expect(billRepo.closeMonth({
         enterpriseId: fixture.enterpriseId,
@@ -883,6 +899,7 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
         fixture.resourceId,
         fixture.employeeId,
         "CLOSED",
+        null,
       );
 
       const accountRepo = new OperatingBillAccountRepository(db);
@@ -1104,12 +1121,21 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
       })]);
 
       const billRepo = new OperatingBillRepository(db);
+      // UNKNOWN 前置＋failover 精确成功：单币种已计价部分 0.00007700 照出（ACE-04），
+      // 缺口说明由 API_COST_UNKNOWN 承担。
       expectUnknownApiCostBill(
         await billRepo.getBill(fixture.enterpriseId, currentShanghaiMonth()),
         fixture.resourceId,
         fixture.employeeId,
         "DRAFT",
+        "0.00007700",
+        // fixture 资源自身仅 UNKNOWN 行 → 资源级估算已知部分为 null；已计价部分
+        // 0.00007700 在 failover 的 secondResource 资源行（下方断言）。
+        null,
       );
+      const failoverBill = await billRepo.getBill(fixture.enterpriseId, currentShanghaiMonth());
+      expect(failoverBill.providers.find((provider) => provider.providerResourceId === secondResource.id))
+        .toMatchObject({ apiCost: "0.00007700", totalCost: "0.00007700" });
       await expect(billRepo.closeMonth({
         enterpriseId: fixture.enterpriseId,
         adminId: fixture.adminId,
@@ -1122,7 +1148,12 @@ describe("POOL-043 真实 pipeline 结算与关账 completion barrier", () => {
         fixture.resourceId,
         fixture.employeeId,
         "CLOSED",
+        "0.00007700",
+        null,
       );
+      const frozenFailoverBill = await billRepo.getBill(fixture.enterpriseId, currentShanghaiMonth());
+      expect(frozenFailoverBill.providers.find((provider) => provider.providerResourceId === secondResource.id))
+        .toMatchObject({ apiCost: "0.00007700", totalCost: "0.00007700" });
       const frozenAccounts = await accountRepo.listAccounts(
         fixture.enterpriseId, currentShanghaiMonth(), "EMPLOYEE",
       );

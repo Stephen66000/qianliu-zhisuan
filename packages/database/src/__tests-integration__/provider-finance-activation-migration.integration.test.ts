@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { sql } from "kysely";
 import { startPostgresContainer } from "@qianliu/testing";
-import { createKysely, migrateDown, ProviderFinanceActivationRepository } from "../index.js";
+import { createKysely, migrateDown, migrateToLatest, ProviderFinanceActivationRepository } from "../index.js";
 import { createMigrator } from "../migrator.js";
 import { rollbackTo } from "./migration-rollback.js";
 
@@ -13,8 +13,9 @@ import { rollbackTo } from "./migration-rollback.js";
  * - 候选 TTL 固定 30 分钟且不可滑动、状态白名单不含 ACTIVATING、终态不可修改；
  * - 企业级激活幂等键唯一；
  * - 静默租约 60 分钟上限、状态形状、审计留痕与到期自动失效；
- * - 资源资金状态 PENDING/READY 形状与种子规则；
- * - Gateway 可服务资源排除 PENDING（PFH-07）；
+ * - 资源资金状态 PENDING/READY 形状约束（0094 后种入退役，PENDING 行仅存量直插/留档）；
+ * - Gateway 可服务资源不再排除 PENDING（AFR-02，迁移 0094 准入解除）；
+ * - 0094 down 恢复种入触发器的正反控制（存量行原样保留）；
  * - 存在激活事实时拒绝回退（0078 与 0079 均有 ACTIVATED 守卫，失败关闭）。
  */
 describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
@@ -253,7 +254,7 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
     }
   }, 120_000);
 
-  it("资源资金状态：新 API 资源在已激活企业下默认 PENDING，未激活则不纳入门禁", async () => {
+  it("0094 后资源资金门禁退役：新 API 资源无 finance_state 行且立即可服务（AFR-02）", async () => {
     const { pg, db, enterpriseId, adminId, providerId, apiResourceId } = await bootstrap("pfinit_resource_state");
     try {
       const repo = new ProviderFinanceActivationRepository(db);
@@ -271,16 +272,23 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
         activated_at: new Date("2026-09-21T10:00:00.000Z"), activated_by_admin_user_id: adminId,
       }).execute();
 
+      // 断言迁移（AFR-02 / plan §4.2-§4.3，迁移 0094）：已激活企业新建 API 资源不再种入
+      // PENDING——旧断言 seeded?.state === "PENDING" 随种入触发器删除而反转。
       const afterActivation = await db.insertInto("provider_resource").values({
         enterprise_id: enterpriseId, provider_id: providerId, name: "激活后资源",
         mode: "API", credential_type: "API_KEY",
       }).returning("id").executeTakeFirstOrThrow();
-      const seeded = await repo.loadResourceFinanceState(enterpriseId, afterActivation.id);
-      expect(seeded?.state).toBe("PENDING");
-      expect(seeded?.requiredCurrencies).toEqual([]);
-      expect(await repo.isResourceFinancePending(enterpriseId, afterActivation.id)).toBe(true);
-      expect((await repo.listPendingResources(enterpriseId)).map((item) => item.resourceId))
-        .toEqual([afterActivation.id]);
+      expect(await repo.loadResourceFinanceState(enterpriseId, afterActivation.id)).toBeNull();
+      expect(await repo.isResourceFinancePending(enterpriseId, afterActivation.id)).toBe(false);
+      expect(await repo.listPendingResources(enterpriseId)).toEqual([]);
+
+      // 0094 后新资源无需任何资金就绪登记即进入可服务集合
+      // （准入解除在应用层：listServableResources 不再读取 provider_resource_finance_state）。
+      const { ResourcePoolRepository } = await import("../repositories/resource-pool-repository.js");
+      const pool = new ResourcePoolRepository(db);
+      const servable = await pool.listServableResources(enterpriseId);
+      expect(servable.map((item) => item.id).sort())
+        .toEqual([apiResourceId, beforeActivation.id, afterActivation.id].sort());
 
       // Coding Plan 资源不纳入 API 资金就绪门禁
       const codingPlan = await db.insertInto("provider_resource").values({
@@ -289,36 +297,51 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
       }).returning("id").executeTakeFirstOrThrow();
       expect(await repo.loadResourceFinanceState(enterpriseId, codingPlan.id)).toBeNull();
 
-      // 就绪登记：必须至少一个必备币种
+      // 存量 PENDING 行仅留档（D4）：0094 后无种入来源，以下用直插存量行继续锁定
+      // provider_resource_finance_state 的形状约束与仓储存档语义（不触碰表本体）。
+      const legacyPending = await db.insertInto("provider_resource").values({
+        enterprise_id: enterpriseId, provider_id: providerId, name: "存量门禁资源",
+        mode: "API", credential_type: "API_KEY",
+      }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: legacyPending.id,
+        required_currencies: JSON.stringify([]) as never,
+      }).execute();
+
+      // 就绪登记（存档语义，对存量 PENDING 行仍可用）：必须至少一个必备币种
       await expect(repo.markResourceFinanceReady({
-        enterpriseId, resourceId: afterActivation.id, adminId,
+        enterpriseId, resourceId: legacyPending.id, adminId,
         requiredCurrencies: [], now: new Date("2026-09-21T10:10:00.000Z"),
       })).rejects.toThrowError(/必要币种/);
       const ready = await repo.markResourceFinanceReady({
-        enterpriseId, resourceId: afterActivation.id, adminId,
+        enterpriseId, resourceId: legacyPending.id, adminId,
         requiredCurrencies: ["CNY"], now: new Date("2026-09-21T10:10:00.000Z"),
       });
       expect(ready.state).toBe("READY");
       expect(ready.version).toBe(2);
-      expect(await repo.isResourceFinancePending(enterpriseId, afterActivation.id)).toBe(false);
+      expect(await repo.isResourceFinancePending(enterpriseId, legacyPending.id)).toBe(false);
 
       // 乐观并发版本冲突
       await expect(repo.markResourceFinanceReady({
-        enterpriseId, resourceId: afterActivation.id, adminId,
+        enterpriseId, resourceId: legacyPending.id, adminId,
         requiredCurrencies: ["USD"], now: new Date("2026-09-21T10:11:00.000Z"), expectedVersion: 1,
       })).rejects.toBeDefined();
 
-      // 未纳入门禁的资源禁止登记就绪
+      // 未纳入门禁的资源禁止登记就绪（0094 后所有新资源均无行，即未纳入）
       await expect(repo.markResourceFinanceReady({
-        enterpriseId, resourceId: beforeActivation.id, adminId,
+        enterpriseId, resourceId: afterActivation.id, adminId,
         requiredCurrencies: ["CNY"], now: new Date("2026-09-21T10:12:00.000Z"),
       })).rejects.toThrowError(/未纳入资金门禁/);
 
-      // 形状约束：PENDING 不得带就绪信息，READY 不得缺少就绪信息与管理员
+      // 形状约束（留档表约束继续生效）：PENDING 不得带就绪信息，READY 不得缺少就绪信息与管理员
       const pendingResource = await db.insertInto("provider_resource").values({
         enterprise_id: enterpriseId, provider_id: providerId, name: "待就绪资源",
         mode: "API", credential_type: "API_KEY",
       }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: pendingResource.id,
+        required_currencies: JSON.stringify([]) as never,
+      }).execute();
       await expect(db.updateTable("provider_resource_finance_state")
         .set({ ready_at: new Date() })
         .where("provider_resource_id", "=", pendingResource.id).execute()).rejects.toBeDefined();
@@ -327,13 +350,73 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
         .where("provider_resource_id", "=", pendingResource.id).execute()).rejects.toBeDefined();
       await expect(db.updateTable("provider_resource_finance_state")
         .set({ version: 0 })
-        .where("provider_resource_id", "=", afterActivation.id).execute()).rejects.toBeDefined();
+        .where("provider_resource_id", "=", legacyPending.id).execute()).rejects.toBeDefined();
     } finally {
       await db.destroy(); await pg.stop();
     }
   }, 120_000);
 
-  it("Gateway 可服务资源排除 PENDING，就绪后恢复；存在激活事实时拒绝回退", async () => {
+  it("0094 down 恢复种入触发器（正反控制），存量 finance_state 行原样保留（D4/AFR-02）", async () => {
+    const { pg, db, enterpriseId, adminId, providerId } = await bootstrap("pfinit_seed_0094");
+    try {
+      const repo = new ProviderFinanceActivationRepository(db);
+      await db.insertInto("provider_finance_runtime_state").values({
+        enterprise_id: enterpriseId, strict_writes_enabled: true,
+        activated_at: new Date("2026-09-21T10:00:00.000Z"), activated_by_admin_user_id: adminId,
+      }).execute();
+
+      // 正控制（0094 up 已生效）：迁移头在 0094 时，新建 API 资源无种入行。
+      const preRollback = await db.insertInto("provider_resource").values({
+        enterprise_id: enterpriseId, provider_id: providerId, name: "回退前资源",
+        mode: "API", credential_type: "API_KEY",
+      }).returning("id").executeTakeFirstOrThrow();
+      expect(await repo.loadResourceFinanceState(enterpriseId, preRollback.id)).toBeNull();
+
+      // 存量 PENDING 留档行：记录 down 前快照，验证 down 不删除/改动任何行。
+      const legacy = await db.insertInto("provider_resource").values({
+        enterprise_id: enterpriseId, provider_id: providerId, name: "存量留档资源",
+        mode: "API", credential_type: "API_KEY",
+      }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: legacy.id,
+        required_currencies: JSON.stringify([]) as never,
+      }).execute();
+      const snapshot = () => db.selectFrom("provider_resource_finance_state").selectAll()
+        .where("enterprise_id", "=", enterpriseId)
+        .orderBy("provider_resource_id", "asc").execute();
+      const beforeDown = await snapshot();
+
+      // 回退 0094：down 逐字恢复 0081 种入触发器（参照 rollbackTo 链式回退模式）。
+      const rolledBack = await rollbackTo(db, "0094_retire_api_finance_pending_admission");
+      expect(rolledBack).toEqual(["0094_retire_api_finance_pending_admission"]);
+
+      // down 数据不变式：存量行原样保留（D4 留档，无任何数据变更）。
+      expect(await snapshot()).toEqual(beforeDown);
+
+      // 正控制：down 后种入行为恢复——已激活企业新建 API 资源再次被种入 PENDING。
+      const postRollback = await db.insertInto("provider_resource").values({
+        enterprise_id: enterpriseId, provider_id: providerId, name: "回退后资源",
+        mode: "API", credential_type: "API_KEY",
+      }).returning("id").executeTakeFirstOrThrow();
+      expect((await repo.loadResourceFinanceState(enterpriseId, postRollback.id))?.state)
+        .toBe("PENDING");
+
+      // 反控制：重新应用 0094（up）后种入再次停止；down 期间种入的行原样保留、不被清理。
+      expect(await migrateToLatest(db))
+        .toContain("0094_retire_api_finance_pending_admission");
+      const postReapply = await db.insertInto("provider_resource").values({
+        enterprise_id: enterpriseId, provider_id: providerId, name: "重放后资源",
+        mode: "API", credential_type: "API_KEY",
+      }).returning("id").executeTakeFirstOrThrow();
+      expect(await repo.loadResourceFinanceState(enterpriseId, postReapply.id)).toBeNull();
+      expect((await repo.loadResourceFinanceState(enterpriseId, postRollback.id))?.state)
+        .toBe("PENDING");
+    } finally {
+      await db.destroy(); await pg.stop();
+    }
+  }, 120_000);
+
+  it("Gateway 可服务资源不再排除存量 PENDING，存量 READY 语义不变；存在激活事实时拒绝回退", async () => {
     const { pg, db, enterpriseId, adminId, providerId, apiResourceId } = await bootstrap("pfinit_servable");
     try {
       const activationRepo = new ProviderFinanceActivationRepository(db);
@@ -346,11 +429,21 @@ describe.sequential("PF-INIT WP01：资金账本初始化控制结构", () => {
         mode: "API", credential_type: "API_KEY", status: "ACTIVE",
       }).returning("id").executeTakeFirstOrThrow();
 
+      // 断言迁移（AFR-02 / plan §4.3，迁移 0094）：种入已退役，存量 PENDING 行用直插构造
+      // （模拟 0094 之前种入的留档行；旧断言 beforeReady=仅 apiResourceId 已随准入解除退役）。
+      await db.insertInto("provider_resource_finance_state").values({
+        enterprise_id: enterpriseId, provider_resource_id: gated.id,
+        required_currencies: JSON.stringify([]) as never,
+      }).execute();
+
       const { ResourcePoolRepository } = await import("../repositories/resource-pool-repository.js");
       const pool = new ResourcePoolRepository(db);
-      const beforeReady = await pool.listServableResources(enterpriseId);
-      expect(beforeReady.map((item) => item.id).sort()).toEqual([apiResourceId].sort());
+      // 存量 PENDING 行不再被排除：资源直接可服务（AT-AFR-05 机制层）
+      const withLegacyPending = await pool.listServableResources(enterpriseId);
+      expect(withLegacyPending.map((item) => item.id).sort())
+        .toEqual([apiResourceId, gated.id].sort());
 
+      // 存量 READY 行语义不变：就绪登记（存档仓储）后仍可服务
       await activationRepo.markResourceFinanceReady({
         enterpriseId, resourceId: gated.id, adminId, requiredCurrencies: ["CNY"],
         now: new Date("2026-09-21T10:10:00.000Z"),

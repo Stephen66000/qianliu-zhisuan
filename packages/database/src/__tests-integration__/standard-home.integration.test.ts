@@ -972,8 +972,12 @@ describe.sequential("标准版首页聚合（getStandardHomeSummary）", () => {
     expect(reason).toContain("API_USAGE_COST_UNKNOWN:1");
     expect(reason).toContain("API_COST_CURRENCY_MISSING:1");
     expect(reason).toContain("API_COST_CURRENCY_CONFLICT:1");
-    // 币种冲突行与缺期初行均无期初事件：两条 PRICED_USAGE 行都计入该缺口。
-    expect(reason).toContain("OPENING_BALANCE_MISSING:2");
+    // 断言迁移（WP2-S5 / AFR-07＋WP2 plan §4.5，WP1 合同 §4 裁定 1 收口）：
+    // countFinanceGaps 停产 OPENING_BALANCE_MISSING（恒 0，AFR-07"移除待补期初提示，
+    // 仍展示真实存在的用量或价格缺口"）——原正控制"币种冲突行与缺期初行均无期初
+    // 事件 → OPENING_BALANCE_MISSING:2"不再计数；其余五码（真实用量/价格缺口与
+    // 套餐/现金域）计数语义不变。
+    expect(reason).not.toContain("OPENING_BALANCE_MISSING");
     expect(reason).toContain("SUBSCRIPTION_PERIOD_MISSING:1");
     expect(reason).toContain("CASH_PAID_CNY_MISSING:1");
     // 反控制：已解决/已补齐事实不计数

@@ -112,7 +112,16 @@ interface OpeningResolution {
   draftOpenings: Map<string, { amount: string; description: string; evidenceRef: string }>;
 }
 
-/** 必要币种账户的期初余额必须且仅有一条（PFH-01）。 */
+/**
+ * 必要币种账户的期初余额必须且仅有一条（PFH-01）。
+ *
+ * WP2-S4 / AFR-01 场景3（plan §4a-R5）：初始化合同切分为套餐所需范围——API 资源的
+ * "必要币种推导/期初必须存在/证据必须齐全"要求（原 REQUIRED_CURRENCY_UNRESOLVED /
+ * MISSING_OPENING_BALANCE / MISSING_OPENING_EVIDENCE 循环）随 API 内部资金管理退役，
+ * 纯套餐初始化不再被 API 资源的资金缺口阻塞（AT-AFR-03/AFR-04）。草稿行模式校验
+ * （collectScopeAndModeGaps）与 CP 资源逻辑保持不变；草稿期初/真实期初的对账结构
+ * 保留（存档路径，激活侧已拒绝含 API 资金事实的候选）。
+ */
 export function resolveOpeningAccounts(
   input: ActivationProjectionInput,
   resourcesById: Map<string, ActivationScopeResourceInput>,
@@ -165,33 +174,10 @@ export function resolveOpeningAccounts(
       });
     }
   }
-  const apiResourceIds = [...resourcesById.values()]
-    .filter((resource) => resource.mode === "API")
-    .map((resource) => resource.resourceId).sort(compareStrings);
-  for (const resourceId of apiResourceIds) {
-    const accounts = [...scopeAccounts.values()]
-      .filter((account) => account.resourceId === resourceId)
-      .sort((left, right) => compareStrings(left.currency, right.currency));
-    if (accounts.length === 0) {
-      gaps.push(gap("REQUIRED_CURRENCY_UNRESOLVED", "OPENING_BALANCE",
-        "该 API 资源无法推导必要币种，必须由管理员显式选择至少一个账户币种并说明理由",
-        { resourceId }));
-      continue;
-    }
-    for (const account of accounts) {
-      const key = accountKey(resourceId, account.currency);
-      if (realOpenings.has(key)) continue;
-      const draftOpening = draftOpenings.get(key);
-      if (!draftOpening) {
-        gaps.push(gap("MISSING_OPENING_BALANCE", "OPENING_BALANCE", "必要币种账户缺少原始期初余额",
-          { resourceId, accountCurrency: account.currency }));
-        continue;
-      }
-      if (draftOpening.description.trim().length === 0 || draftOpening.evidenceRef.trim().length === 0) {
-        gaps.push(gap("MISSING_OPENING_EVIDENCE", "OPENING_BALANCE", "期初余额必须填写说明与证据引用",
-          { resourceId, accountCurrency: account.currency }));
-      }
-    }
-  }
+  // WP2-S4 / R5：原此处对 scope 内每个 API 资源强制"必要币种账户 + 原始期初 + 说明/证据"
+  // （REQUIRED_CURRENCY_UNRESOLVED / MISSING_OPENING_BALANCE / MISSING_OPENING_EVIDENCE）。
+  // 该循环已随 API 资金管理退役整体移除；scope 账户仍由事实推导（CUTOVER_SNAPSHOT /
+  // FINANCE_EVENT / PRICED_USAGE / HISTORICAL_RECHARGE）并进入候选哈希，语义不变。
+  void resourcesById;
   return { scopeAccounts, realOpenings, draftOpenings };
 }

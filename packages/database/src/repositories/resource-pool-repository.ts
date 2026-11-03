@@ -422,8 +422,9 @@ export class ResourcePoolRepository {
    * 可服务资源硬过滤（WT-07 同池选择；W12 评分在此之后）。
    * 规则：ACTIVE/DEGRADED 直接可服务；UNAVAILABLE 且冷却到期 → 半开探测；
    * 终态隔离（CREDENTIAL_INVALID/EXHAUSTED/EXPIRED）与冷却中 UNAVAILABLE 排除。
-   * PFH-07：企业激活严格资金写后新建的 API 资源在完成期初登记前为 PENDING，
-   * 资金未就绪资源不得承载生产流量（无记录表示未纳入门禁）。
+   * AFR-02（WP2 task 4.3，迁移 0094）：API 资金 PENDING 调用准入已退役——不再读取
+   * provider_resource_finance_state（0094 已删除种入触发器，新资源无行）；
+   * 存量 PENDING/READY 行仅留档（D4），不参与调度；凭证/额度准入语义不变。
    */
   async listServableResources(
     enterpriseId: string,
@@ -432,11 +433,7 @@ export class ResourcePoolRepository {
   ): Promise<ServableResource[]> {
     let query = this.db
       .selectFrom("provider_resource as resource")
-      .leftJoin("provider_resource_finance_state as finance_state", (join) => join
-        .onRef("finance_state.provider_resource_id", "=", "resource.id")
-        .onRef("finance_state.enterprise_id", "=", "resource.enterprise_id"))
       .selectAll("resource")
-      .select("finance_state.state as finance_state")
       .where("resource.enterprise_id", "=", enterpriseId)
       // CPQW（F2 硬门禁）：活跃额度阻断记录存在时即使 status 被人工改回也阻止生成；
       // 记录只在额度事务证实全部窗口恢复后清空。
@@ -447,7 +444,6 @@ export class ResourcePoolRepository {
     const rows = await query.execute();
     const servable: ServableResource[] = [];
     for (const row of rows) {
-      if (row.finance_state === "PENDING") continue;
       const admission = evaluateAdmission(toRuntimeState(row), now.getTime());
       if (!admission.admit) continue;
       servable.push({

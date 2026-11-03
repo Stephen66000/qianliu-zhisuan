@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { sql } from "kysely";
@@ -63,14 +63,17 @@ async function seedPendingFinanceState(resourceId: string) {
 afterEach(() => { vi.useRealTimers(); });
 
 describe("provider finance routes", () => {
-  it("does not expose ACTIVE writes before the database contract is activated", async () => {
+  it("retired API funding writes return 410 regardless of activation state (AFR-01/P4)", async () => {
+    // 断言迁移（WP2-S3 / AFR-01）：原断言 503 finance_write_contract_inactive 钉的是
+    // W4 经 requireActive 的旧门禁；退役后 W1-W4/W9-W11 在 requireAuth 之后无条件 410，
+    // 与激活状态/strict_writes_enabled 无关，故 503 分支不再可达。
     try {
       const response = await app.inject({ method: "POST",
         url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
         payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
           occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() } });
-      expect(response.statusCode).toBe(503);
-      expect(response.json()).toMatchObject({ error: "finance_write_contract_inactive" });
+      expect(response.statusCode).toBe(410);
+      expect(response.json()).toMatchObject({ error: "api_funding_management_retired" });
     } finally {
       await sql`
         INSERT INTO provider_finance_runtime_state
@@ -97,84 +100,138 @@ describe("provider finance routes", () => {
     expect((await app.inject({method:"POST",url:`/provider-resources/${randomUUID()}/finance/auto-renewal/cancel`,headers:{cookie},payload:{}})).statusCode).toBe(404);
   });
 
-  it("records opening and recharge then returns the same projected balance", async () => {
+  it("retired API funding writes keep historical facts readable and write nothing (AFR-01/AT-AFR-02)", async () => {
+    // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：原“期初→充值→幂等重放→更正→冲销→对账
+    // 创建/确认”成功链全部经退役写入口（W1/W3/W4/W7/W9/W10），退役后路由不再生产事实。
+    // 历史事实改为直插构造（S2 夹具模式：显式 PENDING 行＋事件行），最终资金状态与原链路
+    // 一致（余额 65＝期初 50＋更正 10＋充值 100−对账调整 95），后续 W5 用例的读模型断言不受影响。
     await seedPendingFinanceState(apiResourceId);
-    const opening = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
-      payload: { account_currency: "CNY", account_amount: "50",
-        occurred_at: "2026-09-02T01:00:00.000Z", description: "资源生效时点期初余额",
-        evidence_ref: "opening",
-        idempotency_key: randomUUID() } });
-    expect(opening.statusCode).toBe(201);
-    const openingId = opening.json().event.id as string;
-    const rechargeKey = randomUUID();
-    const rechargePayload = { account_currency: "CNY", account_amount: "100", cash_paid_cny: "100",
-      occurred_at: "2026-09-02T01:00:00.000Z", external_reference: "api-pay-1",
-      description: "DeepSeek 控制台充值", evidence_ref: "recharge-proof",
-      idempotency_key: rechargeKey };
-    const recharge = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
-      payload: rechargePayload });
-    expect(recharge.statusCode).toBe(201);
-    const rechargeId = recharge.json().event.id as string;
-    const rechargeReplay = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
-      payload: rechargePayload });
-    expect(rechargeReplay.statusCode).toBe(200);
-    expect(rechargeReplay.json().event).toMatchObject({ id: rechargeId, replayed: true });
+    const openingRow = await db.insertInto("provider_finance_event").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      event_type: "API_OPENING_BALANCE", account_amount: "50", account_currency: "CNY",
+      cash_paid_cny: null, occurred_at: new Date("2026-09-02T01:00:00.000Z"),
+      external_reference: null, reversal_of_event_id: null, correction_of_event_id: null,
+      reconciliation_case_id: null, description: "资源生效时点期初余额（直插历史事实）",
+      evidence_ref: "opening", source: "ADMIN", idempotency_key: randomUUID(),
+      created_by_admin_user_id: adminId,
+    }).returningAll().executeTakeFirstOrThrow();
+    await db.insertInto("provider_finance_event").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      event_type: "API_OPENING_BALANCE_CORRECTION", account_amount: "10", account_currency: "CNY",
+      cash_paid_cny: null, occurred_at: openingRow.occurred_at,
+      external_reference: null, reversal_of_event_id: null,
+      correction_of_event_id: openingRow.id, reconciliation_case_id: null,
+      description: "期初更正（直插历史事实）", evidence_ref: "correction",
+      source: "ADMIN", idempotency_key: randomUUID(), created_by_admin_user_id: adminId,
+    }).execute();
+    const rechargeRow = await db.insertInto("provider_finance_event").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      event_type: "API_RECHARGE", account_amount: "100", account_currency: "CNY",
+      cash_paid_cny: "100", occurred_at: new Date("2026-09-02T01:00:00.000Z"),
+      external_reference: "api-pay-1", reversal_of_event_id: null,
+      correction_of_event_id: null, reconciliation_case_id: null,
+      description: "DeepSeek 控制台充值（直插历史事实）", evidence_ref: "recharge-proof",
+      source: "ADMIN", idempotency_key: randomUUID(), created_by_admin_user_id: adminId,
+    }).returningAll().executeTakeFirstOrThrow();
+    // 对账历史：调整事件与案件关闭必须同事务（0059 一致性触发器，参照 ledger 夹具模式）；
+    // 0083 要求调整金额与案件差值一致（160 → 厂商确认 65，差值 -95）。
+    const caseRow = await db.transaction().execute(async (trx) => {
+      const financeCase = await trx.insertInto("provider_finance_reconciliation_case").values({
+        enterprise_id: enterpriseId, provider_resource_id: apiResourceId, account_currency: "CNY",
+        local_balance: "160", provider_confirmed_balance: "65", difference_amount: "-95",
+        balance_as_of: new Date("2026-09-02T02:00:00.000Z"), fact_watermark: {},
+        evidence_ref: "provider-proof", opened_by_admin_user_id: adminId,
+        decided_by_admin_user_id: null, adjustment_event_id: null, decision: null,
+        decision_note: null, decision_idempotency_key: null, decided_at: null, resolved_at: null,
+      }).returningAll().executeTakeFirstOrThrow();
+      const reconciliationRow = await trx.insertInto("provider_finance_event").values({
+        enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+        event_type: "API_BALANCE_RECONCILIATION", account_amount: "-95", account_currency: "CNY",
+        cash_paid_cny: null, occurred_at: financeCase.balance_as_of, external_reference: null,
+        reversal_of_event_id: null, correction_of_event_id: null,
+        reconciliation_case_id: financeCase.id, description: null, evidence_ref: "provider-proof",
+        source: "RECONCILIATION", idempotency_key: randomUUID(),
+        created_by_admin_user_id: adminId,
+      }).returningAll().executeTakeFirstOrThrow();
+      await trx.updateTable("provider_finance_reconciliation_case").set({
+        status: "RESOLVED", decision: "CONFIRMED", adjustment_event_id: reconciliationRow.id,
+        decided_by_admin_user_id: adminId, decided_at: new Date(), resolved_at: new Date(),
+        version: 2,
+      }).where("id", "=", financeCase.id).execute();
+      return financeCase;
+    });
+
+    const factCounts = async () => ({
+      events: await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      candidates: await db.selectFrom("provider_finance_duplicate_candidate").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      cases: await db.selectFrom("provider_finance_reconciliation_case").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      idempotency: await db.selectFrom("provider_finance_idempotency").select("idempotency_key")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+    });
+    const before = await factCounts();
+
+    // 退役写入口（W1/W3/W4/W9/W10＋W7 对 API 事件的冲销）：一律 410＋固定错误码。
+    const retiredWrites: Array<[string, string, Record<string, unknown>]> = [
+      ["/provider-resources/:id/finance/opening-balances",
+        `/provider-resources/${apiResourceId}/finance/opening-balances`,
+        { account_currency: "CNY", account_amount: "1", occurred_at: "2026-09-02T01:00:00.000Z",
+          evidence_ref: "should-not-write", idempotency_key: randomUUID() }],
+      ["/provider-resources/:id/finance/opening-balance-corrections",
+        `/provider-resources/${apiResourceId}/finance/opening-balance-corrections`,
+        { opening_event_id: openingRow.id, account_currency: "CNY", account_amount: "1",
+          occurred_at: "2026-09-02T01:00:00.000Z", evidence_ref: "should-not-write",
+          idempotency_key: randomUUID() }],
+      ["/provider-resources/:id/finance/recharges",
+        `/provider-resources/${apiResourceId}/finance/recharges`,
+        { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
+          occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() }],
+      ["/provider-finance-events/:id/reversal（API 事实，repo 守卫）",
+        `/provider-finance-events/${rechargeRow.id}/reversal`,
+        { reason: "wrong recharge", evidence_ref: "reversal", idempotency_key: randomUUID() }],
+      ["/provider-resources/:id/finance/reconciliation-cases",
+        `/provider-resources/${apiResourceId}/finance/reconciliation-cases`,
+        { account_currency: "CNY", provider_confirmed_balance: "70",
+          balance_as_of: "2026-09-02T02:00:00.000Z", evidence_ref: "should-not-write" }],
+      ["/provider-finance-reconciliation-cases/:id/confirm",
+        `/provider-finance-reconciliation-cases/${caseRow.id}/confirm`,
+        { expected_version: 2, note: "confirm", idempotency_key: randomUUID() }],
+    ];
+    for (const [name, url, payload] of retiredWrites) {
+      const response = await app.inject({ method: "POST", url, headers: { cookie }, payload });
+      expect(response.statusCode, `${name} -> ${response.body}`).toBe(410);
+      expect(response.json()).toMatchObject({ error: "api_funding_management_retired" });
+    }
+    expect(await factCounts()).toEqual(before);
+
+    // 读端点照常返回历史数据（GET 全部保留）。
     const balance = await app.inject({ method: "GET",
       url: `/provider-resources/${apiResourceId}/finance/balance?currency=CNY&as_of=2026-09-02T02:00:00.000Z`,
       headers: { cookie } });
     expect(balance.statusCode).toBe(200);
-    expect(balance.json()).toMatchObject({ state: "NORMAL", balance: "150.00000000" });
-    const correction = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/opening-balance-corrections`, headers: { cookie },
-      payload: { opening_event_id: openingId, account_currency: "CNY", account_amount: "10",
-        occurred_at: "2026-09-02T01:00:00.000Z", description: "期初更正",
-        evidence_ref: "correction",
-        idempotency_key: randomUUID() } });
-    expect(correction.statusCode).toBe(201);
-    const reversal = await app.inject({ method: "POST",
-      url: `/provider-finance-events/${rechargeId}/reversal`, headers: { cookie },
-      payload: { reason: "wrong recharge", evidence_ref: "reversal", idempotency_key: randomUUID() } });
-    expect(reversal.statusCode).toBe(201);
-    const createdCase = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/reconciliation-cases`, headers: { cookie },
-      payload: { account_currency: "CNY", provider_confirmed_balance: "65",
-        balance_as_of: "2026-09-02T02:00:00.000Z", evidence_ref: "provider-proof" } });
-    expect(createdCase.statusCode).toBe(201);
-    const caseId = createdCase.json().case.id as string;
-    const confirmKey = randomUUID();
-    const confirmed = await app.inject({ method: "POST",
-      url: `/provider-finance-reconciliation-cases/${caseId}/confirm`, headers: { cookie },
-      payload: { expected_version: 1, note: "confirm", idempotency_key: confirmKey } });
-    expect(confirmed.statusCode).toBe(200);
-    const replay = await app.inject({ method: "POST",
-      url: `/provider-finance-reconciliation-cases/${caseId}/confirm`, headers: { cookie },
-      payload: { expected_version: 1, note: "confirm", idempotency_key: confirmKey } });
-    expect(replay.statusCode).toBe(200);
-    const after = await app.inject({ method: "GET",
-      url: `/provider-resources/${apiResourceId}/finance/balance?currency=CNY&as_of=2026-09-02T02:00:00.000Z`,
-      headers: { cookie } });
-    expect(after.json()).toMatchObject({ state: "NORMAL", balance: "65.00000000" });
+    expect(balance.json()).toMatchObject({ state: "NORMAL", balance: "65.00000000" });
     const history = await app.inject({ method: "GET",
       url: `/provider-resources/${apiResourceId}/finance/events?type=API_RECHARGE&from=2026-09-01T00:00:00%2B08:00&to=2026-10-01T00:00:00%2B08:00`,
       headers: { cookie } });
     expect(history.statusCode).toBe(200);
     expect(history.json()).toMatchObject({ total: 1,
-      items: [expect.objectContaining({ id: rechargeId, eventType: "API_RECHARGE" })] });
+      items: [expect.objectContaining({ id: rechargeRow.id, eventType: "API_RECHARGE" })] });
     const cases = await app.inject({ method: "GET",
       url: "/provider-finance/reconciliation-cases?status=RESOLVED", headers: { cookie } });
     expect(cases.statusCode).toBe(200);
     expect(cases.json()).toMatchObject({ total: 1,
-      items: [expect.objectContaining({ id: caseId, status: "RESOLVED" })] });
+      items: [expect.objectContaining({ id: caseRow.id, status: "RESOLVED" })] });
     const resources = await app.inject({ method: "GET",
       url: "/provider-finance/resources?month=2026-09", headers: { cookie } });
     expect(resources.statusCode).toBe(200);
     expect(resources.json().resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ resourceId: apiResourceId, mode: "API",
         accounts: [expect.objectContaining({ currency: "CNY", balanceState: "NORMAL",
-          balance: "65.00000000", monthlyRecharge: "0.00000000" })] }),
+          // 断言迁移（WP2-S3 / AFR-01）：原 0 是“充值 100 被冲销 -100”的净值；冲销退役后
+          // 月度充值读数保留历史事实原值 100。
+          balance: "65.00000000", monthlyRecharge: "100.00000000" })] }),
     ]));
   });
 
@@ -222,7 +279,10 @@ describe("provider finance routes", () => {
       url: "/provider-finance/summary?month=2026-09", headers: { cookie } });
     expect(summary.statusCode).toBe(200);
     expect(summary.json()).toMatchObject({
-      cashOutflowCny: "199.00000000", codingPlanFixedCostCny: "199.00000000",
+      // 断言迁移（WP2-S3 / AFR-01）：直插历史事实中的 API 充值实付（100）不再被冲销
+      // （W7 对 API 事实的冲销已退役，见上一用例），9 月现金流出 = 100 + 套餐 199 = 299。
+      // 余额口径不变（对账调整 -95 后仍为 65）。
+      cashOutflowCny: "299.00000000", codingPlanFixedCostCny: "199.00000000",
       operatingCostCny: "199.00000000", currentApiBalances: [
         { currency: "CNY", amount: "65.00000000" },
       ], currentApiBalancesComplete: true, complete: true,
@@ -339,13 +399,17 @@ describe("provider finance routes", () => {
       principal_id: unknownPrincipalId, key_prefix: "ql-finance-unknown", key_digest: randomUUID(),
       allowed_model_ids: [], ip_allowlist: [], expires_at: null, quota_limit: null,
       concurrency_limit: null, last_used_at: null, revoked_at: null }).execute();
-    const usdOpening = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
-      payload: { account_currency: "USD", account_amount: "10",
-        occurred_at: "2026-09-02T01:00:00.000Z", description: "美元账户期初余额",
-        evidence_ref: "usd-opening",
-        idempotency_key: randomUUID() } });
-    expect(usdOpening.statusCode).toBe(201);
+    // 断言迁移（WP2-S3 / AFR-01）：美元期初原经 W1（201）；W1 退役后历史事实改直插构造
+    // （多币种期初必须与既有 CNY 期初同点，0083 触发器校验同前）。后续 USD 账单断言不变。
+    const usdOpening = await db.insertInto("provider_finance_event").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      event_type: "API_OPENING_BALANCE", account_amount: "10", account_currency: "USD",
+      cash_paid_cny: null, occurred_at: new Date("2026-09-02T01:00:00.000Z"),
+      external_reference: null, reversal_of_event_id: null, correction_of_event_id: null,
+      reconciliation_case_id: null, description: "美元账户期初余额", evidence_ref: "usd-opening",
+      source: "ADMIN", idempotency_key: randomUUID(), created_by_admin_user_id: adminId,
+    }).returningAll().executeTakeFirstOrThrow();
+    expect(usdOpening.event_type).toBe("API_OPENING_BALANCE");
     const usdRequestId = randomUUID();
     await ledger.createRequest({ id: usdRequestId, enterprise_id: enterpriseId,
       principal_id: unknownPrincipalId, principal_key_id: unknownKeyId, protocol: "OPENAI_CHAT",
@@ -581,17 +645,23 @@ describe("provider finance routes", () => {
       .where("provider_resource_id", "=", resource.id).execute()).toHaveLength(0);
   });
 
-  it("requires and consumes a persisted duplicate confirmation", async () => {
-    const base = { account_currency: "CNY", account_amount: "4", cash_paid_cny: "4",
-      occurred_at: "2026-09-02T07:00:00.000Z", description: "重复候选充值",
-      evidence_ref: "duplicate-proof" };
+  it("consumes a persisted Coding Plan duplicate confirmation; API recharge candidates are retired (AFR-01)", async () => {
+    // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：原用例经 W4 充值产生并确认 API_RECHARGE 候选；
+    // W4 退役后充值候选不可再经路由产生/确认。拆分为——
+    // 1) CP 候选确认走仍存活的 W5（原成功/幂等断言保留在套餐域）；
+    // 2) API_RECHARGE 候选改为直插夹具，确认断言 410 且候选保持 PENDING、零写入。
+    const purchaseBase = { kind: "PURCHASE", product_name: "Kimi Coding Plan",
+      account_currency: "CNY", account_amount: "4", cash_paid_cny: "4",
+      occurred_at: "2026-09-02T07:00:00.000Z", service_period_start: "2026-09-02",
+      service_period_end: "2026-10-02", description: "重复候选套餐",
+      evidence_ref: "duplicate-plan-proof" };
     const first = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
-      payload: { ...base, idempotency_key: randomUUID() } });
+      url: `/provider-resources/${planResourceId}/finance/subscriptions`, headers: { cookie },
+      payload: { ...purchaseBase, idempotency_key: randomUUID() } });
     expect(first.statusCode).toBe(201);
     const duplicate = await app.inject({ method: "POST",
-      url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
-      payload: { ...base, idempotency_key: randomUUID() } });
+      url: `/provider-resources/${planResourceId}/finance/subscriptions`, headers: { cookie },
+      payload: { ...purchaseBase, idempotency_key: randomUUID() } });
     expect(duplicate.statusCode).toBe(409);
     const detail = duplicate.json().detail as {
       candidateId: string; confirmationToken: string; requestHash: string;
@@ -608,23 +678,58 @@ describe("provider finance routes", () => {
       headers: { cookie }, payload: confirmationPayload });
     expect(replay.statusCode).toBe(200);
     expect(replay.json().event).toMatchObject({ id: confirmed.json().event.id, replayed: true });
+    expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
+      .where("id", "=", detail.candidateId).executeTakeFirst()).toEqual({ status: "CONSUMED" });
+
+    // API_RECHARGE 候选（直插夹具）：token 哈希复刻 repo 的 stableHash（sha256(JSON.stringify(token))）。
+    const confirmationToken = "retired-api-candidate-token";
+    const tokenHash = createHash("sha256")
+      .update(JSON.stringify(confirmationToken)).digest("hex");
+    const retiredCandidate = await db.insertInto("provider_finance_duplicate_candidate").values({
+      enterprise_id: enterpriseId, provider_resource_id: apiResourceId,
+      event_type: "API_RECHARGE", request_hash: "a".repeat(64),
+      request_payload: { accountAmount: "7", accountCurrency: "CNY", cashPaidCny: "7",
+        occurredAt: "2026-09-02T07:00:00.000Z", description: null, evidenceRef: null,
+        productName: null, autoRenew: null, periodStart: null, periodEndExclusive: null },
+      confirmation_token_hash: tokenHash,
+      expires_at: new Date(Date.now() + 15 * 60_000), created_by_admin_user_id: adminId,
+    }).returning("id").executeTakeFirstOrThrow();
+    const eventsBefore = await db.selectFrom("provider_finance_event").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length);
+    const retiredConfirm = await app.inject({ method: "POST",
+      url: `/provider-finance-duplicate-candidates/${retiredCandidate.id}/confirm`,
+      headers: { cookie },
+      payload: { confirmation_token: confirmationToken, request_hash: "a".repeat(64),
+        idempotency_key: randomUUID() } });
+    expect(retiredConfirm.statusCode).toBe(410);
+    expect(retiredConfirm.json()).toMatchObject({ error: "api_funding_management_retired" });
+    // 候选保持 PENDING、零事件写入。
+    expect(await db.selectFrom("provider_finance_duplicate_candidate").select("status")
+      .where("id", "=", retiredCandidate.id).executeTakeFirst()).toEqual({ status: "PENDING" });
+    expect(await db.selectFrom("provider_finance_event").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length))
+      .toBe(eventsBefore);
   });
 
-  it("rejects cross-mode finance writes", async () => {
+  it("retired funding writes win over cross-mode validation; mode guards stay for live endpoints", async () => {
+    // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：跨模式充值（W4 on CP 资源）与重复外部引用
+    // （W4 的 409 finance_contract_conflict）都经退役入口，410 优先于模式/合同校验（路由层
+    // 不再校验）。W5/W6/A3/A4 与快照守卫的跨模式语义保留（下方 GET 404 与 PATCH 409 原样）。
     const response = await app.inject({ method: "POST",
       url: `/provider-resources/${planResourceId}/finance/recharges`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
         occurred_at: "2026-09-02T01:00:00.000Z", description: "跨模式充值应被拒绝",
         evidence_ref: "cross-mode-proof", idempotency_key: randomUUID() } });
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(410);
+    expect(response.json()).toMatchObject({ error: "api_funding_management_retired" });
     const duplicateReference = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "3", cash_paid_cny: "3",
         occurred_at: "2026-09-02T06:00:00.000Z", external_reference: "api-pay-1",
         description: "重复外部引用应被拒绝", evidence_ref: "duplicate-ref-proof",
         idempotency_key: randomUUID() } });
-    expect(duplicateReference.statusCode).toBe(409);
-    expect(duplicateReference.json()).toMatchObject({ error: "finance_contract_conflict" });
+    expect(duplicateReference.statusCode).toBe(410);
+    expect(duplicateReference.json()).toMatchObject({ error: "api_funding_management_retired" });
     const missingPeriods = await app.inject({ method: "GET",
       url: `/provider-resources/${randomUUID()}/subscription-periods`, headers: { cookie } });
     expect(missingPeriods.statusCode).toBe(404);
@@ -637,10 +742,11 @@ describe("provider finance routes", () => {
     expect(oldSnapshotWrite.json()).toMatchObject({ error: "finance_entry_moved" });
   });
 
-  // F-P1-4 回归：资源级资金启用的**生产可达闭环**（PFH-07 / 计划 §6.3-3）。
-  // 激活后新建 API 资源被 0078 触发器种入 PENDING 并永久拦截调度；登记必要币种期初后，
-  // 必须有一条真实入口完成资源级守恒检查并提升 READY，否则该资源永远不可调度。
-  it("closes the resource-level finance enablement loop for a post-activation API resource", async () => {
+  // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：原 F-P1-4“资源级资金启用闭环”（PFH-07）
+  // 经 W1 期初＋W2 readiness 完成 PENDING → READY；两入口均已退役（410），该闭环不再
+  // 生产可达。PENDING 存量的调度拦截已由迁移 0094＋准入解除移除（S2），本用例保留为
+  // 退役后行为回归：readiness/期初一律 410，资金状态行保持 PENDING 不被提升。
+  it("retired readiness and opening endpoints cannot promote a PENDING resource", async () => {
     const newResourceId = randomUUID();
     await db.insertInto("provider_resource").values({
       id: newResourceId, enterprise_id: enterpriseId, provider_id: deepseekProviderId,
@@ -655,43 +761,32 @@ describe("provider finance routes", () => {
     `.execute(db);
     await seedPendingFinanceState(newResourceId);
 
-    // 1) 尚未登记任何必要币种期初：不得放行到可调度状态。
+    // 1) readiness：410（原 200 PENDING 阻断语义随入口退役）。
     const before = await app.inject({ method: "POST",
       url: `/provider-resources/${newResourceId}/finance/readiness`, headers: { cookie }, payload: {} });
-    expect(before.statusCode, before.body).toBe(200);
-    expect(before.json()).toMatchObject({ ready: false, state: { state: "PENDING", version: 1 } });
-    expect((before.json().blockers as Array<{ code: string }>).map((row) => row.code))
-      .toEqual(["REQUIRED_CURRENCY_UNRESOLVED"]);
-    const pending = await sql<{ state: string }>`
-      SELECT state FROM provider_resource_finance_state
-       WHERE provider_resource_id = ${newResourceId}::uuid`.execute(db);
-    expect(pending.rows[0]!.state).toBe("PENDING");
+    expect(before.statusCode, before.body).toBe(410);
+    expect(before.json()).toMatchObject({ error: "api_funding_management_retired" });
 
-    // 2) 登记必要币种期初：资源级守恒通过 → READY（唯一生产入口）。
+    // 2) 资源级期初（W1）：410（原 201 成功登记语义随入口退役）。
     const opening = await app.inject({ method: "POST",
       url: `/provider-resources/${newResourceId}/finance/opening-balances`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "50",
         occurred_at: new Date().toISOString(), description: "新资源期初余额",
         evidence_ref: "post-activation-opening", idempotency_key: randomUUID() } });
-    expect(opening.statusCode, opening.body).toBe(201);
+    expect(opening.statusCode, opening.body).toBe(410);
+    expect(opening.json()).toMatchObject({ error: "api_funding_management_retired" });
 
-    const enabled = await app.inject({ method: "POST",
-      url: `/provider-resources/${newResourceId}/finance/readiness`, headers: { cookie }, payload: {} });
-    expect(enabled.statusCode, enabled.body).toBe(200);
-    expect(enabled.json()).toMatchObject({
-      ready: true, requiredCurrencies: ["CNY"], blockers: [],
-      state: { resourceId: newResourceId, state: "READY", requiredCurrencies: ["CNY"], version: 2 },
-    });
-    expect(enabled.json().balances).toEqual([expect.objectContaining({
-      currency: "CNY", hasOpeningBalance: true, formulaMatches: true, negative: false,
-      computedBalance: "50.00000000", reportedBalance: "50.00000000",
-    })]);
-
-    // 3) 幂等：已 READY 时重复调用不再写新版本。
-    const replay = await app.inject({ method: "POST",
-      url: `/provider-resources/${newResourceId}/finance/readiness`, headers: { cookie }, payload: {} });
-    expect(replay.statusCode).toBe(200);
-    expect(replay.json()).toMatchObject({ ready: true, state: { state: "READY", version: 2 } });
+    // 3) 复试 readiness 与幂等重放：仍 410；状态行保持 PENDING（零写入）。
+    for (let i = 0; i < 2; i += 1) {
+      const replay = await app.inject({ method: "POST",
+        url: `/provider-resources/${newResourceId}/finance/readiness`, headers: { cookie }, payload: {} });
+      expect(replay.statusCode).toBe(410);
+      expect(replay.json()).toMatchObject({ error: "api_funding_management_retired" });
+    }
+    const pending = await sql<{ state: string; version: number }>`
+      SELECT state, version FROM provider_resource_finance_state
+       WHERE provider_resource_id = ${newResourceId}::uuid`.execute(db);
+    expect(pending.rows[0]).toEqual({ state: "PENDING", version: 1 });
   });
 
   it("DARK模式允许只读但隐藏全部资金写入口", async () => {
@@ -709,11 +804,31 @@ describe("provider finance routes", () => {
         url: "/provider-resources", headers: { cookie } });
       expect(resources.json().resources.find((item: { id: string }) => item.id === apiResourceId)
         .finance).toBeTruthy();
+      // 断言迁移（WP2-S3 / AFR-01 / P4）：退役写入口移除 requireActive 后，DARK 模式同样
+      // 返回 410（退役是既成事实，与模式开关无关）；OFF 模式路由整体不注册仍 404。
       const write = await darkApp.inject({ method: "POST",
         url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
         payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
           occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() } });
-      expect(write.statusCode).toBe(404);
+      expect(write.statusCode).toBe(410);
+      expect(write.json()).toMatchObject({ error: "api_funding_management_retired" });
+      const retiredOpening = await darkApp.inject({ method: "POST",
+        url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
+        payload: { account_currency: "CNY", account_amount: "1",
+          occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: randomUUID() } });
+      expect(retiredOpening.statusCode).toBe(410);
+      expect(retiredOpening.json()).toMatchObject({ error: "api_funding_management_retired" });
+      // W5/W6（存活入口）在 DARK 下保持 404（requireActive 原样）。
+      const planWrite = await darkApp.inject({ method: "POST",
+        url: `/provider-resources/${planResourceId}/finance/subscriptions`, headers: { cookie },
+        payload: { kind: "PURCHASE", product_name: "Kimi Coding Plan", account_currency: "CNY",
+          account_amount: "1", cash_paid_cny: "1", occurred_at: "2026-09-02T01:00:00.000Z",
+          service_period_start: "2026-09-02", idempotency_key: randomUUID() } });
+      expect(planWrite.statusCode).toBe(404);
+      const planRenewal = await darkApp.inject({ method: "POST",
+        url: `/provider-resources/${planResourceId}/finance/auto-renewal/cancel`,
+        headers: { cookie }, payload: {} });
+      expect(planRenewal.statusCode).toBe(404);
       const close = await darkApp.inject({ method: "POST",
         url: "/operating-bills/2026-09/close", headers: { cookie },
         payload: { allow_incomplete: true, note: "finance projection freeze" } });
@@ -729,8 +844,11 @@ describe("provider finance routes", () => {
     }
   });
 
-  // PFH-06 / PFH-07：期初证据必填，且不得用兼容期初接口绕过企业初始化候选。
-  it("requires evidence and closes the enterprise initialization bypass", async () => {
+  // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：原 PFH-06/PFH-07“期初证据必填＋企业初始化
+  // 旁路拦截”用例的四个断言分别钉 W1 的 409 scope_conflict 与 W1/W4 的 400 证据校验；
+  // 退役后入口在 requireAuth 之后不做 body 校验、不查资金状态，原 409/400 分支不可达，
+  // 一律迁移为 410（旁路语义由 S4 的初始化草稿拒绝承接，见 plan §4.4）。
+  it("retired initialization-bypass entrypoints return 410 without validation", async () => {
     const legacyResourceId = randomUUID();
     await db.insertInto("provider_resource").values({
       id: legacyResourceId, enterprise_id: enterpriseId, provider_id: deepseekProviderId,
@@ -746,27 +864,75 @@ describe("provider finance routes", () => {
       payload: { account_currency: "CNY", account_amount: "10",
         occurred_at: "2026-08-31T16:00:00.000Z", description: "越权补写期初",
         evidence_ref: "legacy-opening", idempotency_key: randomUUID() } });
-    expect(bypass.statusCode).toBe(409);
-    expect(bypass.json()).toMatchObject({ error: "resource_finance_scope_conflict" });
+    expect(bypass.statusCode).toBe(410);
+    expect(bypass.json()).toMatchObject({ error: "api_funding_management_retired" });
 
     const missingEvidence = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/opening-balances`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "10",
         occurred_at: "2026-08-31T16:00:00.000Z", idempotency_key: randomUUID() } });
-    expect(missingEvidence.statusCode).toBe(400);
+    expect(missingEvidence.statusCode).toBe(410);
+    expect(missingEvidence.json()).toMatchObject({ error: "api_funding_management_retired" });
 
     const rechargeWithoutEvidence = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
         occurred_at: "2026-09-02T01:00:00.000Z", description: "缺证据充值",
         idempotency_key: randomUUID() } });
-    expect(rechargeWithoutEvidence.statusCode).toBe(400);
+    expect(rechargeWithoutEvidence.statusCode).toBe(410);
     const blankEvidence = await app.inject({ method: "POST",
       url: `/provider-resources/${apiResourceId}/finance/recharges`, headers: { cookie },
       payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
         occurred_at: "2026-09-02T01:00:00.000Z", description: "空证据充值",
         evidence_ref: "   ", idempotency_key: randomUUID() } });
-    expect(blankEvidence.statusCode).toBe(400);
-    expect(blankEvidence.json().message).toContain("证据");
+    expect(blankEvidence.statusCode).toBe(410);
+    expect(blankEvidence.json()).toMatchObject({ error: "api_funding_management_retired" });
+  });
+
+  // AT-AFR-02 参数化负向用例（WP2-S3）：7 个退役端点 × 合法认证 → 410＋固定错误码＋
+  // 资金事实/候选/对账/幂等表零增量；未认证 → 401（requireAuth 先行）。
+  it.each([
+    ["W1 opening-balances", "/provider-resources/:id/finance/opening-balances",
+      { account_currency: "CNY", account_amount: "1", occurred_at: "2026-09-02T01:00:00.000Z",
+        evidence_ref: "param", idempotency_key: "param-w1" }],
+    ["W2 readiness", "/provider-resources/:id/finance/readiness", {}],
+    ["W3 opening-balance-corrections", "/provider-resources/:id/finance/opening-balance-corrections",
+      { opening_event_id: "00000000-0000-4000-8000-000000000000", account_currency: "CNY",
+        account_amount: "1", occurred_at: "2026-09-02T01:00:00.000Z", evidence_ref: "param",
+        idempotency_key: "param-w3" }],
+    ["W4 recharges", "/provider-resources/:id/finance/recharges",
+      { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
+        occurred_at: "2026-09-02T01:00:00.000Z", idempotency_key: "param-w4" }],
+    ["W9 reconciliation-cases", "/provider-resources/:id/finance/reconciliation-cases",
+      { account_currency: "CNY", provider_confirmed_balance: "1",
+        balance_as_of: "2026-09-02T02:00:00.000Z", evidence_ref: "param" }],
+    ["W10 reconciliation-case confirm", "/provider-finance-reconciliation-cases/:id/confirm",
+      { expected_version: 1, note: "param", idempotency_key: "param-w10" }],
+    ["W11 reconciliation-case reject", "/provider-finance-reconciliation-cases/:id/reject",
+      { expected_version: 1, note: "param", idempotency_key: "param-w11" }],
+  ])("%s：已认证 410 且零写入，未认证 401", async (_name, template, payload) => {
+    const url = template
+      .replace(":id/finance", `${apiResourceId}/finance`)
+      .replace("reconciliation-cases/:id", `reconciliation-cases/${randomUUID()}`);
+    const factCounts = async () => ({
+      events: await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      candidates: await db.selectFrom("provider_finance_duplicate_candidate").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      cases: await db.selectFrom("provider_finance_reconciliation_case").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      idempotency: await db.selectFrom("provider_finance_idempotency").select("idempotency_key")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+    });
+    const before = await factCounts();
+    const unauthenticated = await app.inject({ method: "POST", url, payload });
+    expect(unauthenticated.statusCode).toBe(401);
+    const response = await app.inject({ method: "POST", url, headers: { cookie }, payload });
+    expect(response.statusCode).toBe(410);
+    expect(response.json()).toMatchObject({
+      error: "api_funding_management_retired",
+      message: "API 内部资金管理已退出，请使用官方账户余额与 API费用估算",
+    });
+    expect(await factCounts()).toEqual(before);
   });
 });

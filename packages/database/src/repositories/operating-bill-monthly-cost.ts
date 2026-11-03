@@ -11,7 +11,13 @@ export function apiBalanceGaps(
   row: { mode: string; resource_id: string; resource_name: string; snapshot_id: string | null; snapshot_version: number | null },
   monthlyCost: MonthlyOperatingCostResource | undefined,
 ): OperatingBillGap[] {
-  if (row.mode !== "API" || monthlyCost?.apiSpendStatus === "CALCULABLE") return [];
+  // WP2-S5（AFR-07＋WP2 plan §4.5）：OPENING_BALANCE_MISSING → API_OPENING_BALANCE_MISSING
+  // 映射恒空——monthly-operating-cost 已停产该状态位（期初缺口随资金管理退役）；
+  // 映射结构保留（历史冻结快照形状/其余状态照旧，WP4 处置）。
+  // BRIDGE_UNAVAILABLE（期初事实缺席，总指挥 S5 裁定）：桥接不可算但无资金待补含义，
+  // 不产生任何资金缺口（AFR-07：不据此阻断当前账单）。
+  if (row.mode !== "API" || monthlyCost?.apiSpendStatus === "CALCULABLE"
+    || monthlyCost?.apiSpendStatus === "BRIDGE_UNAVAILABLE") return [];
   const fieldByStatus: Record<string, string> = {
     OPENING_BALANCE_MISSING: "opening_balance",
     ENDING_BALANCE_MISSING: "ending_balance",

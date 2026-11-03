@@ -14,7 +14,7 @@ import {
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import { AllocationNotReadyError } from "@qianliu/database";
-import { OperatingSnapshotSchema, operatingSnapshotModeError, toOperatingSnapshotInput } from "../providers/contracts.js";
+import { OperatingSnapshotSchema, operatingSnapshotModeError, retiredApiFundingSnapshotFieldsError, toOperatingSnapshotInput } from "../providers/contracts.js";
 import { registerOpeningBalanceRoute } from "./opening-balance-route.js";
 
 import { registerOperatingAnalysisRoute } from "./analysis-route.js";
@@ -131,6 +131,12 @@ export function registerOperatingBillRoutes(app: FastifyInstance): void {
       const snapshot = OperatingSnapshotSchema.safeParse({ ...row.snapshot, source: "BILL_RECONCILIATION" });
       if (!snapshot.success) {
         return reply.code(400).send({ error: "invalid_import_row", message: `第 ${index + 1} 行：${snapshot.error.issues[0]?.message ?? "字段不合法"}` });
+      }
+      // AFR-01 / R1（WP2-S3）：API 资金管理退役后，手填导入不得再为 API 资源携带资金字段
+      //（旧入口不得新增 API 资金事实；D5 不回填余额桥接金额）。CP 侧字段校验不动。
+      const retiredError = retiredApiFundingSnapshotFieldsError(resource.mode, snapshot.data);
+      if (retiredError) {
+        return reply.code(400).send({ error: "invalid_import_row", message: `第 ${index + 1} 行：${retiredError}` });
       }
       const modeError = operatingSnapshotModeError(resource.mode, snapshot.data);
       if (modeError) {

@@ -5,6 +5,9 @@ import type { OperatingBillSnapshot, OperatingBillSubjectRow } from "./operating
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
 import { loadApiCostGaps } from "./provider-finance-api-cost-gaps.js";
 import { balanceQualityGaps, monthlyExpenseGaps } from "./operating-bill-finance-quality.js";
+import { loadApiCostEstimation } from "./api-cost-estimation.js";
+import { apiEstimationGapText } from "./dashboard-monthly-spend.js";
+import { estimatedApiCostFields } from "./operating-bill-monthly-cost.js";
 import type { ResourceFinanceView } from "./provider-finance-types.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 
@@ -27,10 +30,6 @@ function one(values: Array<{ currency: string; amount: string }>): string | null
   return values.length === 0 ? "0.00000000" : values.length === 1 ? values[0]!.amount : null;
 }
 
-function hasExpenseFacts(account: ResourceFinanceView["accounts"][number]): boolean {
-  return account.hasMonthlyApiCostFacts === true || !new Money(account.monthlyApiCost).isZero();
-}
-
 export async function projectOperatingBillFinance(
   db: Kysely<Database>, enterpriseId: string, month: string,
   snapshot: OperatingBillSnapshot, views: ResourceFinanceView[],
@@ -48,13 +47,25 @@ export async function projectOperatingBillFinance(
     .map((view) => ({ code: "API_LEGACY_ARCHIVED", providerResourceId: view.resourceId,
       field: "ledger_line.api_cost",
       message: `${names.get(view.resourceId) ?? view.resourceId} 本期属于资金切账前历史区间，费用不能由切账后账户的零金额推定` }));
-  // A future opening can provide an account key, but cannot establish an earlier zero-cost month.
-  const missingAccountGaps = financeGaps.filter((gap) => gap.code === "API_OPENING_BALANCE_MISSING"
-    && !byResource.get(gap.providerResourceId!)?.accounts.some((account) =>
-      gap.field === `balance:${account.currency}` && hasExpenseFacts(account)));
-  const expenseGaps = [...monthlyExpenseGaps(monthlyFacts, names), ...archivedExpenseGaps, ...missingAccountGaps];
-  const incompleteResources = new Set(expenseGaps.map((gap) => gap.providerResourceId));
-  // eslint-disable-next-line complexity -- API and Coding Plan project mutually exclusive finance facts.
+  // WP2-S5（WP1 合同 §4 裁定 2 后端部分 / ACE-03/04/06/07）：finance 开路径的 API 金额
+  // 权威切同源估算——与 draft 主路径（operating-bill-draft.ts S3b）同源同语义：按资源
+  // 逐个调用（providers 行需资源级金额字面值）＋全企业一次调用（summary，资源范围互斥
+  // 切分故恒等）。资金域桥接口径（missingAccountGaps / API_FINANCE_ACCOUNT_NOT_UNIQUE /
+  // 资金账户 monthlyApiCost 覆盖）随裁定 2 退役；bridge 字段（opening/recharge/ending、
+  // provisionalEndingBalances）、CP 套餐投影、allocatePlanCostsByCalendarMonthTokens
+  // （含 API_LEGACY_COST_ADJUSTMENT 未归属行）与 archivedExpenseGaps 原样保留（WP4 处置）。
+  const apiResourceIds = snapshot.providers.filter((provider) => provider.mode === "API")
+    .map((provider) => provider.providerResourceId);
+  const [estimationPairs, enterpriseEstimation] = await Promise.all([
+    Promise.all(apiResourceIds.map(async (resourceId) => [
+      resourceId,
+      await loadApiCostEstimation(db, enterpriseId, { start, end, resourceIds: [resourceId] }),
+    ] as const)),
+    loadApiCostEstimation(db, enterpriseId, { start, end }),
+  ]);
+  const estimationByResource = new Map(estimationPairs);
+  const estimatedSummary = estimatedApiCostFields(enterpriseEstimation);
+  const expenseGaps = [...monthlyExpenseGaps(monthlyFacts, names), ...archivedExpenseGaps];
   const providers = snapshot.providers.map((provider) => {
     const view = byResource.get(provider.providerResourceId);
     if (!view) return provider;
@@ -63,43 +74,46 @@ export async function projectOperatingBillFinance(
       totalCost: view.monthlyPlanCashCny,
       servicePeriodStart: view.currentPeriod ? shanghaiDate(view.currentPeriod.periodStart) : null,
       servicePeriodEnd: view.currentPeriod ? shanghaiDate(view.currentPeriod.periodEndExclusive) : null };
+    const estimation = estimationByResource.get(view.resourceId) ?? null;
+    const fields = estimatedApiCostFields(estimation);
     const account = view.accounts.length === 1 ? view.accounts[0] : null;
-    const expenseIncomplete = incompleteResources.has(view.resourceId);
-    const expenseReason = expenseGaps.filter((gap) => gap.providerResourceId === view.resourceId)
-      .map((gap) => gap.code).join("、");
+    // apiSpendStatus/Reason 切估算完整性口径（WP2-S5 B）：KNOWN_PARTIAL → INCOMPLETE＋
+    // 估算缺口码（apiEstimationGapText，PRICE_BASIS_UNVERIFIED 为信息项不参与）；
+    // 否则（含 ZERO_CONFIRMED/无行）CALCULABLE。不再使用资金域桥接口径。
+    const estimationIncomplete = estimation?.completeness === "KNOWN_PARTIAL";
     return { ...provider, currency: account?.currency ?? null,
       openingBalanceCurrency: account?.currency ?? null,
       endingBalanceCurrency: account?.currency ?? null,
-      apiSpendCurrency: account?.currency ?? null,
+      apiSpendCurrency: fields.apiSpends.length === 1 ? fields.apiSpends[0]!.currency : null,
       openingBalance: account?.monthOpeningState === "NORMAL" ? account.monthOpeningBalance : null,
       rechargeAmount: account?.monthlyRecharge ?? null,
       rechargeAmounts: view.accounts.map((item) => ({
         currency: item.currency, amount: item.monthlyRecharge,
       })),
       endingBalance: account?.balanceState === "NORMAL" ? account.balance : null,
-      apiCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null,
-      ledgerApiCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null,
-      apiSpendStatus: account && !expenseIncomplete ? "CALCULABLE" : "INCOMPLETE",
-      apiSpendReason: expenseIncomplete ? expenseReason : account ? null : "API_FINANCE_ACCOUNT_NOT_UNIQUE",
-      totalCost: expenseIncomplete ? null : account?.monthlyApiCost ?? null };
+      apiCost: fields.apiCost,
+      ledgerApiCost: fields.apiCost,
+      apiSpendStatus: estimationIncomplete ? "INCOMPLETE" : "CALCULABLE",
+      apiSpendReason: estimationIncomplete ? apiEstimationGapText(estimation!.gaps) : null,
+      totalCost: fields.apiCost };
   });
-  const apiViews = views.filter((view) => view.mode === "API");
-  const apiSpends = group(apiViews.flatMap((view) => view.accounts
-    .filter((account) => !incompleteResources.has(view.resourceId) || hasExpenseFacts(account))
-    .map((account) => ({ currency: account.currency, amount: account.monthlyApiCost }))));
+  // 金额段（apiSpends/totalSpends）＝估算 apiSpends（已知部分按币种）＋CP packageCosts
+  // 分组；totalCost 仅在估算完整（非 KNOWN_PARTIAL）时产出 scalar，不把缺失冒充已知 0、
+  // 也不在估算不完整时把纯套餐合计伪装成总费用（ACE-04/07）。
+  const apiSpends = estimatedSummary.apiSpends;
   const packageCosts = group(providers.filter((p) => p.mode === "CODING_PLAN" && p.packageCost !== null)
     .filter((p) => !new Money(p.packageCost!).isZero())
     .map((p) => ({ currency: "CNY", amount: p.packageCost! })));
   const totalSpends = group([...apiSpends, ...packageCosts]);
-  const rechargeAmounts = group(apiViews.flatMap((view) => view.accounts
+  const rechargeAmounts = group(apiViews(views).flatMap((view) => view.accounts
     .filter((account) => !new Money(account.monthlyRecharge).isZero()
       || account.hasMonthlyApiCostFacts === true
       || (account.balanceState !== "MISSING_OPENING_BALANCE" && account.balanceState !== "LEGACY_ARCHIVED"))
     .map((account) => ({ currency: account.currency, amount: account.monthlyRecharge }))));
-  const openingBalances = group(apiViews.flatMap((view) => view.accounts
+  const openingBalances = group(apiViews(views).flatMap((view) => view.accounts
     .filter((account) => account.monthOpeningState === "NORMAL" && account.monthOpeningBalance !== null)
     .map((account) => ({ currency: account.currency, amount: account.monthOpeningBalance! }))));
-  const endingBalances = group(apiViews.flatMap((view) => view.accounts
+  const endingBalances = group(apiViews(views).flatMap((view) => view.accounts
     .filter((account) => account.balanceState === "NORMAL" && account.balance !== null)
     .map((account) => ({ currency: account.currency, amount: account.balance! }))));
   const allocation = await allocatePlanCostsByCalendarMonthTokens(
@@ -126,37 +140,53 @@ export async function projectOperatingBillFinance(
     if (seenGaps.has(key)) return false;
     seenGaps.add(key); return true;
   });
-  const apiIncomplete = expenseGaps.length > 0;
-  const openingComplete = apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+  const openingComplete = apiViews(views).every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
     account.monthOpeningState === "NORMAL" && account.monthOpeningBalance !== null));
-  const endingComplete = apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+  const endingComplete = apiViews(views).every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
     account.balanceState === "NORMAL" && account.balance !== null));
   // A partial balance is useful only when every account has an established
   // opening and the only uncertainty is unpriced usage. Never silently drop a
   // missing account/currency, or turn a partial amount into a confirmed balance.
-  const canShowProvisional = !endingComplete && apiViews.length > 0
+  const canShowProvisional = !endingComplete && apiViews(views).length > 0
     && !gaps.some((gap) => ["API_COST_CURRENCY_MISSING", "API_COST_CURRENCY_CONFLICT"].includes(gap.code))
-    && apiViews.every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
+    && apiViews(views).every((view) => view.accounts.length > 0 && view.accounts.every((account) =>
       ["NORMAL", "INCOMPLETE_USAGE_COST"].includes(account.balanceState)
       && (account.recordedBalance ?? account.balance) !== null
       && (account.recordedBalance ?? account.balance) !== undefined));
   const provisionalEndingBalances = canShowProvisional
-    ? group(apiViews.flatMap((view) => view.accounts.map((account) => ({
+    ? group(apiViews(views).flatMap((view) => view.accounts.map((account) => ({
       currency: account.currency, amount: (account.recordedBalance ?? account.balance)!,
     })))) : [];
+  // 切账前历史月份（end ≤ CUTOVER）：金额权威仍属旧口径标签（AFR-06"保留原历史金额
+  // 及其标签，不填入估算作为已确认值"）——完整性由 archivedExpenseGaps 驱动，摘要
+  // 原因保留 API_LEGACY_ARCHIVED；当前期月份由估算完整性驱动（AFR-07：历史资金信息
+  // 不参与当前费用完整性判断，LEGACY_ARCHIVED 账户不再强制置缺）。
+  const preCutoverMonth = end <= PROVIDER_FINANCE_CUTOVER;
+  const estimationIncomplete = enterpriseEstimation.completeness === "KNOWN_PARTIAL";
+  const apiIncomplete = preCutoverMonth ? archivedExpenseGaps.length > 0 : estimationIncomplete;
   return { ...snapshot, providers, subjects: allocation.subjects, gaps,
     sourceFacts: { ...snapshot.sourceFacts, providerFinance: { resourceViews: views } },
     summary: { ...snapshot.summary,
-    apiCost: apiIncomplete ? null : one(apiSpends), ledgerApiCost: apiIncomplete ? null : one(apiSpends),
+    apiCost: estimatedSummary.apiCost, ledgerApiCost: estimatedSummary.apiCost,
     packageCost: one(packageCosts),
     apiSpendStatus: apiIncomplete ? "INCOMPLETE" : "CALCULABLE",
-    apiSpendReason: apiIncomplete ? expenseGaps.map((gap) => gap.code).join("、") : null,
+    apiSpendReason: apiIncomplete
+      ? preCutoverMonth
+        ? [...new Set(archivedExpenseGaps.map((gap) => gap.code))].join("、")
+        : apiEstimationGapText(enterpriseEstimation.gaps)
+      : null,
     totalCost: apiIncomplete ? null : one(totalSpends), monthlyRecharge: one(rechargeAmounts),
     openingBalance: openingComplete ? one(openingBalances) : null,
     endingBalance: endingComplete ? one(endingBalances) : null,
     endingBalanceCurrency: endingBalances.length === 1 ? endingBalances[0]!.currency : null,
-    openingBalances, rechargeAmounts, endingBalances, provisionalEndingBalances, apiSpends, packageCosts, totalSpends,
+    openingBalances, rechargeAmounts, endingBalances, provisionalEndingBalances,
+    apiSpends: estimatedSummary.apiSpends, packageCosts, totalSpends,
     unallocatedCost: allocation.unallocatedCost } };
+}
+
+/** API 资源视图子集（本函数内多次过滤的局部简写）。 */
+function apiViews(views: ResourceFinanceView[]): ResourceFinanceView[] {
+  return views.filter((view) => view.mode === "API");
 }
 
 async function allocatePlanCostsByCalendarMonthTokens(
