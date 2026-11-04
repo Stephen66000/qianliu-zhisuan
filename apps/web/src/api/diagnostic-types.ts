@@ -44,6 +44,19 @@ export interface RouteCandidateItem {
   reasonCode: string | null;
 }
 
+/**
+ * D-1（走查 2026-11-04）：单价证据透出——账本行缺 billing_rule_snapshot 单价时，
+ * control-api /gateway-requests/:id/attempts 从 billing_rule 回退透出单价（只加字段
+ * 不改语义，WP5 R3 先例）；快照含单价时前端走快照分支，本字段不出现（null）。
+ */
+export interface BillingRulePrices {
+  cacheHitPrice: string | null;
+  cacheMissPrice: string | null;
+  outputPrice: string | null;
+  /** 单价来源：SNAPSHOT＝请求时点冻结快照；BILLING_RULE＝当前规则行回退。 */
+  source: "SNAPSHOT" | "BILLING_RULE";
+}
+
 export interface AttemptMetering {
   inputTokens: string;
   outputTokens: string;
@@ -86,6 +99,8 @@ export interface AttemptMetering {
     /** ACE-02 场景 3：价格依据核实状态随结算快照冻结；旧数据缺省按 UNVERIFIED 解释。 */
     sourceStatus?: "VERIFIED" | "UNVERIFIED";
   } | null;
+  /** D-1：快照缺单价时的回退单价透出（快照含单价时为 null）。 */
+  billingPrices?: BillingRulePrices | null;
 }
 
 export interface AttemptItem {
@@ -122,6 +137,7 @@ export interface AttemptsResult {
     ruleVersion: string | null;
     multiplier: string | null;
     billingRuleSnapshot: AttemptMetering["billingRuleSnapshot"];
+    billingPrices?: BillingRulePrices | null;
   }>;
 }
 

@@ -252,11 +252,11 @@ test.describe("WP4 API费用估算与官方余额", () => {
     await expect(drilldown).toHaveCount(1);
     // ACE-01（G1）：详情页结算汇总出现统一命名 "API费用估算"。
     await expect(drilldown.getByText("API费用估算", { exact: true })).toBeVisible();
-    // ACE-02（G2）：金额 0.00104——结算级经 formatMoney 两位小数显示为中性 "0.00"
-    // （无币种处置投影 → apiCostCurrency=null 中性展示，S2B/R8 定案）。页面显示精度
-    // 两位不足以区分小额非零，依据 acceptance-plan §3 金额精度条款（"小额非零估算应
-    // 能从详情查明"），精确 8 位值以下方 HTTP 结算断言为准，不以四舍五入显示为准。
-    await expect(drilldown.getByText("0.00", { exact: true })).toBeVisible();
+    // ACE-02（G2）＋D-1（走查裁定 2026-11-04，依据 acceptance-plan §3 金额精度条款
+    // "小额非零估算应能从详情查明"）：结算级 API费用估算显示精确金额 0.00104
+    // （无币种处置投影 → apiCostCurrency=null 中性无符号展示，S2B/R8 定案）；
+    // 不再两位舍入为中性 "0.00"（用量列表页两位舍入展示不变）。
+    await expect(drilldown.getByText("0.00104", { exact: true })).toBeVisible();
     // ACE-02（G2）：token 语义——页面字段口径为"输入/缓存/输出"三个独立字段：
     // 输入 600＋缓存 400（输入侧含缓存＝1000）＋输出 200 → 真实 1200 Token
     // （acceptance §3 F01："真实 Token 1200、缓存不重复计数"）。
@@ -267,6 +267,9 @@ test.describe("WP4 API费用估算与官方余额", () => {
     await expect(fieldValue("输出 Token")).toHaveText("200");
     // ACE-05/ACE-09（G7）：attempt 数按请求口径＝1（一请求两表口径一致）。
     await expect(fieldValue("Attempt 数")).toHaveText("1");
+    // D-1：计价决策"单价（缓存/输入/输出）"三列＝F01 规则单价 0.1/1/2 元每百万
+    //（账本行无 billing_rule_snapshot → /attempts 路由层回退 billing_rule 透出）。
+    await expect(fieldValue("单价（缓存/输入/输出）")).toHaveText("0.1 / 1 / 2");
     // 行级计量明细：快照币种回退 ¥0.00＋UNVERIFIED 规则角标（ACE-04 逐请求级）。
     await expect(drilldown.getByText(/估算 ¥0\.00（价格依据待核实）/).first()).toBeVisible();
     // C2 HTTP：结算级事实（8 位金额、币种 null＝中性展示、attempt=1）。

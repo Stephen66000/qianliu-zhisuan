@@ -17,6 +17,26 @@ import {
 } from "@qianliu/contracts";
 import { requireAuth } from "../plugins/auth-guard.js";
 
+/** billing_rule_snapshot 中与单价相关的字段形状（jsonb 原样存储，缺省字段视为缺失）。 */
+interface BillingRuleSnapshotShape {
+  cacheHitPrice?: unknown;
+  cacheMissPrice?: unknown;
+  outputPrice?: unknown;
+}
+
+/** jsonb 快照字段"存在且非空"判断（null/undefined 均视为缺失）。 */
+function snapshotPricePresent(value: unknown): boolean {
+  return value !== null && value !== undefined;
+}
+
+/** D-1 单价透出字段（快照缺单价时回退 billing_rule；只加字段不改语义，WP5 R3 先例）。 */
+interface BillingRulePrices {
+  cacheHitPrice: string | null;
+  cacheMissPrice: string | null;
+  outputPrice: string | null;
+  source: "SNAPSHOT" | "BILLING_RULE";
+}
+
 /** 校验请求归属本企业，返回 404 或请求行。 */
 async function findOwnedRequest(app: FastifyInstance, enterpriseId: string, requestId: string) {
   const request = await app.ledgerRepo.getRequest(requestId);
@@ -117,6 +137,50 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
         app.ledgerRepo.listLedgerLines(req.params.id),
         loadExcludedUsageCostLineIds(app.db, ent, req.params.id),
       ]);
+      // D-1（走查 2026-11-04）：部分账本行缺 billing_rule_snapshot 单价（旧数据/合成
+      // 种子），「计价决策」单价三列无处可取显示"—"。此处做最小字段透出（WP5 R3
+      // 先例：只加字段不改语义）——billingPrices＝快照完全缺单价时从 billing_rule
+      // 当前单价回退并注明来源；快照含单价时该字段为 null（前端仍走快照分支）。
+      // 不改 packages/database 聚合、不改快照本身。
+      const priceFallbackRuleIds = new Set<string>();
+      for (const line of ledgerLines) {
+        const snap = line.billing_rule_snapshot as BillingRuleSnapshotShape | null;
+        const snapshotHasPrice = snapshotPricePresent(snap?.cacheHitPrice)
+          || snapshotPricePresent(snap?.cacheMissPrice)
+          || snapshotPricePresent(snap?.outputPrice);
+        if (!snapshotHasPrice && line.billing_rule_id) {
+          priceFallbackRuleIds.add(line.billing_rule_id);
+        }
+      }
+      const fallbackRules = priceFallbackRuleIds.size > 0
+        ? await app.db
+          .selectFrom("billing_rule")
+          .select(["id", "cache_hit_price", "cache_miss_price", "output_price"])
+          .where("enterprise_id", "=", ent)
+          .where("id", "in", [...priceFallbackRuleIds])
+          .execute()
+        : [];
+      const fallbackPricesById = new Map(fallbackRules.map((r) => [r.id, r]));
+
+      /** 快照缺单价时回退 billing_rule 当前单价；两边都无价格证据则不透出（null）。 */
+      const billingPricesOf = (line: (typeof ledgerLines)[number]): BillingRulePrices | null => {
+        const snap = line.billing_rule_snapshot as BillingRuleSnapshotShape | null;
+        if (snapshotPricePresent(snap?.cacheHitPrice)
+          || snapshotPricePresent(snap?.cacheMissPrice)
+          || snapshotPricePresent(snap?.outputPrice)) {
+          return null;
+        }
+        const rule = line.billing_rule_id ? fallbackPricesById.get(line.billing_rule_id) : undefined;
+        const prices = {
+          cacheHitPrice: rule?.cache_hit_price ?? null,
+          cacheMissPrice: rule?.cache_miss_price ?? null,
+          outputPrice: rule?.output_price ?? null,
+          source: "BILLING_RULE" as const,
+        };
+        return prices.cacheHitPrice === null && prices.cacheMissPrice === null && prices.outputPrice === null
+          ? null
+          : prices;
+      };
       // ledger_line.upstream_attempt_id → 该 attempt 的计量明细（可能多条，但通常一条）
       const linesByAttempt = new Map<string, typeof ledgerLines>();
       for (const line of ledgerLines) {
@@ -154,6 +218,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
             ruleVersion: l.rule_version,
             multiplier: l.multiplier,
             billingRuleSnapshot: l.billing_rule_snapshot,
+            billingPrices: billingPricesOf(l),
           })),
         })),
         // 全部不可覆盖账本明细（PRD §10.3）
@@ -171,6 +236,7 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
           ruleVersion: l.rule_version,
           multiplier: l.multiplier,
           billingRuleSnapshot: l.billing_rule_snapshot,
+          billingPrices: billingPricesOf(l),
         })),
       };
     },

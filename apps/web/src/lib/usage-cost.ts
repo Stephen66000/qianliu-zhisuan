@@ -1,4 +1,4 @@
-import { formatMoney } from "./format";
+import { formatDecimal, formatMoney } from "./format";
 
 /** ACE-04 信息项文案（R7 聚合级角标与逐请求角标共用同一分支文案，不另造措辞）。 */
 export const PRICE_BASIS_UNVERIFIED_LABEL = "价格依据待核实";
@@ -27,4 +27,15 @@ export function unavailableUsageCostLabel(
 export function costMoneyText(value: string, currency?: string | null): string {
   if (currency && currency !== "CNY") return `${currency} ${formatMoney(value)}`;
   return `¥${formatMoney(value)}`;
+}
+
+/**
+ * 请求详情精确金额展示（走查缺陷 D-1，2026-11-04 裁定：现在修）。
+ * 验收计划 §3："小额非零估算应能从详情查明"——详情下钻不做两位舍入，
+ * 按后端 8 位小数尺度原值直出（如 0.00104）；币种规则与 costMoneyText 一致。
+ * 列表页两位舍入展示（costMoneyText/formatMoney）不受影响。
+ */
+export function costMoneyExactText(value: string, currency?: string | null): string {
+  if (currency && currency !== "CNY") return `${currency} ${formatDecimal(value, 8)}`;
+  return `¥${formatDecimal(value, 8)}`;
 }

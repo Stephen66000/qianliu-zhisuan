@@ -4,6 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestDrilldown } from "./RequestDrilldown.js";
 
 const clipboardWrite = vi.fn();
+// D-1 测试控制位：快照单价可摘除、billingPrices 可注入（默认＝既有快照夹具）。
+const drilldownFixture = vi.hoisted(() => ({
+  snapshotPrices: {
+    cacheHitPrice: "0.000001", cacheMissPrice: "0.000002", outputPrice: "0.000004",
+  } as { cacheHitPrice: string; cacheMissPrice: string; outputPrice: string } | null,
+  billingPrices: null as { cacheHitPrice: string; cacheMissPrice: string;
+    outputPrice: string; source: "SNAPSHOT" | "BILLING_RULE" } | null,
+}));
 const costProjection = vi.hoisted(() => ({
   total: "0.00100000" as string | null,
   line: "0.00100000" as string | null,
@@ -49,10 +57,11 @@ vi.mock("../api/hooks", () => ({
         billingRuleId: "rule-1", ruleVersion: "deepseek-v1", multiplier: null,
         billingRuleSnapshot: {
           ruleType: "API_PRICE", effectiveFrom: "2026-08-01T00:00:00.000Z",
-          cacheHitPrice: "0.000001", cacheMissPrice: "0.000002", outputPrice: "0.000004",
+          ...(drilldownFixture.snapshotPrices ?? {}),
           currency: costProjection.currency,
           sourceStatus: costProjection.sourceStatus,
         },
+        billingPrices: drilldownFixture.billingPrices,
       }],
     }],
     ledgerLines: [{ attemptId: "attempt-1" }],
@@ -78,6 +87,10 @@ describe("POOL20-031/032 请求决策详情", () => {
     costProjection.currency = undefined;
     costProjection.sourceStatus = undefined;
     costProjection.settlementCurrency = undefined;
+    drilldownFixture.snapshotPrices = {
+      cacheHitPrice: "0.000001", cacheMissPrice: "0.000002", outputPrice: "0.000004",
+    };
+    drilldownFixture.billingPrices = null;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: clipboardWrite },
@@ -97,23 +110,26 @@ describe("POOL20-031/032 请求决策详情", () => {
   // ACE-01（WP4-S2 合同 5）：结算汇总改"API费用估算"命名。
   // S2B 断言迁移（R8 裁定）：settlement 币种缺失（无处置投影/混币 NULL）→ 中性无符号展示，
   // 不再回退 ¥（原"无币种回退 ¥"行为废止；costMoneyText 既有调用方不受影响）。
-  it("结算汇总使用 API费用估算 命名且币种缺失时不渲染 ¥", () => {
+  // D-1（2026-11-04 走查裁定，验收计划 §3"小额非零估算应能从详情查明"）：
+  // 详情下钻结算级显示精确金额（0.00100000 原值直出，不两位舍入为 0.00）；
+  // 币种缺失仍为中性无符号展示（S2B/R8）。
+  it("结算汇总使用 API费用估算 命名且显示精确金额，币种缺失时不渲染 ¥", () => {
     render(<RequestDrilldown requestId="request-1" />);
     expect(screen.getByText("API费用估算")).toBeInTheDocument();
-    expect(screen.getByText("0.00")).toBeInTheDocument();
-    expect(screen.queryByText("¥0.00")).not.toBeInTheDocument();
+    expect(screen.getByText("0.001")).toBeInTheDocument();
+    expect(screen.queryByText("¥0.001")).not.toBeInTheDocument();
     expect(screen.queryByText("API 费用")).not.toBeInTheDocument();
   });
 
-  it("结算级币种 USD 显示 USD 而非 ¥，CNY 保留 ¥（R8）", () => {
+  it("结算级币种 USD 显示 USD 而非 ¥，CNY 保留 ¥（R8；D-1 精确金额）", () => {
     costProjection.settlementCurrency = "USD";
     const usd = render(<RequestDrilldown requestId="request-1" />);
-    expect(usd.getByText("USD 0.00")).toBeInTheDocument();
-    expect(usd.queryByText("¥0.00")).not.toBeInTheDocument();
+    expect(usd.getByText("USD 0.001")).toBeInTheDocument();
+    expect(usd.queryByText("¥0.001")).not.toBeInTheDocument();
     usd.unmount();
     costProjection.settlementCurrency = "CNY";
     const cny = render(<RequestDrilldown requestId="request-1" />);
-    expect(cny.getByText("¥0.00")).toBeInTheDocument();
+    expect(cny.getByText("¥0.001")).toBeInTheDocument();
   });
 
   // ACE-02 场景 3＋WP4-S2 合同 5：行内币种字段消费 + 价格依据待核实角标
@@ -150,5 +166,25 @@ describe("POOL20-031/032 请求决策详情", () => {
     await user.click(summary);
     await user.click(screen.getByRole("button", { name: "复制技术详情" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("principal-sensitive-id"));
+  });
+
+  // D-1（2026-11-04 走查）：计价决策"单价（缓存/输入/输出）"三列——快照含单价时
+  // 以请求时点冻结快照为准（列序＝缓存/输入/输出，勿与结算级币种语义混淆）。
+  it("计价决策单价三列显示快照单价（缓存/输入/输出）", () => {
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.getByText("单价（缓存/输入/输出）")).toBeInTheDocument();
+    expect(screen.getByText("0.000001 / 0.000002 / 0.000004")).toBeInTheDocument();
+  });
+
+  // D-1（2026-11-04 走查）：账本行缺 billing_rule_snapshot 单价（旧数据/合成种子）
+  // 时，回退展示 control-api /gateway-requests/:id/attempts 透出的 billingPrices，
+  // 单价三列不再显示"—"（验收计划 §3 计价证据可查明）。
+  it("计价决策单价缺快照时回退 billingPrices（D-1）", () => {
+    drilldownFixture.snapshotPrices = null;
+    drilldownFixture.billingPrices = {
+      cacheHitPrice: "0.1", cacheMissPrice: "1", outputPrice: "2", source: "BILLING_RULE",
+    };
+    render(<RequestDrilldown requestId="request-1" />);
+    expect(screen.getByText("0.1 / 1 / 2")).toBeInTheDocument();
   });
 });

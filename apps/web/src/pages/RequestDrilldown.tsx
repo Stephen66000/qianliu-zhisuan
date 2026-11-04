@@ -14,8 +14,8 @@ import {
 import { LoadingState } from "../components/states/LoadingState";
 import { ErrorState } from "../components/states/ErrorState";
 import { StatusTag } from "../components/dashboard/StatusTag";
-import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../lib/format";
-import { costMoneyText, unavailableUsageCostLabel } from "../lib/usage-cost";
+import { formatCount, formatDateTimeFull, formatDecimal, formatDuration, formatMoney } from "../lib/format";
+import { costMoneyExactText, costMoneyText, unavailableUsageCostLabel } from "../lib/usage-cost";
 
 interface RequestDrilldownProps {
   requestId: string;
@@ -77,10 +77,13 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                   ?? (settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
                     ? "套餐内"
                     : settlement.apiCostCurrency
-                      ? costMoneyText(settlement.totalApiCost!, settlement.apiCostCurrency)
+                      // D-1（2026-11-04 走查裁定）：详情下钻按精确金额展示（验收计划 §3
+                      // "小额非零估算应能从详情查明"），不再经 formatMoney 两位舍入；
+                      // 列表页两位舍入展示不变。无币种处置投影仍为中性无符号（S2B/R8）。
+                      ? costMoneyExactText(settlement.totalApiCost!, settlement.apiCostCurrency)
                       // S2B（R8 裁定）：结算级币种缺失（无处置投影或混币 NULL）时不渲染 ¥，
                       // 中性无符号展示——行级币种仍走快照冻结币种，costMoneyText 默认行为不变。
-                      : formatMoney(settlement.totalApiCost!))
+                      : formatDecimal(settlement.totalApiCost!, 8))
               }
             />
             <Field label="Attempt 数" value={String(settlement.attemptCount)} />
@@ -252,9 +255,15 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
             {(attempts.data?.attempts ?? []).flatMap((attempt) =>
               attempt.metering.map((metering, index) => {
                 const snapshot = metering.billingRuleSnapshot;
+                // D-1（2026-11-04 走查）：账本行缺 billing_rule_snapshot 单价（旧数据/
+                // 合成种子）时，回退展示 control-api /attempts 透出的 billingPrices
+                // （快照单价优先、缺失回退 billing_rule 并注明来源）——单价三列
+                // （缓存/输入/输出）不再显示"—"。快照含单价时仍以快照为准。
                 const prices = snapshot?.cacheHitPrice || snapshot?.cacheMissPrice || snapshot?.outputPrice
                   ? `${snapshot.cacheHitPrice ?? "—"} / ${snapshot.cacheMissPrice ?? "—"} / ${snapshot.outputPrice ?? "—"}`
-                  : "—";
+                  : metering.billingPrices
+                    ? `${metering.billingPrices.cacheHitPrice ?? "—"} / ${metering.billingPrices.cacheMissPrice ?? "—"} / ${metering.billingPrices.outputPrice ?? "—"}`
+                    : "—";
                 return (
                   <div className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface p-3" key={`${attempt.attemptNo}-${index}`}>
                     <div className="grid min-w-0 grid-cols-1 gap-x-5 gap-y-1 text-[13px] sm:grid-cols-2">
