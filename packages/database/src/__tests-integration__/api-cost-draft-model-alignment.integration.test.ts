@@ -4,8 +4,11 @@
  *      queryUsageRows 已统一 settled_at 半开窗口 + effectiveReportedApiCostSql 处置投影；
  *   b) 经营账单当前期 draft 的资源级/汇总 API 费用＝估算字面值，余额桥接机制字段
  *      （opening/ending/recharge、balanceBridgeFacts、apiSpendStatus）保留产出；
- *   c) 已关账版本快照内容逐字节不变（AFR-06），reopen 后 draft 反映估算口径。
- * 依据：ACE-03/04/06/07、AFR-06/07、WP0 contracts.md C1、S3a 移交项。
+ *   c) 已关账版本快照内容逐字节不变（AFR-06），reopen 后 draft 反映估算口径；
+ *   d) G23/AT-AFR-12：仅有余额桥接、无任何请求计价（ledger_line）的月份——桥接字段
+ *      （opening/recharge/ending）与桥接可算性状态照常产出、原值保留，估算主值为
+ *      精确 0 语义（无计价行），不把桥接金额 30 填成「API费用估算」已确认值。
+ * 依据：ACE-03/04/06/07、AFR-06/07、AFR-12、WP0 contracts.md C1、S3a 移交项。
  */
 import { randomUUID, createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -349,5 +352,104 @@ describe("经营账单当前期 draft 主口径＝估算、桥接字段保留、
       .executeTakeFirstOrThrow();
     // 逐字节对比：已关账版本 1 内容不受后续任何重算影响（AFR-06）。
     expect(JSON.stringify(frozenAfter.snapshot)).toBe(frozenBeforeText);
+  });
+
+  // AT-AFR-12 / G23（acceptance-plan §3 F08「仅有余额桥接、无请求计价的月份」、§5
+  // AT-AFR-12「查询仅有余额桥接记录的月份，检查新估算不伪填旧金额——保留原历史金额
+  // 及其标签，不填入“API费用估算”作为已确认值」）：构造一个月只有期初/充值/期末事实、
+  // 无任何 ledger_line 消费行。断言：
+  //   1) 桥接字段照常产出且原值保留（opening 100 / recharge 50 / ending 120，桥接金额
+  //      30 连同其桥接标签一起保留在 balanceBridgeFacts——原历史金额及其标签）；
+  //   2) 桥接可算性按既有字段 apiSpendStatus 的实际语义断言：期初/期末事实齐全 →
+  //      CALCULABLE（既有枚举的桥接可算口径；若期初缺席则属 BRIDGE_UNAVAILABLE 分支，
+  //      见 monthly-operating-cost.ts——两者均为既有桥接可算性枚举，本夹具齐全故为
+  //      CALCULABLE，不发明新语义）；
+  //   3) 估算主值 apiCost 为无计价行时的精确 0 语义（WP1 合同 §1 estimatedApiCostFields：
+  //      空 amounts 且非 KNOWN_PARTIAL → 精确 0），绝不把桥接金额 30 填成已确认估算；
+  //   4) 读取层（该月 draft JSON）不出现「API费用估算=30」：任何名为 apiCost/totalCost/
+  //      apiSpends/totalSpends 的字段都不承载 30。
+  it("G23/F08 仅有余额桥接、无请求计价的月份：桥接原值与标签保留，估算主值精确 0、不伪填桥接 30（AT-AFR-12）", async () => {
+    const f = await fixture();
+    // 仅余额桥接事实：期初快照 100（9 月前）、期末快照 120（月内）、充值 50；无任何消费行。
+    await db.insertInto("provider_resource_operating_snapshot").values([
+      { enterprise_id: f.enterpriseId, provider_resource_id: f.resourceId, version: 1,
+        source: "ADMIN", collected_at: new Date("2026-08-30T00:00:00+08:00"),
+        currency: "CNY", current_balance: "100" },
+      { enterprise_id: f.enterpriseId, provider_resource_id: f.resourceId, version: 2,
+        source: "ADMIN", collected_at: new Date("2026-09-20T00:00:00+08:00"),
+        currency: "CNY", current_balance: "120" },
+    ]).execute();
+    await db.insertInto("resource_purchase_record").values({
+      enterprise_id: f.enterpriseId, provider_resource_id: f.resourceId,
+      purchase_type: "API_RECHARGE", amount: "50", currency: "CNY",
+      purchased_at: new Date("2026-09-10T00:00:00+08:00"), source: "ADMIN", created_by: f.adminId,
+    }).execute();
+    // 夹具自证：该月确实没有任何 ledger_line（无请求计价）。
+    const lineCount = await db.selectFrom("ledger_line")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", f.enterpriseId).executeTakeFirstOrThrow();
+    expect(lineCount.count).toBe("0");
+    const estimation = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(estimation.amounts).toEqual([]);
+    expect(estimation.completeness).toBe("KNOWN_COMPLETE");
+
+    const bill = await new OperatingBillRepository(db).getBill(f.enterpriseId, "2026-09");
+    const provider = bill.providers.find((row) => row.providerResourceId === f.resourceId);
+    // 断言 1)＋2)：桥接字段照常产出、原值保留；可算性为既有 apiSpendStatus 口径。
+    expect(provider).toMatchObject({
+      openingBalance: "100.00000000",
+      rechargeAmount: "50.00000000",
+      endingBalance: "120.00000000",
+      apiSpendStatus: "CALCULABLE",
+      apiSpendReason: null,
+    });
+    // 原历史金额（100+50-120=30）连同其桥接标签一起保留（不丢弃、不挪用为估算）。
+    expect(bill.sourceFacts.balanceBridgeFacts).toEqual([expect.objectContaining({
+      providerResourceId: f.resourceId, currency: "CNY",
+      openingBalance: "100.00000000", rechargeAmount: "50.00000000",
+      endingBalance: "120.00000000", apiSpend: "30.00000000", apiSpendStatus: "CALCULABLE",
+    })]);
+
+    // 断言 3)：估算主值精确 0（无计价行），不是桥接 30；无资金缺口/待补提示。
+    expect(provider?.apiCost).toBe("0.00000000");
+    expect(provider?.totalCost).toBe("0.00000000");
+    expect(bill.summary.apiCost).toBe("0.00000000");
+    expect(bill.summary.apiSpends).toEqual([]);
+    expect(bill.summary.openingBalance).toBe("100.00000000");
+    expect(bill.summary.monthlyRecharge).toBe("50.00000000");
+    expect(bill.summary.endingBalance).toBe("120.00000000");
+    expect(bill.summary.apiSpendStatus).toBe("CALCULABLE");
+    expect(bill.gaps).toEqual([]);
+    expect(bill.summary.apiSpendReason).toBeNull();
+
+    // 断言 4)：draft JSON 全树扫描——任何估算/合计字段都不承载 30（不出现“API费用估算=30”）。
+    // 估算域字段：标量 apiCost/totalCost/monthlyCost，以及 apiSpends/totalSpends 分列中
+    // 的 amount 叶子（其宿主字段名沿路径携带）。桥接域字段（opening/recharge/ending/
+    // apiSpend/apiSpendStatus）不在估算域，30 允许且必须留在那里。
+    const estimationValuePaths: string[] = [];
+    const estimationFields = new Set(["apiCost", "totalCost", "monthlyCost", "apiSpends", "totalSpends"]);
+    const walk = (node: unknown, path: string, field: string | null) => {
+      if (Array.isArray(node)) {
+        node.forEach((item, index) => walk(item, `${path}[${index}]`, field));
+        return;
+      }
+      if (node !== null && typeof node === "object") {
+        for (const [childKey, value] of Object.entries(node as Record<string, unknown>)) {
+          walk(value, path ? `${path}.${childKey}` : childKey,
+            estimationFields.has(childKey) ? childKey : field);
+        }
+        return;
+      }
+      const leafKey = path.split(".").at(-1)?.split("[").at(0) ?? null;
+      const leafIsEstimationValue = field !== null
+        && (leafKey === field || leafKey === "amount");
+      if (leafIsEstimationValue && String(node) === "30.00000000") {
+        estimationValuePaths.push(path);
+      }
+    };
+    walk(bill, "", null);
+    expect(estimationValuePaths).toEqual([]);
+    // 桥接域的 30 仍在（原历史金额及其标签保留的正面证据）。
+    expect(JSON.stringify(bill.sourceFacts.balanceBridgeFacts)).toContain("30.00000000");
   });
 });

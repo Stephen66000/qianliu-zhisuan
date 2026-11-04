@@ -63,6 +63,8 @@ export function registerGatewayRequestRoutes(app: FastifyInstance): void {
               totalReasoningTokens: transaction.total_reasoning_tokens,
               totalDeductedQuota: transaction.total_deducted_quota,
               totalApiCost: cost ? cost.totalApiCost : transaction.total_api_cost,
+              // S2B（R8 裁定）：结算级币种透出（处置投影 costCurrency；无投影/transaction-only 为 null）。
+              apiCostCurrency: cost ? cost.costCurrency : null,
               apiCostStatus: cost?.apiCostStatus ?? transaction.api_cost_status ?? null,
               usageQuality: transaction.usage_quality,
               attemptCount: transaction.attempt_count,

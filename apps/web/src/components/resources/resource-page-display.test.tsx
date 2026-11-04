@@ -117,6 +117,65 @@ describe("ResourceFinanceColumn & ResourceQuotaColumn 列拆分测试", () => {
     render(<ResourceQuotaColumn resource={resource} />);
     expect(screen.getByText("—")).toBeInTheDocument();
   });
+
+  // G24/AFR-14（WP5 S3a-2）：同一渲染输出中的组合断言——API 资源不再显示内部资金
+  // 栏目（期初/充值/内部余额字样），CP（Coding Plan）资源保留套餐费用与额度栏目；
+  // 即"内部资金栏目退出"是 API 模式专属处理，不存在一刀切隐藏所有"余额/额度"。
+  it("API 资源无内部资金栏目而 CP 资源保留套餐费用/额度栏目（同渲染输出组合断言）", () => {
+    const apiResource: ProviderResourceItem = {
+      id: "api-combo", provider_id: "deepseek", name: "DeepSeek API 组合", mode: "API",
+      credential_type: "API_KEY", credential_fingerprint: "fp", credential_version: 1,
+      status: "ACTIVE", consecutive_failures: 0, cooldown_until: null, last_probe_at: null,
+      credential_refresh_status: "NOT_NEEDED", refresh_error_classification: null,
+      credential_expires_at: null, resource_pool_id: null, upstream_models: [], concurrency_limit: null,
+      version: 1, created_at: "2026-11-04T00:00:00Z", updated_at: "2026-11-04T00:00:00Z",
+      operating_snapshot: null,
+      official_balance: officialBalance({ total_balance: "110.00000000", currency: "CNY" }),
+    };
+    const planResource: ProviderResourceItem = {
+      id: "plan-combo", provider_id: "kimi", name: "Kimi 套餐组合", mode: "CODING_PLAN",
+      credential_type: "API_KEY", credential_fingerprint: "fp", credential_version: 1,
+      status: "ACTIVE", consecutive_failures: 0, cooldown_until: null, last_probe_at: null,
+      credential_refresh_status: "NOT_NEEDED", refresh_error_classification: null,
+      credential_expires_at: null, resource_pool_id: null, upstream_models: [], concurrency_limit: null,
+      version: 1, created_at: "2026-11-04T00:00:00Z", updated_at: "2026-11-04T00:00:00Z",
+      operating_snapshot: null,
+      finance: {
+        resourceId: "plan-combo", providerCode: "kimi", mode: "CODING_PLAN", accounts: [],
+        monthlyPlanCashCny: "199",
+        currentPeriod: {
+          id: "period-combo", productName: "Kimi", periodStart: "2026-10-18T16:00:00Z",
+          periodEndExclusive: "2026-11-18T16:00:00Z", fixedFeeAmount: "199",
+          fixedFeeCurrency: "CNY", fixedCashPaidCny: "199", totalQuota: "3000000000",
+          quotaUnit: "TOKEN", trueTokens: "223157358", deductedQuota: null,
+          deductedQuotaComplete: false, requestCount: "100",
+        },
+      },
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <div>
+          <ResourceFinanceColumn resource={apiResource} />
+          <ResourceQuotaColumn resource={apiResource} />
+          <ResourceFinanceColumn resource={planResource} />
+          <ResourceQuotaColumn resource={planResource} />
+        </div>
+      </QueryClientProvider>,
+    );
+    // API 资源：官方余额列照常展示（"余额"未被一刀切隐藏），内部资金栏目整体退出。
+    expect(screen.getByText("官方余额 ¥110.00")).toBeInTheDocument();
+    expect(screen.queryByText(/本月充值/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/期初余额/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/内部余额/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/本月 API 成本/)).not.toBeInTheDocument();
+    expect(screen.queryByText("资金账本未启用")).not.toBeInTheDocument();
+    // CP 资源：套餐费用与额度栏目保留（W5/W6 域不受 API 资金退役影响）。
+    expect(screen.getByText("当前订阅金额 CNY 199.00")).toBeInTheDocument();
+    expect(screen.getByText("本月订阅实付 ¥199.00")).toBeInTheDocument();
+    expect(screen.getByText("分配额度 3,000,000,000 TOKEN")).toBeInTheDocument();
+    expect(screen.getByText("周期真实 Token 223,157,358")).toBeInTheDocument();
+    expect(screen.getByText("2026-10-19 ～ 2026-11-19")).toBeInTheDocument();
+  });
 });
 
 describe("官方余额列状态渲染（WP3 C2 / OAB-01..04）", () => {

@@ -6,12 +6,15 @@
  *      后端部分 / ACE-06）；
  *   2. 已关账版本内容不变（AT-X05 机制层）：冻结后修改账本计价事实、切换资金模式，
  *      读取已关账月份永远返回冻结版本，不按新规则重算（AFR-06/AFR-07 红线）；
- *   3. 资金域缺口码（API_OPENING_BALANCE_MISSING 等）对当前期两条路径均停产（AFR-07）。
+ *   3. 资金域缺口码（API_OPENING_BALANCE_MISSING 等）对当前期两条路径均停产（AFR-07）；
+ *   4. G5/AT-ACE-06：同一消费窗口内仅插入更晚的官方余额快照（PROVIDER_SYNC＋
+ *      PROVIDER_API、余额更小）后重读估算——amounts/completeness/gaps 逐字不变
+ *      （估算不读官方余额，不以余额差补造用量或费用）。
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
-import { createKysely, migrateToLatest, OperatingBillRepository,
+import { createKysely, migrateToLatest, loadApiCostEstimation, OperatingBillRepository,
   type OperatingBillSnapshot } from "../index.js";
 
 let pg: PostgresTestInstance;
@@ -165,5 +168,47 @@ describe("WP2-S5 金额一致性（AT-X01 机制层）", () => {
     expect(billAmounts(offModeRead)).toEqual(frozenAmounts);
     expect(reopenedRead.providers.find((row) => row.providerResourceId === resourceId)?.apiCost)
       .toBe(KNOWN_CNY);
+  });
+
+  // AT-ACE-06 / G5（acceptance-plan §5：只改变官方余额不增加消费，再读估算——
+  // 仟流费用估算不增加，系统不以余额差补造用量或费用）：同一消费窗口先读估算基线，
+  // 仅直插一条更晚的官方来源快照（source=PROVIDER_SYNC＋balance_source=PROVIDER_API、
+  // 余额更小），重读估算 → amounts/completeness/gaps 逐字不变（币种金额与字符串精度
+  // 完全一致）；消费事实表（ledger_line/usage_event）零新增。
+  it("官方余额下降不影响估算：更晚官方快照（PROVIDER_SYNC/PROVIDER_API）插入后重读逐字不变（AT-ACE-06/G5）", async () => {
+    const { enterpriseId, resourceId } = await seedEnterprise();
+    const window = {
+      start: new Date("2031-11-01T00:00:00.000Z"),
+      end: new Date("2031-12-01T00:00:00.000Z"),
+    };
+    const before = await loadApiCostEstimation(db, enterpriseId, window);
+    expect(before.amounts).toEqual([{ currency: "CNY", amount: KNOWN_CNY }]);
+    expect(before.completeness).toBe("KNOWN_PARTIAL");
+    expect(before.gaps).toEqual([{ reason: "PRICE_MISSING", count: 1 }]);
+
+    // 平台外消费导致官方余额下降（12.34 消费 vs 官方仅剩 3.00）：只写官方快照，
+    // 不写任何 ledger_line/usage_event。
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 1,
+      source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
+      collected_at: new Date("2031-11-20T00:00:00.000Z"),
+      currency: "CNY", current_balance: "3.00",
+    }).execute();
+    const snapshot = await db.selectFrom("provider_resource_operating_snapshot").selectAll()
+      .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+    // 夹具自证：插入的确实是官方来源、余额更小的快照（numeric(24,8) 八位小数字面值）。
+    expect([snapshot.source, snapshot.balance_source, String(snapshot.current_balance)])
+      .toEqual(["PROVIDER_SYNC", "PROVIDER_API", "3.00000000"]);
+    const lineCount = await db.selectFrom("ledger_line")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", enterpriseId).executeTakeFirstOrThrow();
+    expect(lineCount.count).toBe("3"); // 仅夹具既有三条消费，无新增
+
+    const after = await loadApiCostEstimation(db, enterpriseId, window);
+    // 重读逐字不变：金额（8 位小数字符串）、完整性、缺口全部与基线一致。
+    expect(after).toEqual(before);
+    expect(JSON.stringify(after.amounts)).toBe(JSON.stringify(before.amounts));
+    expect(JSON.stringify(after.completeness)).toBe(JSON.stringify(before.completeness));
+    expect(JSON.stringify(after.gaps)).toBe(JSON.stringify(before.gaps));
   });
 });

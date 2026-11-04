@@ -16,7 +16,10 @@
  *      保持 IN_PROGRESS，attempt_result 冻结失败/成功终态）。
  *   2) 重复终态只计一次（plan §4 决策 2 / AT-X03）：以相同 dedup 证据
  *      （dedup_key=<requestId>:attempt<N>）重复提交同一终态 → created=false、
- *      每个 Attempt 仍只一行，聚合仍 0.03000000（不得 0.04/0.06）。
+ *      每个 Attempt 仍只一行，聚合仍 0.03000000（不得 0.04/0.06）；
+ *      §1.2b 进一步覆盖“事务回滚 → 重放”：结算事务中途回滚零残留，随后对同一
+ *      Attempt 重放结算仍只计一次（行数与金额不变、dedup 证据唯一）——结算事务
+ *      约束不可移除（重复终态幂等在回滚后仍成立，AT-X03 回滚轮）。
  *   3) 历史处置不变（ACE-05 场景 2 / AT-ACE-10）：0086/0091 合法处置
  *      （provider_finance_usage_cost_disposition）在新读取下仍生效——
  *      excludedNoRecordedCost=1、无 PRICE_MISSING/USAGE_UNKNOWN 误报；原始 ledger 行
@@ -314,6 +317,102 @@ describe("loadApiCostEstimation 聚合语义：失败/重试/重复终态/历史
     expect(result.amounts).toEqual([{ currency: "CNY", amount: "0.03000000" }]);
     expect(result.completeness).toBe("KNOWN_COMPLETE");
     expect(result.gaps).toEqual([]);
+  });
+
+  // AT-X03 回滚轮 / G26（acceptance-plan §6 AT-X03：「对 F03 重复提交同一 Attempt 结算；
+  // 模拟一次既有事务回滚后再试——估算仍 0.03，Token 与内部额度各只计一次；不能移除
+  // 结算事务约束」）：先正常结算两笔 Attempt 得 0.03 基线；再以故意的失败事务
+  // （事务内写 usage+ledger 后 abort，模拟既有结算事务中途回滚）验证零残留；
+  // 随后对同一 Attempt 以完全相同的终态证据重放结算——幂等仍成立（结算事务约束
+  // persistAttemptUsageAccountingAtomically 的“首次成功以 ledger_line 创建为幂等提交点”
+  // 在回滚后不被削弱）。
+  it("§1.2b 事务回滚后重放：故意失败的事务零残留，同一 Attempt 重放仍只计一次（AT-X03/G26）", async () => {
+    const f = await fixture();
+    const repo = new GatewayLedgerRepository(db);
+    const requestId = await seedInProgressRequest(f);
+    const attempt1 = await createAttempt(f, repo, requestId, 1);
+    await settleAttemptFacts(f, repo, requestId, attempt1, {
+      attemptNo: 1, cost: "0.01000000", currency: "CNY",
+      at: new Date("2026-09-10T12:00:00+08:00"), result: FAILED_BUT_PRICED,
+    });
+    const attempt2 = await createAttempt(f, repo, requestId, 2);
+    await settleAttemptFacts(f, repo, requestId, attempt2, {
+      attemptNo: 2, cost: "0.02000000", currency: "CNY",
+      at: new Date("2026-09-10T12:05:00+08:00"), result: SUCCEEDED,
+    });
+    // 正常基线：0.03 口径。
+    const baseline = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(baseline.amounts).toEqual([{ currency: "CNY", amount: "0.03000000" }]);
+
+    // 故意失败的结算事务：事务内写入第三笔（usage+ledger）后 abort 回滚
+    // （模拟既有结算事务中途回滚——如进程中断/约束失败导致的整体回退）。
+    await expect(db.transaction().execute(async (trx) => {
+      const ghostAttempt = await trx.insertInto("upstream_attempt").values({
+        enterprise_id: f.enterpriseId, ai_request_id: requestId, attempt_no: 3,
+        provider_resource_id: f.resourceId, upstream_model: "model",
+        http_status: 200, response_committed: true,
+        finished_at: new Date("2026-09-10T12:06:00+08:00"),
+      }).returning("id").executeTakeFirstOrThrow();
+      const ghostUsage = await trx.insertInto("usage_event").values({
+        enterprise_id: f.enterpriseId, ai_request_id: requestId,
+        upstream_attempt_id: ghostAttempt.id, provider_resource_id: f.resourceId,
+        input_tokens: 1000n, output_tokens: 100n, cache_tokens: 0n, reasoning_tokens: 0n,
+        usage_quality: "PROVIDER_REPORTED", dedup_key: `${requestId}:attempt3`,
+        created_at: new Date("2026-09-10T12:06:00+08:00"),
+      }).returning("id").executeTakeFirstOrThrow();
+      await trx.insertInto("ledger_line").values({
+        enterprise_id: f.enterpriseId, ai_request_id: requestId,
+        upstream_attempt_id: ghostAttempt.id, usage_event_id: ghostUsage.id,
+        provider_resource_id: f.resourceId, principal_id: f.principalId,
+        resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 100n,
+        raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+        api_cost: "9.99000000", api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE",
+        usage_quality: "PROVIDER_REPORTED", settled_at: new Date("2026-09-10T12:06:00+08:00"),
+        created_at: new Date("2026-09-10T12:06:00+08:00"),
+      }).execute();
+      throw new Error("AT-X03 故障注入：模拟既有结算事务中途回滚");
+    })).rejects.toThrow(/AT-X03 故障注入/);
+
+    // 回滚零残留：attempt/usage/ledger 行数与金额与基线完全一致（幽灵第三笔不存在）。
+    const counts = async () => {
+      const [attempts, usage, lines] = await Promise.all([
+        db.selectFrom("upstream_attempt")
+          .select(({ fn }) => fn.countAll<string>().as("count"))
+          .where("ai_request_id", "=", requestId).executeTakeFirstOrThrow(),
+        db.selectFrom("usage_event")
+          .select(({ fn }) => fn.countAll<string>().as("count"))
+          .where("ai_request_id", "=", requestId).executeTakeFirstOrThrow(),
+        db.selectFrom("ledger_line")
+          .select(({ fn }) => fn.countAll<string>().as("count"))
+          .where("ai_request_id", "=", requestId).executeTakeFirstOrThrow(),
+      ]);
+      return [attempts.count, usage.count, lines.count];
+    };
+    expect(await counts()).toEqual(["2", "2", "2"]);
+    const afterRollback = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(afterRollback).toEqual(baseline);
+
+    // 重放同一 Attempt（相同终态证据）：幂等仍成立——不落新行。
+    const replay = await settleAttemptFacts(f, repo, requestId, attempt2, {
+      attemptNo: 2, cost: "0.02000000", currency: "CNY",
+      at: new Date("2026-09-10T12:05:00+08:00"), result: SUCCEEDED,
+    });
+    expect(replay.created).toBe(false);
+    expect(await counts()).toEqual(["2", "2", "2"]);
+
+    // 金额不变（仍 0.03，不因回滚+重放变成 0.05/更多）＋ dedup 证据唯一。
+    const afterReplay = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(afterReplay).toEqual(baseline);
+    expect(afterReplay.amounts).toEqual([{ currency: "CNY", amount: "0.03000000" }]);
+    const dedupRows = await db.selectFrom("usage_event")
+      .select(["dedup_key", ({ fn }) => fn.countAll<string>().as("count")])
+      .where("ai_request_id", "=", requestId)
+      .groupBy("dedup_key").execute();
+    expect(dedupRows.map((row) => [row.dedup_key, row.count]).sort((left, right) =>
+      left[0].localeCompare(right[0]))).toEqual([
+      [`${requestId}:attempt1`, "1"],
+      [`${requestId}:attempt2`, "1"],
+    ]);
   });
 
   it("§1.3 历史处置不变：处置仍生效、无缺口误报、原始行与处置记录不被聚合读取改写（ACE-05 场景2）", async () => {

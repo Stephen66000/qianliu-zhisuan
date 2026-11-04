@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
+import { sql } from "kysely";
 import {
   createKysely,
   migrateToLatest,
@@ -255,6 +256,180 @@ describe("W20 诊断下钻", () => {
     expect(body.request.unifiedModel).toBe("glm-4.6");
     expect(body.settlement.attemptCount).toBe(2);
     expect(body.settlement.totalInputTokens).toBe("300");
+    // S2B（R8 裁定）：无处置投影（transaction-only 分支）→ 结算级币种为 null。
+    expect(body.settlement.apiCostCurrency).toBeNull();
+  });
+
+  // S2B（R8 裁定）：处置投影存在时结算级透出 apiCostCurrency（USD ledger 行 → 'USD'）。
+  // 投影仅对含合法历史处置（排除行）的请求产出；币种取投影 costCurrency（零新 SQL）。
+  it("GET /gateway-requests/:id 结算级透出 apiCostCurrency：USD 投影行返回 USD", async () => {
+    const provider = await ensureProvider("deepseek");
+    const resource = await db
+      .insertInto("provider_resource")
+      .values({
+        enterprise_id: ENT_ID,
+        provider_id: provider.id,
+        name: `USD 结算资源-${randomUUID().slice(0, 8)}`,
+        mode: "API",
+        credential_type: "API_KEY",
+        status: "ACTIVE",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const principal = await db
+      .insertInto("principal")
+      .values({ enterprise_id: ENT_ID, type: "EMPLOYEE", name: "USD 员工" })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const pkey = await db
+      .insertInto("principal_key")
+      .values({
+        enterprise_id: ENT_ID,
+        principal_id: principal.id,
+        key_prefix: "sk-usd",
+        key_digest: "digest-" + randomUUID(),
+        allowed_model_ids: JSON.stringify([]) as unknown as string[],
+        status: "ACTIVE",
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const requestId = randomUUID();
+    const at = new Date("2026-09-28T12:00:00+08:00");
+    await db
+      .insertInto("ai_request")
+      .values({
+        id: requestId,
+        enterprise_id: ENT_ID,
+        principal_id: principal.id,
+        principal_key_id: pkey.id,
+        protocol: "openai",
+        unified_model: "glm-4.6",
+        status: "SUCCEEDED",
+        started_at: at,
+        finished_at: new Date(at.getTime() + 1_000),
+      })
+      .execute();
+    const attempt = await db
+      .insertInto("upstream_attempt")
+      .values({
+        ai_request_id: requestId,
+        enterprise_id: ENT_ID,
+        attempt_no: 1,
+        provider_resource_id: resource.id,
+        upstream_model: "glm-4.6",
+        http_status: 200,
+        response_committed: true,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const seededUsage = async (dedup: string, input: bigint, output: bigint) => {
+      const usage = await db
+        .insertInto("usage_event")
+        .values({
+          ai_request_id: requestId,
+          enterprise_id: ENT_ID,
+          upstream_attempt_id: attempt.id,
+          provider_resource_id: resource.id,
+          input_tokens: input,
+          output_tokens: output,
+          cache_tokens: 0n,
+          reasoning_tokens: 0n,
+          usage_quality: "PROVIDER_REPORTED",
+          dedup_key: dedup,
+          created_at: at,
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow();
+      return usage.id;
+    };
+    // 已计价 USD 行（PRICED_USAGE 要求金额与币种同时非空，0085 shape）
+    const pricedUsageId = await seededUsage(`usd-priced-${requestId}`, 300n, 150n);
+    await db
+      .insertInto("ledger_line")
+      .values({
+        ai_request_id: requestId,
+        enterprise_id: ENT_ID,
+        usage_event_id: pricedUsageId,
+        upstream_attempt_id: attempt.id,
+        provider_resource_id: resource.id,
+        principal_id: principal.id,
+        resource_mode: "API",
+        raw_input_tokens: 300n,
+        raw_output_tokens: 150n,
+        raw_cache_tokens: 0n,
+        raw_reasoning_tokens: 0n,
+        api_cost: "0.02000000",
+        api_cost_currency: "USD",
+        api_cost_status: "PRICED_USAGE",
+        usage_quality: "PROVIDER_REPORTED",
+        created_at: at,
+        settled_at: at,
+      })
+      .execute();
+    // 无记录费用的 UNKNOWN 行＋显式历史处置 → 触发处置投影（HAVING bool_or(excluded)）
+    const unknownUsageId = await seededUsage(`usd-unknown-${requestId}`, 0n, 0n);
+    const unknownLine = await db
+      .insertInto("ledger_line")
+      .values({
+        ai_request_id: requestId,
+        enterprise_id: ENT_ID,
+        usage_event_id: unknownUsageId,
+        upstream_attempt_id: attempt.id,
+        provider_resource_id: resource.id,
+        principal_id: principal.id,
+        resource_mode: "API",
+        raw_input_tokens: 0n,
+        raw_output_tokens: 0n,
+        raw_cache_tokens: 0n,
+        raw_reasoning_tokens: 0n,
+        api_cost: null,
+        api_cost_currency: null,
+        api_cost_status: "UNKNOWN_COST",
+        usage_quality: "UNKNOWN",
+        created_at: at,
+        settled_at: at,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    const unknownLineId = unknownLine.id;
+    await db
+      .insertInto("ledger_transaction")
+      .values({
+        ai_request_id: requestId,
+        enterprise_id: ENT_ID,
+        principal_id: principal.id,
+        total_input_tokens: 300n,
+        total_output_tokens: 150n,
+        total_cache_tokens: 0n,
+        total_reasoning_tokens: 0n,
+        total_deducted_quota: 450n,
+        total_api_cost: "0.02000000",
+        api_cost_status: "PRICED_USAGE",
+        usage_quality: "PROVIDER_REPORTED",
+        attempt_count: 1,
+        status: "SETTLED",
+        created_at: at,
+      })
+      .execute();
+    await sql`INSERT INTO provider_finance_usage_cost_disposition
+    (enterprise_id,provider_resource_id,ledger_line_id,ai_request_id,decision,original_ledger_fact,
+      server_cost_evidence,reason,evidence_ref,decided_by_admin_user_id,idempotency_key,request_hash)
+    SELECT line.enterprise_id,line.provider_resource_id,line.id,line.ai_request_id,'EXCLUDE_NO_SERVER_COST',
+      to_jsonb(line),'{}'::jsonb,'Owner confirmed no server fee record','w20-r8-settlement-currency',
+      ${ADM_ID}::uuid,${randomUUID()},${"0".repeat(64)} FROM ledger_line line WHERE line.id=${unknownLineId}::uuid`.execute(db);
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/gateway-requests/${requestId}`,
+      headers: { cookie: adminCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    // 投影 costCurrency＝窗口内唯一非空币种（USD 行＋NULL 币种排除行 → 'USD'）。
+    expect(res.json().settlement).toMatchObject({
+      totalApiCost: "0.02000000",
+      apiCostStatus: "PRICED_USAGE",
+      apiCostCurrency: "USD",
+    });
   });
 
   it("GET /gateway-requests/:id/route-candidates 返回候选与评分因子（WT-10/18）", async () => {

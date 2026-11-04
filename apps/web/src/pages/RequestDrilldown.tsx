@@ -76,7 +76,11 @@ export function RequestDrilldown({ requestId }: RequestDrilldownProps) {
                 unavailableUsageCostLabel(settlement.totalApiCost, settlement.apiCostStatus)
                   ?? (settlement.totalApiCost === "0" || settlement.totalApiCost === "0.00000000"
                     ? "套餐内"
-                    : costMoneyText(settlement.totalApiCost!))
+                    : settlement.apiCostCurrency
+                      ? costMoneyText(settlement.totalApiCost!, settlement.apiCostCurrency)
+                      // S2B（R8 裁定）：结算级币种缺失（无处置投影或混币 NULL）时不渲染 ¥，
+                      // 中性无符号展示——行级币种仍走快照冻结币种，costMoneyText 默认行为不变。
+                      : formatMoney(settlement.totalApiCost!))
               }
             />
             <Field label="Attempt 数" value={String(settlement.attemptCount)} />

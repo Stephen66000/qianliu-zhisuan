@@ -112,6 +112,22 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
   });
 });
 
+describe("POOL-042 API 汇总行价格依据待核实角标（S2B/R7）", () => {
+  it("API 行 priceBasisUnverified=true 显示角标，false/缺省与套餐行不显示", () => {
+    render(<ResourceBreakdown items={[
+      item({ providerCode: "pb-true", providerName: "待核实厂商", priceBasisUnverified: true }),
+      item({ providerCode: "pb-verified", providerName: "已核实厂商", priceBasisUnverified: false }),
+      item({ providerCode: "pb-absent", providerName: "旧后端厂商" }),
+      item({ providerCode: "pb-plan", providerName: "套餐厂商", mode: "CODING_PLAN", priceBasisUnverified: true }),
+    ]} />);
+    expect(within(screen.getByText("待核实厂商").closest("tr")!).getByText("价格依据待核实")).toBeVisible();
+    // 仅 API 行透出：VERIFIED、旧后端缺省与套餐行（即便误传 true）都不渲染角标
+    for (const name of ["已核实厂商", "旧后端厂商", "套餐厂商"]) {
+      expect(within(screen.getByText(name).closest("tr")!).queryByText("价格依据待核实")).toBeNull();
+    }
+  });
+});
+
 describe("厂商总览额度单位", () => {
   it.each(["POINT", "TOKEN", "CREDIT"])("剩余额度保留厂商 %s 单位，分配额度保留授权 Token 单位", (quotaUnit) => {
     render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit, remainingQuota: "1200", allocatedQuota: "2500" })]} />);

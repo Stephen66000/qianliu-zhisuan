@@ -550,7 +550,160 @@ describe("W20-04 UsageOverviewRepository", () => {
     expect(result.generatedAt).toBe(staleAt.toISOString());
     expect(result.metrics.realTokens).toBe("350");
   });
+
+  // S2B（R7 裁定）：聚合级"价格依据待核实"——判定源＝loadApiCostEstimation().priceBasis
+  // 任一 sourceStatus='UNVERIFIED'（企业级、同窗口、仅汇总级；apiCostStatus 五值枚举不变）。
+  it("窗口内 UNVERIFIED 规则计价行透出 priceBasisUnverified，全 VERIFIED 与无 API 行不为 true 且主体行不透出", async () => {
+    const unverifiedEnterpriseId = randomUUID();
+    const verifiedEnterpriseId = randomUUID();
+    const unverifiedEmployeeId = randomUUID();
+    const verifiedEmployeeId = randomUUID();
+    await db.insertInto("enterprise").values([
+      { id: unverifiedEnterpriseId, name: "待核实价格企业", timezone: "Asia/Shanghai" },
+      { id: verifiedEnterpriseId, name: "已核实价格企业", timezone: "Asia/Shanghai" },
+    ]).execute();
+    await db.insertInto("principal").values([
+      { id: unverifiedEmployeeId, enterprise_id: unverifiedEnterpriseId, type: "EMPLOYEE", name: "待核实员工" },
+      { id: verifiedEmployeeId, enterprise_id: verifiedEnterpriseId, type: "EMPLOYEE", name: "已核实员工" },
+    ]).execute();
+    await seedPricedApiLineFixture({
+      enterpriseId: unverifiedEnterpriseId, principalId: unverifiedEmployeeId,
+      sourceStatus: "UNVERIFIED", ruleVersion: "pb-unverified-v1",
+      cost: "0.50000000", currency: "CNY", at: tuesday,
+    });
+    await seedPricedApiLineFixture({
+      enterpriseId: verifiedEnterpriseId, principalId: verifiedEmployeeId,
+      sourceStatus: "VERIFIED", ruleVersion: "pb-verified-v1",
+      cost: "0.25000000", currency: "CNY", at: tuesday,
+    });
+
+    const unverified = await new UsageOverviewRepository(db).getOverview({
+      enterpriseId: unverifiedEnterpriseId, subjectType: "EMPLOYEE", period: "WEEK", anchor,
+    });
+    expect(unverified.metrics.priceBasisUnverified).toBe(true);
+    // R7：主体行不拆分——趋势点不携带该字段。
+    expect(unverified.trend.length).toBeGreaterThan(0);
+    expect(unverified.trend[0]).not.toHaveProperty("priceBasisUnverified");
+
+    const verified = await new UsageOverviewRepository(db).getOverview({
+      enterpriseId: verifiedEnterpriseId, subjectType: "EMPLOYEE", period: "WEEK", anchor,
+    });
+    expect(verified.metrics.priceBasisUnverified).toBe(false);
+
+    // 无任何 API 账本行的企业/窗口（仅有 ledger_transaction 夹具）不为 true。
+    const noApiLines = await new UsageOverviewRepository(db).getOverview({
+      enterpriseId: otherEnterpriseId, subjectType: "EMPLOYEE", period: "WEEK", anchor,
+    });
+    expect(noApiLines.metrics.priceBasisUnverified).toBe(false);
+    // R7：主体行不拆分——有排名行的窗口里，排名行同样不携带该字段。
+    expect(noApiLines.ranking.length).toBeGreaterThan(0);
+    for (const row of noApiLines.ranking) {
+      expect(row).not.toHaveProperty("priceBasisUnverified");
+    }
+  });
 });
+
+// S2B（R7）：播种"已计价 API 账本行＋计价规则"完整链路（同源估算唯一数据源＝ledger_line）。
+async function seedPricedApiLineFixture(input: {
+  enterpriseId: string;
+  principalId: string;
+  sourceStatus: "VERIFIED" | "UNVERIFIED";
+  ruleVersion: string;
+  cost: string;
+  currency: "CNY" | "USD";
+  at: Date;
+}): Promise<void> {
+  const key = await db.insertInto("principal_key").values({
+    enterprise_id: input.enterpriseId,
+    principal_id: input.principalId,
+    key_prefix: `pb-${randomUUID().slice(0, 8)}`,
+    key_digest: randomUUID(),
+    allowed_model_ids: [],
+    status: "ACTIVE",
+  }).returning("id").executeTakeFirstOrThrow();
+  const provider = await db.insertInto("provider").values({
+    enterprise_id: input.enterpriseId,
+    code: `pb-${randomUUID().slice(0, 8)}`,
+    name: "价格依据测试厂商",
+    adapter_type: "openai",
+  }).returning("id").executeTakeFirstOrThrow();
+  const resource = await db.insertInto("provider_resource").values({
+    enterprise_id: input.enterpriseId,
+    provider_id: provider.id,
+    name: "价格依据测试资源",
+    mode: "API",
+    credential_type: "API_KEY",
+    status: "ACTIVE",
+  }).returning("id").executeTakeFirstOrThrow();
+  const rule = await db.insertInto("billing_rule").values({
+    enterprise_id: input.enterpriseId,
+    provider_resource_id: resource.id,
+    upstream_model: "pb-upstream",
+    rule_type: "API_PRICE",
+    rule_version: input.ruleVersion,
+    effective_from: new Date("2026-08-01T00:00:00Z"),
+    cache_miss_price: "0.002",
+    output_price: "0.004",
+    enabled: true,
+    source_status: input.sourceStatus,
+  }).returning("id").executeTakeFirstOrThrow();
+  const requestId = randomUUID();
+  await db.insertInto("ai_request").values({
+    id: requestId,
+    enterprise_id: input.enterpriseId,
+    principal_id: input.principalId,
+    principal_key_id: key.id,
+    protocol: "openai",
+    unified_model: "ql-test",
+    status: "SUCCEEDED",
+    started_at: input.at,
+    finished_at: new Date(input.at.getTime() + 1_000),
+  }).execute();
+  const attempt = await db.insertInto("upstream_attempt").values({
+    ai_request_id: requestId,
+    enterprise_id: input.enterpriseId,
+    attempt_no: 1,
+    provider_resource_id: resource.id,
+    upstream_model: "pb-upstream",
+    finished_at: input.at,
+    http_status: 200,
+    response_committed: true,
+  }).returning("id").executeTakeFirstOrThrow();
+  const usage = await db.insertInto("usage_event").values({
+    ai_request_id: requestId,
+    enterprise_id: input.enterpriseId,
+    upstream_attempt_id: attempt.id,
+    provider_resource_id: resource.id,
+    input_tokens: 10n,
+    output_tokens: 2n,
+    cache_tokens: 0n,
+    reasoning_tokens: 0n,
+    usage_quality: "PROVIDER_REPORTED",
+    dedup_key: `pb-${requestId}`,
+    created_at: input.at,
+  }).returning("id").executeTakeFirstOrThrow();
+  await db.insertInto("ledger_line").values({
+    ai_request_id: requestId,
+    enterprise_id: input.enterpriseId,
+    usage_event_id: usage.id,
+    upstream_attempt_id: attempt.id,
+    provider_resource_id: resource.id,
+    principal_id: input.principalId,
+    resource_mode: "API",
+    raw_input_tokens: 10n,
+    raw_output_tokens: 2n,
+    raw_cache_tokens: 0n,
+    raw_reasoning_tokens: 0n,
+    api_cost: input.cost,
+    api_cost_currency: input.currency,
+    api_cost_status: "PRICED_USAGE",
+    usage_quality: "PROVIDER_REPORTED",
+    billing_rule_id: rule.id,
+    rule_version: input.ruleVersion,
+    created_at: input.at,
+    settled_at: input.at,
+  }).execute();
+}
 
 function expectConservation(
   metrics: { requestCount: string; inputTokens: string; outputTokens: string; cacheTokens: string; reasoningTokens: string; realTokens: string; apiCost: string; deductedQuota: string },

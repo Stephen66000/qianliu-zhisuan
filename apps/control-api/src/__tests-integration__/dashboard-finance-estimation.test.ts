@@ -24,7 +24,13 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 }, 120_000);
-afterAll(async () => { await db?.destroy(); await pg?.stop(); }, 60_000);
+afterAll(async () => {
+  await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1。
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await pg?.stop();
+}, 60_000);
 
 async function seedEnterpriseWithPricedUsage(cost: string): Promise<string> {
   const enterpriseId = randomUUID();

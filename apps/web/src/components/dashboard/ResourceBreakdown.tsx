@@ -10,6 +10,7 @@ import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
 import { formatCount, formatDateTimeShort, formatDecimal, formatMoney, formatRatePerHour } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
+import { PRICE_BASIS_UNVERIFIED_LABEL } from "../../lib/usage-cost";
 import { ExpandableTableRow, RowDetail } from "../ui/ExpandableTableRow";
 import { StatusTag } from "./StatusTag";
 
@@ -76,6 +77,9 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
                       ) : null}
                     </>
                   )}
+                {item.mode === "API" && item.priceBasisUnverified ? (
+                  <span className="block text-[13px] font-normal text-ql-fg-tertiary">{PRICE_BASIS_UNVERIFIED_LABEL}</span>
+                ) : null}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}

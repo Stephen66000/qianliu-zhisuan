@@ -22,6 +22,16 @@ import { IDS } from "./seed-e2e-ids.js";
  *    （含期初/充值/期末旧资金轨迹值），供历史横幅与三卡保留断言。
  * 4. strict_writes_enabled 运行态＋一条历史 API 充值事件（ADMIN 来源）——
  *    "历史资金记录（旧口径，只读）"区块与来源标签夹具。
+ * S3a-2 追加（WP5，全部挂 0330..0356 新键，不动既有键；不得破坏既有 7 个 e2e test）：
+ * 5. 过期资源（G14/AT-OAB-04）：成功快照 40，collected_at 早于 P2 阈值 2 小时 →
+ *    EXPIRED"数据过期"＋保鲜值 40；附"不可计算"供给预测快照（G19/G20/AT-OAB-13/14）。
+ * 6. 从未成功资源（G15/AT-OAB-08）：无快照＋FAILED attempt（UPSTREAM_AUTH_FAILED/401）
+ *    → "暂无官方数据"，不冒充 0 元。
+ * 7. 同账户两资源（G16/AT-OAB-09）：同 provider_id（states 夹具 :173 的同账户表达）
+ *    各快照 100＋SUCCESS attempt → 两行独立、无 200 合计。
+ * 8. F02 费用质量行（G6/AT-ACE-07，当月）：已计价 1 CNY、已计价 2 CNY、有用量无价格
+ *    （UNKNOWN_COST，0085 shape 要求金额与币种同时 NULL）→ 与 F01 叠加当月已计价
+ *    部分 CNY 3.00104＋USD 0.5，估算 KNOWN_PARTIAL＋PRICE_MISSING。
  */
 export const WP4_IDS = {
   provider: "00000000-0000-4000-8000-000000000310",
@@ -44,6 +54,39 @@ export const WP4_IDS = {
   usdTransaction: "00000000-0000-4000-8000-000000000327",
   apiOpeningEvent: "00000000-0000-4000-8000-000000000329",
   apiRechargeEvent: "00000000-0000-4000-8000-000000000328",
+  // ── S3a-2 追加（全部挂新键，不动既有键）──────────────────────────
+  // G14/AT-OAB-04：过期资源（快照 40，collected_at 早于 30 分钟过期阈值）
+  expiredResource: "00000000-0000-4000-8000-000000000330",
+  expiredSnapshot: "00000000-0000-4000-8000-000000000331",
+  expiredAttempt: "00000000-0000-4000-8000-000000000332",
+  // G15/AT-OAB-08：从未成功资源（无任何快照，仅一条 FAILED attempt）
+  neverResource: "00000000-0000-4000-8000-000000000333",
+  neverAttempt: "00000000-0000-4000-8000-000000000334",
+  // G16/AT-OAB-09：同一 provider（同账户）下两资源各查得 100，不得合计 200
+  pairAResource: "00000000-0000-4000-8000-000000000335",
+  pairBResource: "00000000-0000-4000-8000-000000000336",
+  pairASnapshot: "00000000-0000-4000-8000-000000000337",
+  pairBSnapshot: "00000000-0000-4000-8000-000000000338",
+  pairAAttempt: "00000000-0000-4000-8000-000000000339",
+  pairBAttempt: "00000000-0000-4000-8000-000000000340",
+  // G19/G20（AT-OAB-13/14）：过期资源的"不可计算"预测快照（not_calculable_reason）
+  expiredForecast: "00000000-0000-4000-8000-000000000341",
+  // G6/AT-ACE-07（F02）：当月三条费用质量行——已计价 1 CNY／已计价 2 CNY／有用量无价格
+  f02aRequest: "00000000-0000-4000-8000-000000000342",
+  f02aAttempt: "00000000-0000-4000-8000-000000000343",
+  f02aUsage: "00000000-0000-4000-8000-000000000344",
+  f02aLine: "00000000-0000-4000-8000-000000000345",
+  f02aTransaction: "00000000-0000-4000-8000-000000000346",
+  f02bRequest: "00000000-0000-4000-8000-000000000347",
+  f02bAttempt: "00000000-0000-4000-8000-000000000348",
+  f02bUsage: "00000000-0000-4000-8000-000000000349",
+  f02bLine: "00000000-0000-4000-8000-000000000350",
+  f02bTransaction: "00000000-0000-4000-8000-000000000351",
+  f02uRequest: "00000000-0000-4000-8000-000000000352",
+  f02uAttempt: "00000000-0000-4000-8000-000000000353",
+  f02uUsage: "00000000-0000-4000-8000-000000000354",
+  f02uLine: "00000000-0000-4000-8000-000000000355",
+  f02uTransaction: "00000000-0000-4000-8000-000000000356",
 } as const;
 
 /** 与 official-balance-sync-writes.ts officialBalanceSyncDay 同口径（上海自然日）。 */
@@ -132,6 +175,116 @@ export async function seedWp4CostOfficialBalance(
     },
   ]).execute();
 
+  // ── 1b. S3a-2 官方余额状态扩展（过期／从未成功／同账户两 Key）─────────
+  // G14（AT-OAB-04）：过期资源——成功快照 40，collected_at 早于 P2（30 分钟过期阈值）
+  //   2 小时 → C2 状态 EXPIRED，页面显示"数据过期"标记＋保鲜值 40。
+  // G15（AT-OAB-08）：从未成功资源——无任何快照，仅一条 FAILED attempt（上游 401）→
+  //   余额 null 显示"暂无官方数据"，绝不冒充 0 元。
+  // G16（AT-OAB-09）：同一 provider（states 集成夹具 :173 的"已确认同账户"数据层表达
+  //   ＝同 provider_id 下两个资源）各查得 100 → 两行独立展示，无任何合计字段。
+  await db.insertInto("provider_resource").values([
+    {
+      id: WP4_IDS.expiredResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
+      name: "DeepSeek 官方余额 E2E（数据过期）", mode: "API", credential_type: "API_KEY",
+      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
+    },
+    {
+      id: WP4_IDS.neverResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
+      name: "DeepSeek 官方余额 E2E（从未成功）", mode: "API", credential_type: "API_KEY",
+      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
+    },
+    {
+      id: WP4_IDS.pairAResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
+      name: "DeepSeek 官方余额 E2E（同账户 A）", mode: "API", credential_type: "API_KEY",
+      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
+    },
+    {
+      id: WP4_IDS.pairBResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
+      name: "DeepSeek 官方余额 E2E（同账户 B）", mode: "API", credential_type: "API_KEY",
+      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
+    },
+  ]).execute();
+  await db.insertInto("provider_resource_operating_snapshot").values([
+    {
+      id: WP4_IDS.expiredSnapshot, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.expiredResource,
+      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
+      collected_at: minuteAgo(2 * 3_600_000), currency: "CNY",
+      current_balance: "40", granted_balance: "0", topped_up_balance: "40",
+      provider_balance_available: true, balance_updated_at: minuteAgo(2 * 3_600_000),
+    },
+    {
+      id: WP4_IDS.pairASnapshot, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.pairAResource,
+      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
+      collected_at: minuteAgo(45_000), currency: "CNY",
+      current_balance: "100", granted_balance: "0", topped_up_balance: "100",
+      provider_balance_available: true, balance_updated_at: minuteAgo(45_000),
+    },
+    {
+      id: WP4_IDS.pairBSnapshot, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.pairBResource,
+      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
+      collected_at: minuteAgo(90_000), currency: "CNY",
+      current_balance: "100", granted_balance: "0", topped_up_balance: "100",
+      provider_balance_available: true, balance_updated_at: minuteAgo(90_000),
+    },
+  ]).execute();
+  await db.insertInto("provider_resource_operating_sync_attempt").values([
+    {
+      id: WP4_IDS.expiredAttempt, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.expiredResource,
+      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
+      snapshot_id: WP4_IDS.expiredSnapshot, provider_data_at: minuteAgo(2 * 3_600_000),
+      started_at: minuteAgo(2 * 3_600_000 + 5_000), completed_at: minuteAgo(2 * 3_600_000),
+      next_sync_at: new Date(now.getTime() + 15 * 60_000),
+      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
+    },
+    {
+      // G15：从未成功——只有 FAILED attempt、没有任何快照（区别于 failedResource 的保鲜场景）。
+      id: WP4_IDS.neverAttempt, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.neverResource,
+      sync_day: shanghaiSyncDay(now), balance_status: "FAILED", cost_status: "NOT_SUPPORTED",
+      snapshot_id: null, provider_data_at: null,
+      started_at: minuteAgo(20_000), completed_at: minuteAgo(19_000),
+      next_sync_at: new Date(now.getTime() + 15 * 60_000),
+      error_code: "UPSTREAM_AUTH_FAILED",
+      failure_reason: "E2E 合成失败场景：上游 401 鉴权失败（从未成功，无保鲜值可显示）",
+      adapter_version: "wp4-e2e-v1",
+    },
+    {
+      id: WP4_IDS.pairAAttempt, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.pairAResource,
+      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
+      snapshot_id: WP4_IDS.pairASnapshot, provider_data_at: minuteAgo(45_000),
+      started_at: minuteAgo(50_000), completed_at: minuteAgo(45_000),
+      next_sync_at: new Date(now.getTime() + 15 * 60_000),
+      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
+    },
+    {
+      id: WP4_IDS.pairBAttempt, enterprise_id: enterpriseId,
+      provider_resource_id: WP4_IDS.pairBResource,
+      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
+      snapshot_id: WP4_IDS.pairBSnapshot, provider_data_at: minuteAgo(90_000),
+      started_at: minuteAgo(95_000), completed_at: minuteAgo(90_000),
+      next_sync_at: new Date(now.getTime() + 15 * 60_000),
+      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
+    },
+  ]).execute();
+  // G19/G20（AT-OAB-13/14）：过期资源的供给预测"不可计算"快照——forecast_exhaust_at 为空
+  // ＋not_calculable_reason（worker 对 official_balance_expired 的合成输出）。
+  // /supply-forecasts 门禁：快照 remaining（API=current_balance 40）须与 forecast
+  // remaining_quota 相等且 snapshot_at 不早于快照 calculated_at（+2s 余量）。
+  await db.insertInto("supply_forecast").values({
+    id: WP4_IDS.expiredForecast, enterprise_id: enterpriseId,
+    provider_resource_id: WP4_IDS.expiredResource,
+    rate_1h: null, rate_24h: null, rate_7d: null,
+    forecast_exhaust_at: null, next_recover_at: null, coverage_hours: null,
+    remaining_quota: "40", confidence: "LOW", data_points: 24,
+    not_calculable_reason: "官方余额数据过期，暂不可计算（OAB-14 合成夹具）",
+    algorithm_version: "wp4-e2e-v1", snapshot_at: new Date(now.getTime() + 2_000),
+  }).execute();
+
   // ── 2. F01 估算半开窗夹具（600/400/200 @ 1/0.1/2 元每百万 → 0.00104 CNY）──
   await db.insertInto("billing_rule").values({
     id: WP4_IDS.billingRule, enterprise_id: enterpriseId,
@@ -215,6 +368,108 @@ export async function seedWp4CostOfficialBalance(
     total_cache_tokens: 0n, total_api_cost: "0.5", api_cost_status: "PRICED_USAGE",
     overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
     status: "SETTLED", created_at: usdAt,
+  }).execute();
+
+  // ── 2b. S3a-2 F02 费用质量行（G6/AT-ACE-07，既有 e2e 当月内追加三条）──
+  // 已计价 1 CNY（F02-1）、已计价 2 CNY（F02-2）、有用量无价格（F02-3，不建
+  // billing_rule 命中 → UNKNOWN_COST）。与 F01 叠加后当月已计价部分＝
+  // CNY 3.00104（0.00104+1+2）＋USD 0.5；UNKNOWN 行使估算完整性 KNOWN_PARTIAL
+  // ＋PRICE_MISSING 缺口，聚合层拒绝把已计价部分冒充完整总费用。
+  const f02Request = (requestId: string, idempotencyKey: string, at: Date) => ({
+    id: requestId, enterprise_id: enterpriseId, principal_id: principalId,
+    principal_key_id: keyId, idempotency_key: idempotencyKey,
+    protocol: "chat", unified_model: "deepseek-v4-flash", stream: false,
+    status: "SUCCEEDED", client_id: "m5-playwright",
+    started_at: at, finished_at: at,
+  });
+  const f02AttemptRow = (attemptId: string, requestId: string, at: Date) => ({
+    id: attemptId, ai_request_id: requestId, enterprise_id: enterpriseId,
+    attempt_no: 1, provider_resource_id: WP4_IDS.okResource,
+    upstream_model: "deepseek-v4-flash", started_at: at, finished_at: at,
+    http_status: 200, response_committed: true,
+  });
+  const f02UsageRow = (usageId: string, requestId: string, attemptId: string,
+    input: bigint, output: bigint, dedupKey: string, at: Date) => ({
+    id: usageId, ai_request_id: requestId, enterprise_id: enterpriseId,
+    upstream_attempt_id: attemptId, provider_resource_id: WP4_IDS.okResource,
+    input_tokens: input, output_tokens: output, cache_tokens: 0n,
+    usage_quality: "PROVIDER_REPORTED", dedup_key: dedupKey, created_at: at,
+  });
+  // F02-1：已计价 1 CNY（AT-ACE-07）。
+  const f02aAt = minuteAgo(8 * 60_000);
+  await db.insertInto("ai_request").values(
+    f02Request(WP4_IDS.f02aRequest, "wp4-e2e-f02a-request", f02aAt)).execute();
+  await db.insertInto("upstream_attempt").values(
+    f02AttemptRow(WP4_IDS.f02aAttempt, WP4_IDS.f02aRequest, f02aAt)).execute();
+  await db.insertInto("usage_event").values(
+    f02UsageRow(WP4_IDS.f02aUsage, WP4_IDS.f02aRequest, WP4_IDS.f02aAttempt,
+      500n, 100n, "wp4-e2e-f02a", f02aAt)).execute();
+  await db.insertInto("ledger_line").values({
+    id: WP4_IDS.f02aLine, ai_request_id: WP4_IDS.f02aRequest, enterprise_id: enterpriseId,
+    usage_event_id: WP4_IDS.f02aUsage, upstream_attempt_id: WP4_IDS.f02aAttempt,
+    provider_resource_id: WP4_IDS.okResource, principal_id: principalId,
+    resource_mode: "API", raw_input_tokens: 500n, raw_output_tokens: 100n,
+    raw_cache_tokens: 0n, api_cost: "1", api_cost_currency: "CNY",
+    api_cost_status: "PRICED_USAGE", settled_at: f02aAt,
+    usage_quality: "PROVIDER_REPORTED", created_at: f02aAt,
+  }).execute();
+  await db.insertInto("ledger_transaction").values({
+    id: WP4_IDS.f02aTransaction, ai_request_id: WP4_IDS.f02aRequest, enterprise_id: enterpriseId,
+    principal_id: principalId, total_input_tokens: 500n, total_output_tokens: 100n,
+    total_cache_tokens: 0n, total_api_cost: "1", api_cost_status: "PRICED_USAGE",
+    overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+    status: "SETTLED", created_at: f02aAt,
+  }).execute();
+  // F02-2：已计价 2 CNY（AT-ACE-07）。
+  const f02bAt = minuteAgo(7 * 60_000);
+  await db.insertInto("ai_request").values(
+    f02Request(WP4_IDS.f02bRequest, "wp4-e2e-f02b-request", f02bAt)).execute();
+  await db.insertInto("upstream_attempt").values(
+    f02AttemptRow(WP4_IDS.f02bAttempt, WP4_IDS.f02bRequest, f02bAt)).execute();
+  await db.insertInto("usage_event").values(
+    f02UsageRow(WP4_IDS.f02bUsage, WP4_IDS.f02bRequest, WP4_IDS.f02bAttempt,
+      1000n, 200n, "wp4-e2e-f02b", f02bAt)).execute();
+  await db.insertInto("ledger_line").values({
+    id: WP4_IDS.f02bLine, ai_request_id: WP4_IDS.f02bRequest, enterprise_id: enterpriseId,
+    usage_event_id: WP4_IDS.f02bUsage, upstream_attempt_id: WP4_IDS.f02bAttempt,
+    provider_resource_id: WP4_IDS.okResource, principal_id: principalId,
+    resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 200n,
+    raw_cache_tokens: 0n, api_cost: "2", api_cost_currency: "CNY",
+    api_cost_status: "PRICED_USAGE", settled_at: f02bAt,
+    usage_quality: "PROVIDER_REPORTED", created_at: f02bAt,
+  }).execute();
+  await db.insertInto("ledger_transaction").values({
+    id: WP4_IDS.f02bTransaction, ai_request_id: WP4_IDS.f02bRequest, enterprise_id: enterpriseId,
+    principal_id: principalId, total_input_tokens: 1000n, total_output_tokens: 200n,
+    total_cache_tokens: 0n, total_api_cost: "2", api_cost_status: "PRICED_USAGE",
+    overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+    status: "SETTLED", created_at: f02bAt,
+  }).execute();
+  // F02-3：有用量无价格（AT-ACE-07）——UNKNOWN_COST；0085 shape 约束要求
+  // api_cost 与 api_cost_currency 同时为 NULL（绝不补零估算）。
+  const f02uAt = minuteAgo(6 * 60_000);
+  await db.insertInto("ai_request").values(
+    f02Request(WP4_IDS.f02uRequest, "wp4-e2e-f02u-request", f02uAt)).execute();
+  await db.insertInto("upstream_attempt").values(
+    f02AttemptRow(WP4_IDS.f02uAttempt, WP4_IDS.f02uRequest, f02uAt)).execute();
+  await db.insertInto("usage_event").values(
+    f02UsageRow(WP4_IDS.f02uUsage, WP4_IDS.f02uRequest, WP4_IDS.f02uAttempt,
+      300n, 50n, "wp4-e2e-f02u", f02uAt)).execute();
+  await db.insertInto("ledger_line").values({
+    id: WP4_IDS.f02uLine, ai_request_id: WP4_IDS.f02uRequest, enterprise_id: enterpriseId,
+    usage_event_id: WP4_IDS.f02uUsage, upstream_attempt_id: WP4_IDS.f02uAttempt,
+    provider_resource_id: WP4_IDS.okResource, principal_id: principalId,
+    resource_mode: "API", raw_input_tokens: 300n, raw_output_tokens: 50n,
+    raw_cache_tokens: 0n, api_cost: null, api_cost_currency: null,
+    api_cost_status: "UNKNOWN_COST", settled_at: f02uAt,
+    usage_quality: "PROVIDER_REPORTED", created_at: f02uAt,
+  }).execute();
+  await db.insertInto("ledger_transaction").values({
+    id: WP4_IDS.f02uTransaction, ai_request_id: WP4_IDS.f02uRequest, enterprise_id: enterpriseId,
+    principal_id: principalId, total_input_tokens: 300n, total_output_tokens: 50n,
+    total_cache_tokens: 0n, total_api_cost: null, api_cost_status: "UNKNOWN_COST",
+    overage: false, usage_quality: "PROVIDER_REPORTED", attempt_count: 1,
+    status: "SETTLED", created_at: f02uAt,
   }).execute();
 
   // ── 3. 已关账历史月（CLOSED＋冻结版本快照）─────────────────────────

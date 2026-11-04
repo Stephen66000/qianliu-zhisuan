@@ -10,6 +10,7 @@ const costProjection = vi.hoisted(() => ({
   status: undefined as string | undefined,
   currency: undefined as string | undefined,
   sourceStatus: undefined as string | undefined,
+  settlementCurrency: undefined as string | undefined,
 }));
 
 vi.mock("../api/hooks", () => ({
@@ -26,6 +27,7 @@ vi.mock("../api/hooks", () => ({
         totalInputTokens: "100", totalOutputTokens: "20", totalCacheTokens: "10",
         totalReasoningTokens: "0", totalDeductedQuota: "0", totalApiCost: costProjection.total,
         apiCostStatus: costProjection.status,
+        apiCostCurrency: costProjection.settlementCurrency,
         usageQuality: "PROVIDER_REPORTED", attemptCount: 1, status: "SETTLED",
       },
     },
@@ -75,6 +77,7 @@ describe("POOL20-031/032 请求决策详情", () => {
     costProjection.status = undefined;
     costProjection.currency = undefined;
     costProjection.sourceStatus = undefined;
+    costProjection.settlementCurrency = undefined;
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: clipboardWrite },
@@ -91,12 +94,26 @@ describe("POOL20-031/032 请求决策详情", () => {
     expect(screen.queryByText("未知")).not.toBeInTheDocument();
   });
 
-  // ACE-01（WP4-S2 合同 5）：结算汇总改"API费用估算"；settlement 无行内币种字段 → 回退 ¥。
-  it("结算汇总使用 API费用估算 命名并在无币种时回退 ¥", () => {
+  // ACE-01（WP4-S2 合同 5）：结算汇总改"API费用估算"命名。
+  // S2B 断言迁移（R8 裁定）：settlement 币种缺失（无处置投影/混币 NULL）→ 中性无符号展示，
+  // 不再回退 ¥（原"无币种回退 ¥"行为废止；costMoneyText 既有调用方不受影响）。
+  it("结算汇总使用 API费用估算 命名且币种缺失时不渲染 ¥", () => {
     render(<RequestDrilldown requestId="request-1" />);
     expect(screen.getByText("API费用估算")).toBeInTheDocument();
-    expect(screen.getByText("¥0.00")).toBeInTheDocument();
+    expect(screen.getByText("0.00")).toBeInTheDocument();
+    expect(screen.queryByText("¥0.00")).not.toBeInTheDocument();
     expect(screen.queryByText("API 费用")).not.toBeInTheDocument();
+  });
+
+  it("结算级币种 USD 显示 USD 而非 ¥，CNY 保留 ¥（R8）", () => {
+    costProjection.settlementCurrency = "USD";
+    const usd = render(<RequestDrilldown requestId="request-1" />);
+    expect(usd.getByText("USD 0.00")).toBeInTheDocument();
+    expect(usd.queryByText("¥0.00")).not.toBeInTheDocument();
+    usd.unmount();
+    costProjection.settlementCurrency = "CNY";
+    const cny = render(<RequestDrilldown requestId="request-1" />);
+    expect(cny.getByText("¥0.00")).toBeInTheDocument();
   });
 
   // ACE-02 场景 3＋WP4-S2 合同 5：行内币种字段消费 + 价格依据待核实角标

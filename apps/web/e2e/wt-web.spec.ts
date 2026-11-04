@@ -39,7 +39,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     await page.goto("/resources");
     await page.getByRole("button", { name: "登记资源" }).click();
     await page.getByRole("button", { name: "新建厂商" }).click();
-    await page.getByLabel("厂商代码 (首字母大写)").fill("DeepSeek");
+    // WP4 seed 已占用厂商代码 "DeepSeek"（seed-e2e-wp4.ts:122，每企业唯一，
+    // providers 路由 409 provider_code_exists），WT-01 改用独立代码避免
+    // 夹具冲突（2026-11-04 WP5）。
+    await page.getByLabel("厂商代码 (首字母大写)").fill("E2EDeepSeek");
     await page.getByLabel("显示名称").fill("E2E DeepSeek");
     const providerResponse = page.waitForResponse(
       (response) => response.url().endsWith("/providers") && response.request().method() === "POST",
@@ -48,7 +51,7 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     expect((await providerResponse).status()).toBe(201);
 
     await expect(page.getByLabel("厂商", { exact: true })
-      .getByRole("option", { name: "E2E DeepSeek（DeepSeek）" })).toHaveCount(1);
+      .getByRole("option", { name: "E2E DeepSeek（E2EDeepSeek）" })).toHaveCount(1);
     await page.getByLabel("厂商", { exact: true }).selectOption({ label: "智谱 E2E（zhipu）" });
     await expect(page.getByLabel("厂商", { exact: true }).locator("option:checked"))
       .toHaveText("智谱 E2E（zhipu）");
@@ -58,7 +61,10 @@ test.describe.serial("M5 WT-01~20 真实 Web 闭环", () => {
     const secret = "sk-m5-e2e-plaintext-canary";
     await page.getByLabel("上游凭证").fill("sk-e2e-invalid-synthetic-credential");
     await page.getByLabel("厂商总额度").fill("100000");
-    await expect(page.getByText("订阅金额和服务周期在“充值与订阅”中登记。", { exact: true })).toBeVisible();
+    // WP4 5.2 改名导致断言过期（2026-11-04 WP5 第三轮）：commit ba0412a
+    // （WP4 tasks 5.1-5.4）把"充值与订阅"更名为"套餐与订阅"
+    // （ResourceOnboardingSection.tsx:325 现文案；wp4 spec:141 亦断言旧文案 count 0）。
+    await expect(page.getByText("订阅金额和服务周期在“套餐与订阅”中登记。", { exact: true })).toBeVisible();
     const deniedResponse = page.waitForResponse(response => response.url().endsWith("/provider-resources/model-discovery") && response.request().method() === "POST");
     await page.getByRole("button", { name: "检测可用模型" }).click();
     const denied = await (await deniedResponse).json();

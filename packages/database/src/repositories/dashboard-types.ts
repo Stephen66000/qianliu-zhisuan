@@ -131,6 +131,8 @@ export interface ResourceBreakdownItem {
   snapshotAt: string | null;
   monthlyCost: string | null;
   monthlyCostReason: string | null;
+  /** S2B（R7 裁定）：聚合级价格依据待核实——期间计价行涉及的任一规则现值为 UNVERIFIED。仅 API 汇总行透出，套餐行缺省。 */
+  priceBasisUnverified?: boolean;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;

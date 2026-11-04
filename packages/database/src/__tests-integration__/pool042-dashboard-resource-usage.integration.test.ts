@@ -58,6 +58,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     responseCommitted?: boolean;
     httpStatus?: number;
     errorCode?: string | null;
+    billingRuleId?: string;
+    ruleVersion?: string;
   }) {
     const requestId = randomUUID();
     await db.insertInto("ai_request").values({
@@ -87,6 +89,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       raw_output_tokens: input.output, raw_cache_tokens: input.cache,
       raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
       api_cost: input.cost,
+      billing_rule_id: input.billingRuleId ?? null,
+      rule_version: input.ruleVersion ?? null,
       usage_quality: input.quality, created_at: input.at,
       // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
       // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
@@ -557,5 +561,62 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       monthlyTotalTokens: "12", consumptionRate24h: "0.50",
       consumptionRateUnit: "QUOTA_PER_HOUR",
     });
+  });
+
+  // S2B（R7 裁定）：资源组级"价格依据待核实"透出——判定源＝loadApiCostEstimation().priceBasis
+  // 任一 sourceStatus='UNVERIFIED'；仅 API 汇总行透出（兄弟布尔），套餐行不透出，金额/口径不变。
+  it("S2B：API 资源组级透出 priceBasisUnverified，全 VERIFIED 为 false，套餐行不透出", async () => {
+    async function createRuleFor(resourceId: string, upstreamModel: string, version: string, sourceStatus: "VERIFIED" | "UNVERIFIED") {
+      return db.insertInto("billing_rule").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId,
+        upstream_model: upstreamModel, rule_type: "API_PRICE", rule_version: version,
+        effective_from: new Date("2026-08-01T00:00:00Z"),
+        cache_miss_price: "0.01", output_price: "0.02", enabled: true,
+        source_status: sourceStatus,
+      }).returning("id").executeTakeFirstOrThrow();
+    }
+
+    const unverifiedResource = await createApiResource("pb-unverified", "10");
+    const unverifiedRule = await createRuleFor(
+      unverifiedResource, "pb-unverified", "pb-unverified-v1", "UNVERIFIED",
+    );
+    await addLine({
+      resourceId: unverifiedResource, modelId: null, historicalAlias: "old-pb-unverified",
+      upstreamModel: "pb-unverified", input: 10n, output: 2n, cache: 0n, reasoning: 0n,
+      cost: "0.1", quality: "PROVIDER_REPORTED",
+      at: new Date(now.getTime() - 30 * 60 * 1000),
+      billingRuleId: unverifiedRule.id, ruleVersion: "pb-unverified-v1",
+    });
+
+    const verifiedResource = await createApiResource("pb-verified", "10");
+    const verifiedRule = await createRuleFor(
+      verifiedResource, "pb-verified", "pb-verified-v1", "VERIFIED",
+    );
+    await addLine({
+      resourceId: verifiedResource, modelId: null, historicalAlias: "old-pb-verified",
+      upstreamModel: "pb-verified", input: 10n, output: 2n, cache: 0n, reasoning: 0n,
+      cost: "0.1", quality: "PROVIDER_REPORTED",
+      at: new Date(now.getTime() - 30 * 60 * 1000),
+      billingRuleId: verifiedRule.id, ruleVersion: "pb-verified-v1",
+    });
+
+    const planProvider = await db.insertInto("provider").values({
+      enterprise_id: enterpriseId, code: "pb-plan", name: "pb-plan", adapter_type: "openai",
+    }).returning("id").executeTakeFirstOrThrow();
+    // 套餐行只需 provider_resource(mode=CODING_PLAN) 即产生分组行；无需快照/账本行。
+    await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: planProvider.id, name: "pb-plan",
+      mode: "CODING_PLAN", credential_type: "API_KEY", status: "ACTIVE",
+    }).execute();
+
+    const items = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
+      .providerSummaries;
+    expect(items.find((row) => row.providerCode === "pb-unverified")).toMatchObject({
+      mode: "API", priceBasisUnverified: true, monthlyCost: "0.10000000",
+    });
+    expect(items.find((row) => row.providerCode === "pb-verified")).toMatchObject({
+      mode: "API", priceBasisUnverified: false, monthlyCost: "0.10000000",
+    });
+    expect(items.find((row) => row.providerCode === "pb-plan")?.priceBasisUnverified).toBeUndefined();
   });
 });

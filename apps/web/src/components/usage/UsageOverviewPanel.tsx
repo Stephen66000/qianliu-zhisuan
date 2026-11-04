@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useUsageOverview } from "../../api/v2-hooks";
 import type { UsageOverview } from "../../api/v2-types";
 import { formatCount, formatMoney } from "../../lib/format";
-import { unavailableUsageCostLabel } from "../../lib/usage-cost";
+import { PRICE_BASIS_UNVERIFIED_LABEL, unavailableUsageCostLabel } from "../../lib/usage-cost";
 import { ErrorState } from "../states/ErrorState";
 import { LoadingState } from "../states/LoadingState";
 import { usageInputClass } from "./UsageSearchField";
@@ -33,7 +33,9 @@ export function UsageOverviewPanel() {
   const data = query.data;
   const employeeScope = subjectType === "EMPLOYEE";
   const costDisplay = unavailableUsageCostLabel(data.metrics.apiCost, data.metrics.apiCostStatus) ?? `¥${formatMoney(data.metrics.apiCost!)}`;
-  const metrics = [["活跃主体", formatCount(String(data.metrics.activeSubjects))], ["请求数", formatCount(data.metrics.requestCount)], ["token使用量", formatCount(data.metrics.realTokens)], ["API费用估算", costDisplay], ["套餐扣减", formatCount(data.metrics.deductedQuota)]];
+  // S2B（R7）：窗口内任一 UNVERIFIED 规则计价 → API费用估算旁"价格依据待核实"角标（仅汇总级）。
+  const priceBasisBadge = data.metrics.priceBasisUnverified ? PRICE_BASIS_UNVERIFIED_LABEL : null;
+  const metrics: Array<[string, string, string | null]> = [["活跃主体", formatCount(String(data.metrics.activeSubjects)), null], ["请求数", formatCount(data.metrics.requestCount), null], ["token使用量", formatCount(data.metrics.realTokens), null], ["API费用估算", costDisplay, priceBasisBadge], ["套餐扣减", formatCount(data.metrics.deductedQuota), null]];
   return <div className="space-y-3">
     <div className="rounded-lg border border-ql-border-zone bg-ql-surface-subtle p-3">
       <div className="grid grid-cols-2 items-start gap-2 lg:grid-cols-[88px_180px_148px_minmax(0,1fr)]">
@@ -43,7 +45,7 @@ export function UsageOverviewPanel() {
         <div className="col-span-2 min-w-0 lg:col-span-1"><UsageSubjectPicker compact onChange={(value) => set("subject_id", value)} subjectType={subjectType} value={subjectId} /></div>
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{metrics.map(([label, value]) => <article className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2" key={label}><p className="text-[13px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block break-all font-mono text-[clamp(12px,1.4vw,20px)] font-semibold leading-7">{value}</strong></article>)}</div>
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{metrics.map(([label, value, badge]) => <article className="min-w-0 rounded-lg border border-ql-border-zone bg-ql-surface px-3 py-2" key={label}><p className="text-[13px] text-ql-fg-tertiary">{label}</p><strong className="mt-1 block break-all font-mono text-[clamp(12px,1.4vw,20px)] font-semibold leading-7">{value}</strong>{badge ? <span className="mt-0.5 block text-[12px] font-normal text-ql-fg-tertiary">{badge}</span> : null}</article>)}</div>
     <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-3"><div className="flex items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold">趋势</h2><p className="mt-1 text-[13px] text-ql-fg-tertiary">{new Date(data.range.from).toLocaleString("zh-CN")} — {new Date(data.range.to).toLocaleString("zh-CN")} · {data.timezone}</p></div><span className="text-right text-[13px] text-ql-fg-tertiary">数据时间 {new Date(data.generatedAt).toLocaleString("zh-CN")}</span></div><TrendBars trend={data.trend} /></section>
     <section className="overflow-hidden rounded-xl border border-ql-border-zone bg-ql-surface"><div className="flex items-center justify-between px-3 py-2"><h2 className="text-[15px] font-semibold">消耗排名</h2><Link className="text-[13px] text-ql-action" to={`?tab=details&subject_type=${data.detailQuery.subjectType}&settled_only=${String(data.detailQuery.settledOnly)}&status=SUCCEEDED&from=${encodeURIComponent(data.detailQuery.from)}&to_exclusive=${encodeURIComponent(data.detailQuery.toExclusive)}${data.detailQuery.principalId ? `&principal_id=${data.detailQuery.principalId}` : ""}${data.detailQuery.projectId ? `&project_id=${data.detailQuery.projectId}` : ""}`}>查看请求明细</Link></div>{employeeScope ? <p className="px-3 pb-2 text-[13px] text-ql-fg-tertiary">员工额度请在「使用主体 → 接入配置」按厂商、月份和单位查看。</p> : null}<div aria-label="用量排名表格" className="overflow-x-auto" role="region" tabIndex={0}><table className="w-full text-left text-[13px]"><thead><tr className="border-y border-ql-border-zone bg-ql-surface-subtle text-ql-fg-tertiary"><th className="px-3 py-2">排名</th><th>主体</th><th>部门</th><th className="text-right">请求</th>{!employeeScope ? <th className="text-right">分配额度</th> : null}<th className="text-right">token使用量</th>{employeeScope ? <th className="text-right">厂商额度</th> : <><th className="text-right">token使用率</th><th className="text-right">剩余额度</th></>}<th className="pr-3 text-right">API费用估算</th></tr></thead><tbody>{data.ranking.map((item, index) => {
       const projectQuota = employeeScope ? null : projectQuotaLabels(item);

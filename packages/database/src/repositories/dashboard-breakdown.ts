@@ -226,34 +226,60 @@ async function latestProviderForecast(
  * S3a（ACE-03/04/06/07）：由同源估算推导 API 汇总行费用三元组。
  * 已知部分保留：有缺口但金额可知时照常透出金额，缺口进 reason；混币不合并（明确不一致）；
  * ZERO_CONFIRMED/无 API 行为明确零，不冒充未知。
+ * S2B（R7 裁定）：追加兄弟布尔 priceBasisUnverified——期间计价行涉及的任一规则现值
+ * sourceStatus='UNVERIFIED' 时为 true（判定源＝loadApiCostEstimation().priceBasis）；
+ * 仅透出信息项，不改金额与 apiCostStatus 聚合语义。
  */
 function apiCostFromEstimation(
   estimation: NonNullable<Awaited<ReturnType<typeof loadApiCostEstimation>>>,
   fallbackCurrency: string | null,
-): { monthlyCost: string | null; monthlyCostReason: string | null; currency: string | null } {
+): {
+  monthlyCost: string | null;
+  monthlyCostReason: string | null;
+  currency: string | null;
+  priceBasisUnverified: boolean;
+} {
   const gapText = apiEstimationGapText(estimation.gaps);
+  const priceBasisUnverified = estimation.priceBasis
+    .some((basis) => basis.sourceStatus === "UNVERIFIED");
   if (estimation.amounts.length === 1) {
     return {
       monthlyCost: estimation.amounts[0]!.amount,
       monthlyCostReason: gapText,
       currency: estimation.amounts[0]!.currency,
+      priceBasisUnverified,
     };
   }
   if (estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL") {
-    return { monthlyCost: "0.00000000", monthlyCostReason: null, currency: fallbackCurrency };
+    return {
+      monthlyCost: "0.00000000",
+      monthlyCostReason: null,
+      currency: fallbackCurrency,
+      priceBasisUnverified,
+    };
   }
   if (estimation.amounts.length === 0) {
     return {
       monthlyCost: null,
       monthlyCostReason: gapText ?? "API 费用估算不完整",
       currency: fallbackCurrency,
+      priceBasisUnverified,
     };
   }
   return {
     monthlyCost: null,
     monthlyCostReason: `币种不一致：${estimation.amounts.map((entry) => entry.currency).join("、")}`,
     currency: fallbackCurrency,
+    priceBasisUnverified,
   };
+}
+
+/** S2B（R7）：仅 API 汇总行透出聚合级价格依据待核实；套餐行字段缺省（不参与 JSON）。 */
+function resourceGroupPriceBasisField(
+  mode: ResourceMode,
+  apiCost: { priceBasisUnverified: boolean },
+): { priceBasisUnverified?: boolean } {
+  return mode === "API" ? { priceBasisUnverified: apiCost.priceBasisUnverified } : {};
 }
 
 export async function buildResourceBreakdown(
@@ -327,7 +353,7 @@ export async function buildResourceBreakdown(
     ]);
     const apiCost = apiEstimation
       ? apiCostFromEstimation(apiEstimation, operating.currency)
-      : { monthlyCost: null, monthlyCostReason: null, currency: null };
+      : { monthlyCost: null, monthlyCostReason: null, currency: null, priceBasisUnverified: false };
     const apiMonthlyCost = apiCost.monthlyCost;
     const apiMonthlyCostReason = apiCost.monthlyCostReason;
     const apiCurrency = apiCost.currency;
@@ -388,6 +414,7 @@ export async function buildResourceBreakdown(
       snapshotAt: operating.snapshotAt,
       monthlyCost,
       monthlyCostReason,
+      ...resourceGroupPriceBasisField(mode, apiCost),
       ...usage,
       currentRate24h: forecast?.rate24h ?? null,
       currentRateUnit: forecast?.unit ?? null,

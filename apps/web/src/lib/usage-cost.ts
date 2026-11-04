@@ -1,5 +1,8 @@
 import { formatMoney } from "./format";
 
+/** ACE-04 信息项文案（R7 聚合级角标与逐请求角标共用同一分支文案，不另造措辞）。 */
+export const PRICE_BASIS_UNVERIFIED_LABEL = "价格依据待核实";
+
 /** Preserve missing-cost semantics instead of formatting them as a zero charge. */
 export function unavailableUsageCostLabel(
   amount: string | null,
@@ -11,7 +14,7 @@ export function unavailableUsageCostLabel(
   // ACE-04 缺口分类：价格缺失/币种缺失为缺口；价格依据待核实为信息项（不影响完整性），
   // 文案不带"待计价"措辞（WP1 估算合同 §1 gaps 语义）。
   if (status === "PRICE_MISSING") return "价格缺失";
-  if (status === "PRICE_BASIS_UNVERIFIED") return "价格依据待核实";
+  if (status === "PRICE_BASIS_UNVERIFIED") return PRICE_BASIS_UNVERIFIED_LABEL;
   if (status === "CURRENCY_MISSING") return "币种缺失";
   if (status === "UNKNOWN_COST" || amount === null) return "未知";
   return null;

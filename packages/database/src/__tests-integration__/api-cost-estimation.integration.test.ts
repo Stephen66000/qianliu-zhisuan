@@ -12,7 +12,10 @@
  *   f) price_basis 含 ruleId/ruleVersion/sourceStatus；UNVERIFIED 计价行触发
  *      PRICE_BASIS_UNVERIFIED 计数且不影响 completeness；
  *   g) 迁移 0093：billing_rule.source_status 存在、存量默认 UNVERIFIED、CHECK 拒绝非法值、
- *      down 可回滚、重放后数据保留。
+ *      down 可回滚、重放后数据保留；
+ *   h) G3/AT-ACE-03（F11 雏形）：同企业价格版本 A/B 以 effective_from 为明确生效点，
+ *      生效点前后各一笔消费按各自生效时点版本计价；不改动任何数据重读（模拟刷新页面）
+ *      金额逐字不变；旧调用行保留版本 A、计价依据仍含版本 A（不重算）。
  * 另记录合同语义：期间无任何 API 行 → KNOWN_COMPLETE + 空 amounts（S1 §3.3）。
  */
 import { createHash, randomUUID } from "node:crypto";
@@ -85,6 +88,32 @@ async function seedRule(f: Fixture, sourceStatus: "VERIFIED" | "UNVERIFIED") {
   return rule;
 }
 
+/**
+ * G3/AT-ACE-03（F11 雏形）：带明确生效点（effective_from）的价格版本规则。
+ * 与既有 seedRule 并存（后者固定 2026-08-01 生效、按 sourceStatus 命名版本），
+ * 本助手供 A/B 双版本分界用例使用，不改动既有助手语义。
+ */
+async function seedRuleVersioned(
+  f: Fixture,
+  input: {
+    ruleVersion: string;
+    effectiveFrom: Date;
+    /** 每百万 token 单价（decimal 字面值）。 */
+    cacheMissPrice: string;
+    outputPrice: string;
+    sourceStatus?: "VERIFIED" | "UNVERIFIED";
+  },
+) {
+  return db.insertInto("billing_rule").values({
+    enterprise_id: f.enterpriseId, rule_type: "API_PRICE",
+    rule_version: input.ruleVersion,
+    effective_from: input.effectiveFrom,
+    cache_hit_price: "0", cache_miss_price: input.cacheMissPrice, output_price: input.outputPrice,
+    currency: "CNY", priority: 10, source: "fixture",
+    source_status: input.sourceStatus ?? "VERIFIED",
+  }).returning(["id", "rule_version"]).executeTakeFirstOrThrow();
+}
+
 interface SeedLineInput {
   at: Date;
   cost: string | null;
@@ -93,6 +122,9 @@ interface SeedLineInput {
   usageQuality?: string;
   rule?: { id: string; rule_version: string } | null;
   resourceOverride?: string;
+  /** G3/AT-ACE-03 专用：显式 token 用量（缺省保持既有 1000/100，不影响既有用例）。 */
+  inputTokens?: bigint;
+  outputTokens?: bigint;
 }
 
 async function seedLine(f: Fixture, input: SeedLineInput): Promise<{ id: string; requestId: string }> {
@@ -109,16 +141,18 @@ async function seedLine(f: Fixture, input: SeedLineInput): Promise<{ id: string;
     provider_resource_id: resourceId, upstream_model: "model", http_status: 200,
     response_committed: true, finished_at: at,
   }).returning("id").executeTakeFirstOrThrow();
+  const inputTokens = input.inputTokens ?? 1000n;
+  const outputTokens = input.outputTokens ?? 100n;
   const usage = await db.insertInto("usage_event").values({
     enterprise_id: f.enterpriseId, ai_request_id: requestId, upstream_attempt_id: attempt.id,
-    provider_resource_id: resourceId, input_tokens: 1000n, output_tokens: 100n,
+    provider_resource_id: resourceId, input_tokens: inputTokens, output_tokens: outputTokens,
     cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: input.usageQuality ?? "PROVIDER_REPORTED",
     dedup_key: requestId, created_at: at,
   }).returning("id").executeTakeFirstOrThrow();
   const line = await db.insertInto("ledger_line").values({
     enterprise_id: f.enterpriseId, ai_request_id: requestId, upstream_attempt_id: attempt.id,
     usage_event_id: usage.id, provider_resource_id: resourceId, principal_id: f.principalId,
-    resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 100n,
+    resource_mode: "API", raw_input_tokens: inputTokens, raw_output_tokens: outputTokens,
     raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
     api_cost: input.cost,
     // 0085 shape 约束：CONFIRMED_ZERO 行 api_cost=0 且币种必须为 NULL。
@@ -296,6 +330,70 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     expect(gapOf(result.gaps, "NOT_MIGRATED")).toBe(1);
     expect(gapOf(result.gaps, "USAGE_UNKNOWN")).toBe(1);
     expect(gapOf(result.gaps, "PRICE_MISSING")).toBe(0);
+  });
+
+  // AT-ACE-03 / G3（acceptance-plan §3 F11 雏形、§5 AT-ACE-03）：同企业两条价格版本
+  // A/B 以 effective_from 为明确生效点；生效点前后各一笔 ledger 消费，新调用按各自
+  // 生效时点版本计价（两行金额分别等于 A/B 单价×用量）；不改动任何数据重读（模拟
+  // 刷新页面）金额逐字不变；旧调用行保留版本 A、priceBasis 仍含版本 A（不重算）。
+  it("h) G3/F11 价格生效点 A/B：生效点前后各按当时版本计价，刷新重读逐字不变、旧行保留版本 A（AT-ACE-03）", async () => {
+    const f = await fixture();
+    const boundary = new Date("2026-09-15T00:00:00+08:00");
+    // 版本 A：每百万未命中 1 元、输出 2 元（2026-08-01 起生效）；
+    // 版本 B：每百万未命中 0.5 元、输出 1 元（2026-09-15 起生效）。
+    const ruleA = await seedRuleVersioned(f, {
+      ruleVersion: "f11-price-a", effectiveFrom: new Date("2026-08-01T00:00:00+08:00"),
+      cacheMissPrice: "0.000001", outputPrice: "0.000002",
+    });
+    const ruleB = await seedRuleVersioned(f, {
+      ruleVersion: "f11-price-b", effectiveFrom: boundary,
+      cacheMissPrice: "0.0000005", outputPrice: "0.000001",
+    });
+    // 同一批用量（未命中 600000 + 输出 200000）在生效点前后各消费一次：
+    //   A 版价格 (600000×1 + 200000×2)/1e6 = 1.00000000；
+    //   B 版价格 (600000×0.5 + 200000×1)/1e6 = 0.50000000。
+    const usage = { inputTokens: 600000n, outputTokens: 200000n };
+    const lineA = await seedLine(f, { at: new Date("2026-09-10T12:00:00+08:00"),
+      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleA, ...usage });
+    await seedLine(f, { at: new Date("2026-09-20T12:00:00+08:00"),
+      cost: "0.50000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleB, ...usage });
+
+    const first = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(first.amounts).toEqual([{ currency: "CNY", amount: "1.50000000" }]);
+    expect(first.completeness).toBe("KNOWN_COMPLETE");
+    expect(first.gaps).toEqual([]);
+    // 计价依据同时含版本 A 与版本 B（行级规则引用未被改写）。
+    expect(first.priceBasis
+      .map((basis) => [basis.ruleId, basis.ruleVersion] as const)
+      .sort(([left], [right]) => left.localeCompare(right)))
+      .toEqual([[ruleA.id, "f11-price-a"], [ruleB.id, "f11-price-b"]].sort(([left], [right]) =>
+        left[0].localeCompare(right[0])));
+
+    // 生效点分窗核对：各窗口金额分别等于 A/B 单价×用量（8 位小数字面值）。
+    const beforeBoundary = await loadApiCostEstimation(db, f.enterpriseId, { start, end: boundary });
+    expect(beforeBoundary.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
+    const afterBoundary = await loadApiCostEstimation(db, f.enterpriseId, { start: boundary, end });
+    expect(afterBoundary.amounts).toEqual([{ currency: "CNY", amount: "0.50000000" }]);
+
+    // 模拟刷新页面：不改动任何数据重读——整个估算对象逐字相等（金额/完整性/缺口/依据）。
+    const refreshed = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(refreshed).toEqual(first);
+    expect(JSON.stringify(refreshed.amounts)).toBe(JSON.stringify(first.amounts));
+    const refreshedBeforeBoundary = await loadApiCostEstimation(db, f.enterpriseId,
+      { start, end: boundary });
+    expect(refreshedBeforeBoundary.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
+    // 旧调用不重算：生效点前重读的计价依据仍只含版本 A。
+    expect(refreshedBeforeBoundary.priceBasis).toEqual([
+      { ruleId: ruleA.id, ruleVersion: "f11-price-a", sourceStatus: "VERIFIED" },
+    ]);
+
+    // 旧行本身：金额/规则引用仍冻结在版本 A（不因版本 B 生效而重算改写）。
+    const oldRow = await db.selectFrom("ledger_line")
+      .select(["id", "api_cost", "billing_rule_id", "rule_version"])
+      .where("id", "=", lineA.id).executeTakeFirstOrThrow();
+    expect(String(oldRow.api_cost)).toBe("1.00000000");
+    expect(oldRow.billing_rule_id).toBe(ruleA.id);
+    expect(oldRow.rule_version).toBe("f11-price-a");
   });
 });
 

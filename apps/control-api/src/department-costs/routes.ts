@@ -225,6 +225,15 @@ export function registerDepartmentCostRoutes(app: FastifyInstance): void {
       if (!params.success || !body.success) {
         return invalid(reply, body.success ? "资源 ID 不合法" : body.error.issues[0]?.message);
       }
+      // R1 补退役（AFR-01/AT-AFR-02/G22，用户 2026-11-04 裁定）：purchase_type=API_RECHARGE
+      // 一律 410（优先于幂等回执/closed/mode_mismatch 等一切 repo 分支，模式无关，零写入）；
+      // PACKAGE_PURCHASE（Coding Plan 采购）保留原合同。
+      if (body.data.purchase_type === "API_RECHARGE") {
+        return reply.code(410).send({
+          error: "api_funding_management_retired",
+          message: "API 内部资金管理已退出，请使用官方账户余额与 API费用估算",
+        });
+      }
       const result = await createResourcePurchase(app.db, {
         enterpriseId: req.admin!.enterpriseId, adminId: req.admin!.adminUserId,
         resourceId: params.data.id, purchaseType: body.data.purchase_type,

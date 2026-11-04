@@ -25,6 +25,8 @@ export interface GatewayRequestDetail {
     totalDeductedQuota: string;
     totalApiCost: string | null;
     apiCostStatus?: string | null;
+    /** S2B（R8 裁定）：结算级币种——处置投影 costCurrency；无投影/transaction-only 分支为 null（混币也为 null）。 */
+    apiCostCurrency?: string | null;
     usageQuality: string;
     attemptCount: number;
     status: string;
