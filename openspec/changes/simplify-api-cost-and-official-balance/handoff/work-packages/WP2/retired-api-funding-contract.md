@@ -1,6 +1,6 @@
 # API 资金写入口退役合同（WP2-S3，task 4.1 / AFR-01 / AT-AFR-02）
 
-版本：v1.0；日期：2026-11-03；基线：worktree `/Users/mac/Projects/仟流智算-api-decouple`，分支 `codex/simplify-api-cost-and-official-balance`（S2 产物之上）。供 WP4/WP5（页面/联调）与后续调用方对照。
+版本：v1.1（WP5 追加，2026-11-04：§2 表格增补 W12——purchases R1 补退役）；日期：2026-11-03（v1.0）；基线：worktree `/Users/mac/Projects/仟流智算-api-decouple`，分支 `codex/simplify-api-cost-and-official-balance`（S2 产物之上）。供 WP4/WP5（页面/联调）与后续调用方对照。
 
 ## 1. 退役响应合同（P4，已冻结）
 
@@ -17,7 +17,7 @@ HTTP/1.1 410 Gone
 - **模式无关**：退役端点已移除 `requireActive`——DARK 模式同样 410；OFF 模式下 provider-finance 路由整体不注册（`apps/control-api/src/server.ts`，现状不动）→ 404。
 - **repo 守卫同码**：W7/W8 共享端点在 repo 层按事实模式拆分，API 资金事实抛 `ProviderFinanceError("API_FUNDING_RETIRED", …)`，CA `financeFailure` 特判映射为**同一 410＋同一 `error` 串**（`API_FUNDING_RETIRED` 小写化为 `api_funding_retired` ≠ 合同码，故特判而非通用小写化）。
 
-## 2. 19 写入口处置总表（转录自 notes/inv-wp2.md §1，S3 落地后口径）
+## 2. 20 写入口处置总表（v1.0 原 19 项＋v1.1 增补 W12）（转录自 notes/inv-wp2.md §1，S3 落地后口径）
 
 | # | 方法＋路径 | 模式 | 处置 | 响应 |
 |---|---|---|---|---|
@@ -32,6 +32,7 @@ HTTP/1.1 410 Gone
 | W9 | POST …/finance/reconciliation-cases | API | **退役** | 410 同上 |
 | W10 | POST /provider-finance-reconciliation-cases/:id/confirm | API | **退役** | 410 同上 |
 | W11 | POST /provider-finance-reconciliation-cases/:id/reject | API | **退役** | 410 同上 |
+| W12 | POST /provider-resources/:id/purchases | 两者 | **R1 补退役（WP5，用户 2026-11-04 裁定）**：purchase_type=API_RECHARGE → 410（优先于幂等回执/closed/mode_mismatch，零写入）；PACKAGE_PURCHASE 保留 | API 类型 410 同上；PACKAGE 原合同 |
 | A1 | POST /provider-finance/activation-preview | 全局 | S4 改造（`api_opening_balances` 非空显式拒绝）；S3 不动 | — |
 | A2 | POST /provider-finance/activate | 全局 | S4 改造（含 API 资金事实旧候选 409 拒绝）；S3 不动 | — |
 | A3 | POST /provider-finance/activation-quiescence | 全局 | **保留**（requireWriteEntry、≥5min 原样） | 原合同不变 |
