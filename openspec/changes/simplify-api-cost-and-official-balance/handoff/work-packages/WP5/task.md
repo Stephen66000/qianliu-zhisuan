@@ -149,3 +149,15 @@ tasks 的章节编号不是执行顺序，WP2 执行第 4 组而 WP3 执行第 3
 - dispatch 全来源保留（quota ratio 偏好调度非余额硬拒绝）——WP3 裁定，若相关场景涉及按此口径核对。
 - 预计无新迁移；确需时 0097 起。
 - 生产版本/迁移水位仍未核实（WP0 遗留，WP6 前补核；本包报告单列）。
+
+
+### WP4 移交的技术悬项（本包处置或如实记录）
+
+- **③聚合级 PRICE_BASIS_UNVERIFIED**：后端聚合 `costStatus` 尚未产出该状态（web 分支已就绪可显示）——影响 AT-ACE-04 类场景的缺口原因呈现；小范围补后端产出或经总指挥裁定记为已知缺口（写明依据）。
+- **④settlement 级币种未透出**：RequestDrilldown 在 settlement 层缺币种时回退显示 ¥——影响多币种明细场景（AT-ACE-14 相关）；同上处置。
+- 两项均属 WP1 聚合域的展示收尾，若需改聚合代码，范围仅限字段透出，不动聚合语义与 0093。
+
+### e2e 环境前置（WP4 已趟通）
+
+- colima 运行中＋`qianliu-pg` 容器（端口 55432）＋建 `qianliu_e2e` 库＋按 `apps/web/e2e/README.md` 配置三个密钥；globalSetup 会清库播种，绝不指向共享/生产库。
+- 测试卫生：worker `report-layout-preview` 类测试会直写 `V4/Evidence` 证据目录（重跑必漂移）——重跑后用 checkout 恢复已跟踪文件、手删新生成文件（WP4 已有先例）。
