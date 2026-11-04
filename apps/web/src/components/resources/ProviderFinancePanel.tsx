@@ -218,9 +218,9 @@ export function ProviderFinancePanel({
           {summaryValue ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <FinanceMetric label="人民币实付" value={`¥${formatMoney(summaryValue.cashOutflowCny)}`} />
             <FinanceMetric label="Coding Plan 支出" value={`¥${formatMoney(summaryValue.codingPlanFixedCostCny)}`} />
-            {/* WP4-S4（S3 移交收口）：operatingCostCny 含 API 分量合成值（资金读模型
-                apiCosts + 套餐现金，provider-finance-repository.ts），标注旧资金口径。 */}
-            <FinanceMetric label="经营成本合计（旧资金口径）" value={`¥${formatMoney(summaryValue.operatingCostCny)}`} />
+            {/* WP4-S4（S3 移交收口）：operatingCostCny＝ledger 消费计价 CNY 金额 + 套餐现金（仅 CNY，
+                provider-finance-repository.ts，同源 loadApiCostEstimation 事实），即含 API 费用估算的合成值。 */}
+            <FinanceMetric label="经营成本合计（含 API 费用估算）" value={`¥${formatMoney(summaryValue.operatingCostCny)}`} />
           </div> : null}
         </QueryGate>
       </section>
