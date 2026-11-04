@@ -65,11 +65,14 @@ test.describe("WP4 API费用估算与官方余额", () => {
     // 注：ResourceTable 的 th 未带 scope="col"，无障碍角色为 cell——按表头文本断言。
     await expect(page.locator("thead th", { hasText: "官方余额 / 订阅" })).toBeVisible();
 
-    // OAB-01：官方余额 110 元可见＋最近成功时间；组成 10+100 不相加（不出现 220）。
+    // OAB-01：官方余额 110 元可见＋最近成功时间。组成断言升到浏览器层
+    //（依据 OAB-01＋走查 D-2，2026-11-04：页面可见赠送/充值两项组成，各自格式化，
+    // 不把三个金额再次相加——保留"不出现 220"断言）。
     const okRow = page.getByRole("row").filter({ has: page.getByText(OK_ROW_LABEL, { exact: true }) });
     await expect(okRow).toHaveCount(1);
     await expect(okRow.getByText("官方余额 ¥110.00")).toBeVisible();
     await expect(okRow.getByText(/最近成功 \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)).toBeVisible();
+    await expect(okRow.getByText("赠送 ¥10.00 · 充值 ¥100.00")).toBeVisible();
     await expect(okRow).not.toContainText("220");
     await expect(okRow).not.toContainText("同步失败");
     // ACE-01：受支持资源有刷新入口；UNSUPPORTED 资源没有。

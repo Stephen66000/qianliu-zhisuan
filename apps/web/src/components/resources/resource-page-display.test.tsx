@@ -287,6 +287,48 @@ describe("官方余额列状态渲染（WP3 C2 / OAB-01..04）", () => {
     expect(screen.queryByRole("button", { name: "刷新余额" })).not.toBeInTheDocument();
     expect(screen.queryByText("资金账本未启用")).not.toBeInTheDocument();
   });
+
+  // D-2（走查裁定 2026-11-04 / OAB-01）：组成升到浏览器层——composition 存在时
+  // 金额下方逐项展示"赠送/充值"，两侧各自格式化、绝不相加（页面显示官方账户余额
+  // 110 元，可查看两项组成，不把三个金额再次相加）。
+  it("OK＋composition：金额下方渲染赠送/充值两侧行，各自格式化（OAB-01）", () => {
+    renderColumn(officialBalance({
+      total_balance: "110.00000000", currency: "CNY",
+      composition: { granted: "10.00000000", topped: "100.00000000" },
+    }));
+    expect(screen.getByText("官方余额 ¥110.00")).toBeInTheDocument();
+    expect(screen.getByText("赠送 ¥10.00 · 充值 ¥100.00")).toBeInTheDocument();
+    // 绝不相加：110+10+100 的 220 不出现；¥110.00 只出现总额行一次（无二次合计）。
+    expect(screen.queryByText(/220/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/¥110\.00/)).toHaveLength(1);
+  });
+
+  it("组成任一侧为 null 只显示存在的一侧，null 侧不渲染", () => {
+    renderColumn(officialBalance({
+      total_balance: "100.00000000", currency: "CNY",
+      composition: { granted: null, topped: "100.00000000" },
+    }));
+    expect(screen.getByText("充值 ¥100.00")).toBeInTheDocument();
+    expect(screen.queryByText(/赠送/)).not.toBeInTheDocument();
+  });
+
+  it("composition 整体为 null 不渲染组成行", () => {
+    renderColumn(officialBalance({
+      total_balance: "110.00000000", currency: "CNY",
+      composition: null,
+    }));
+    expect(screen.getByText("官方余额 ¥110.00")).toBeInTheDocument();
+    expect(screen.queryByText(/赠送|充值/)).not.toBeInTheDocument();
+  });
+
+  it("composition 两侧均 null 不渲染空组成行", () => {
+    renderColumn(officialBalance({
+      total_balance: "110.00000000", currency: "CNY",
+      composition: { granted: null, topped: null },
+    }));
+    expect(screen.getByText("官方余额 ¥110.00")).toBeInTheDocument();
+    expect(screen.queryByText(/赠送|充值/)).not.toBeInTheDocument();
+  });
 });
 
 describe("formatResourceNameWithDate", () => {

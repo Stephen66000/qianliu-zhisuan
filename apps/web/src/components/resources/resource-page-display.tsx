@@ -11,6 +11,8 @@ import { formatCount, formatDateTimeFull, formatMoney, formatShanghaiDate } from
  * 绝不显示为 0（AT-OAB-08）；UNSUPPORTED 整区"暂不支持官方余额同步"（OAB-02）；
  * 刷新按钮仅受支持资源显示，冷却消费 next_refresh_at（不前端推算 P3）。
  * CODING_PLAN 分支保持订阅金额/实付（W5/W6 域，零改动）。
+ * D-2（走查裁定 2026-11-04 / OAB-01）：组成行——composition 存在时在金额下方
+ * 逐项展示"赠送/充值"，两侧各自格式化、绝不相加（不把三个金额再次相加）。
  */
 export const OFFICIAL_BALANCE_STATUS_LABEL: Record<
   ProviderOfficialBalanceState["status"],
@@ -50,6 +52,23 @@ function officialBalanceOverlayTags(balance: ProviderOfficialBalanceState): stri
   return tags;
 }
 
+/** D-2（走查 2026-11-04 / OAB-01）：组成行——赠送/充值两侧各自格式化显示、绝不相加；
+ * 任一侧为 null 只显示存在的一侧；composition 整体为 null（或两侧均 null）不渲染该行。 */
+function OfficialBalanceCompositionRow({
+  composition, currency,
+}: {
+  composition: ProviderOfficialBalanceState["composition"];
+  currency: string | null;
+}) {
+  if (!composition) return null;
+  const parts = [
+    composition.granted !== null ? `赠送 ${currencyMoney(composition.granted, currency)}` : null,
+    composition.topped !== null ? `充值 ${currencyMoney(composition.topped, currency)}` : null,
+  ].filter((part) => part !== null);
+  if (parts.length === 0) return null;
+  return <span className="block text-ql-fg-tertiary">{parts.join(" · ")}</span>;
+}
+
 function OfficialBalanceColumn({ resource }: { resource: ProviderResourceItem }) {
   const refresh = useRefreshOfficialBalance(resource.id);
   const balance = resource.official_balance ?? null;
@@ -73,6 +92,10 @@ function OfficialBalanceColumn({ resource }: { resource: ProviderResourceItem })
           ? `官方余额 ${currencyMoney(balance.total_balance, balance.currency)}`
           : "暂无官方数据"}
       </span>
+      <OfficialBalanceCompositionRow
+        composition={balance?.composition ?? null}
+        currency={balance?.currency ?? null}
+      />
       {statusTag !== null || overlayTags.length > 0 ? (
         <span className="block text-ql-fg-tertiary">
           {[statusTag, ...overlayTags].filter(Boolean).join(" · ")}
