@@ -1,0 +1,7 @@
+{"service":"old-worker","pid":3603,"ts":"2026-11-04T16:46:37.765Z","action":"redirected_to_mock","originalUrl":"https://api.deepseek.com/user/balance","finalUrl":"http://127.0.0.1:19191/user/balance"}
+{"service":"old-worker","pid":3603,"ts":"2026-11-04T16:46:37.790Z","action":"redirected_to_mock","originalUrl":"https://api.deepseek.com/user/balance","finalUrl":"http://127.0.0.1:19191/user/balance"}
+{"service":"old-gateway","pid":3602,"ts":"2026-11-04T16:46:40.168Z","action":"pass","originalUrl":"http://127.0.0.1:19191/v1/chat/completions","finalUrl":"http://127.0.0.1:19191/v1/chat/completions"}
+{"service":"old-gateway","pid":3602,"ts":"2026-11-04T16:46:41.594Z","action":"pass","originalUrl":"http://127.0.0.1:19191/v1/chat/completions","finalUrl":"http://127.0.0.1:19191/v1/chat/completions"}
+{"service":"new-gateway","pid":4123,"ts":"2026-11-04T16:46:55.445Z","action":"pass","originalUrl":"http://127.0.0.1:19191/v1/chat/completions","finalUrl":"http://127.0.0.1:19191/v1/chat/completions"}
+{"service":"new-control-api","pid":4122,"ts":"2026-11-04T16:46:56.811Z","action":"redirected_to_mock","originalUrl":"https://api.deepseek.com/user/balance","finalUrl":"http://127.0.0.1:19191/user/balance"}
+{"service":"new-worker","pid":4124,"ts":"2026-11-04T16:46:57.573Z","action":"redirected_to_mock","originalUrl":"https://api.deepseek.com/user/balance","finalUrl":"http://127.0.0.1:19191/user/balance"}

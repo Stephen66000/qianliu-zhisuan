@@ -1,0 +1,53 @@
+{
+  "head": "0092_employee_monthly_quota",
+  "provider_finance_event": 1,
+  "provider_subscription_period": 1,
+  "ledger_line": 1,
+  "provider_finance_activation_attempt": 0,
+  "operation_log": 2,
+  "ai_request": 2,
+  "ai_request_succeeded": 1,
+  "ai_request_in_progress": 1,
+  "upstream_attempt_open": 1,
+  "ledger_transaction_pending": 0,
+  "ledger_transaction_settled": 1,
+  "operating_snapshot": 2,
+  "operating_sync_attempt": 3,
+  "balance_refresh": 0,
+  "quiescence": {
+    "status": null,
+    "releasedAt": null,
+    "expiresAt": null
+  },
+  "autoRenewEnabled": true,
+  "subscriptionPeriods": [
+    {
+      "periodStart": "2026-10-31 16:00:00+00",
+      "periodEndExclusive": "2026-12-31 16:00:00+00"
+    }
+  ],
+  "perRequest": [
+    {
+      "requestId": "bb78c944-e3f1-4953-8f1a-52402c1bfb9e",
+      "status": "SUCCEEDED",
+      "apiCost": "0.00100000",
+      "costStatus": "PRICED_USAGE",
+      "txStatus": "SETTLED",
+      "txTotal": "0.00100000",
+      "inputTokens": "1000",
+      "outputTokens": "200",
+      "cacheTokens": "0"
+    },
+    {
+      "requestId": "f6604bcf-4621-4b6a-9ce4-e6c18bd9edea",
+      "status": "IN_PROGRESS",
+      "apiCost": null,
+      "costStatus": null,
+      "txStatus": null,
+      "txTotal": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "cacheTokens": null
+    }
+  ]
+}

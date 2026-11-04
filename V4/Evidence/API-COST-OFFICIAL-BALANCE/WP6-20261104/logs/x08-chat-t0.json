@@ -1,0 +1,1 @@
+{"id":"chatcmpl-bb78c944-e3f1-4953-8f1a-52402c1bfb9e","object":"chat.completion","created":1793810800,"model":"qianliu-x08-deepseek","choices":[{"index":0,"message":{"role":"assistant","content":"X08 模拟上游响应（X08-T0-NORMAL）"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1000,"completion_tokens":200,"total_tokens":1200}}

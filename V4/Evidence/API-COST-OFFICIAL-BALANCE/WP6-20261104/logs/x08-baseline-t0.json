@@ -1,0 +1,236 @@
+{
+  "t0RequestId": "bb78c944-e3f1-4953-8f1a-52402c1bfb9e",
+  "t0UsageRowOld": {
+    "request_id": "bb78c944-e3f1-4953-8f1a-52402c1bfb9e",
+    "total_api_cost": "0.00100000",
+    "cost_status": "PRICED_USAGE",
+    "status": "SUCCEEDED",
+    "usage_quality": "PROVIDER_REPORTED"
+  },
+  "t0UsageRowNew": {
+    "request_id": "bb78c944-e3f1-4953-8f1a-52402c1bfb9e",
+    "total_api_cost": "0.00100000",
+    "cost_status": "PRICED_USAGE",
+    "status": "SUCCEEDED",
+    "usage_quality": "PROVIDER_REPORTED"
+  },
+  "t4RequestId": "0c484bf6-c87e-40b7-85a1-8860ef91615f",
+  "inflightRequestId": "f6604bcf-4621-4b6a-9ce4-e6c18bd9edea",
+  "inflightAdmitted": true,
+  "leaseStart": {
+    "lease": {
+      "status": "ACTIVE",
+      "started_at": "2026-11-04T16:46:43.133Z",
+      "expires_at": "2026-11-04T16:56:43.133Z",
+      "started_by_admin_user_id": "9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc",
+      "released_at": null,
+      "release_reason": null
+    }
+  },
+  "gate503": true,
+  "gate503Detail": {
+    "error": {
+      "message": "该企业正在进行资金账本初始化静默期，暂时停止新的模型调用，请稍后重试",
+      "type": "service_unavailable_error",
+      "code": "enterprise_maintenance",
+      "param": null,
+      "retryable": true,
+      "request_id": "b74db162-b79f-41e6-b802-599816cfa584",
+      "maintenance_until": "2026-11-04T16:56:43.133Z"
+    }
+  },
+  "drained": true,
+  "drainReport": {
+    "lease": {
+      "status": "ACTIVE",
+      "started_at": "2026-11-04T16:46:43.133Z",
+      "expires_at": "2026-11-04T16:56:43.133Z",
+      "started_by_admin_user_id": "9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc",
+      "released_at": null,
+      "release_reason": null
+    },
+    "quiescence": {
+      "status": "ACTIVE",
+      "active": true,
+      "started_at": "2026-11-04T16:46:43.133Z",
+      "expires_at": "2026-11-04T16:56:43.133Z",
+      "released_at": null,
+      "release_reason": null,
+      "remaining_seconds": 596,
+      "insufficient_for_activation": false,
+      "drain": {
+        "in_progress_requests": 0,
+        "open_attempts": 0,
+        "unpaired_usage_lines": 0,
+        "pending_ledger_transactions": 0,
+        "exonerated_usage_lines": 0,
+        "drained": true
+      }
+    }
+  },
+  "oldWorkerPid": "3592",
+  "newWorkerPid": "4112",
+  "oldWorkerStopped": true,
+  "newWorkerStarted": true,
+  "retired410": true,
+  "retired410Detail": [
+    {
+      "endpoint": "/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/opening-balances",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/readiness",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/opening-balance-corrections",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/recharges",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/reconciliation-cases",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-finance-reconciliation-cases/00000000-0000-0000-0000-000000000000/confirm",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    },
+    {
+      "endpoint": "/provider-finance-reconciliation-cases/00000000-0000-0000-0000-000000000000/reject",
+      "status": 410,
+      "error": "api_funding_management_retired"
+    }
+  ],
+  "manualRefresh": true,
+  "manualRefreshDetail": {
+    "outcome": "SUCCEEDED",
+    "collected_at": "2026-11-04T16:46:56.824Z",
+    "balance": {
+      "currency": "CNY",
+      "total_balance": "110.50",
+      "granted_balance": "10.50",
+      "topped_up_balance": "100.00",
+      "available": true
+    }
+  },
+  "autoRenewalOld": {
+    "enabled": true,
+    "nextRenewalAt": "2026-12-31T16:00:00.000Z",
+    "amount": "268.00000000",
+    "currency": "CNY",
+    "cashPaidCny": "268.00000000",
+    "productName": "X08 套餐",
+    "blockedReason": null
+  },
+  "autoRenewalNew": {
+    "enabled": true,
+    "nextRenewalAt": "2026-12-31T16:00:00.000Z",
+    "amount": "268.00000000",
+    "currency": "CNY",
+    "cashPaidCny": "268.00000000",
+    "productName": "X08 套餐",
+    "blockedReason": null
+  },
+  "periodsOld": {
+    "periods": [
+      {
+        "id": "b30d047d-12ca-48e0-baaa-076b3b558ccc",
+        "enterprise_id": "6e759353-6880-42bf-b852-6023a9838473",
+        "provider_resource_id": "79bb1a3f-bde7-4b08-b0d5-3e914afde38f",
+        "finance_event_id": "e9fcc1a6-4dbf-44d3-aa86-7b35a8aac5e7",
+        "product_name": "X08 套餐",
+        "period_start": "2026-10-31T16:00:00.000Z",
+        "period_end_exclusive": "2026-12-31T16:00:00.000Z",
+        "source": "PURCHASE",
+        "migration_source_record_id": null,
+        "reversed_by_event_id": null,
+        "created_by_admin_user_id": "9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc",
+        "created_at": "2026-11-04T16:46:39.487Z",
+        "fixed_fee_amount": "268.00000000",
+        "fixed_fee_currency": "CNY",
+        "fixed_cash_paid_cny": "268.00000000",
+        "current_status": "ACTIVE",
+        "token_usage": {
+          "request_count": "0",
+          "input_tokens": "0",
+          "output_tokens": "0",
+          "cache_tokens": "0",
+          "reasoning_tokens": "0",
+          "true_tokens": "0",
+          "deducted_quota": "0",
+          "deducted_quota_complete": true
+        }
+      }
+    ]
+  },
+  "periodsNew": {
+    "periods": [
+      {
+        "id": "b30d047d-12ca-48e0-baaa-076b3b558ccc",
+        "enterprise_id": "6e759353-6880-42bf-b852-6023a9838473",
+        "provider_resource_id": "79bb1a3f-bde7-4b08-b0d5-3e914afde38f",
+        "finance_event_id": "e9fcc1a6-4dbf-44d3-aa86-7b35a8aac5e7",
+        "product_name": "X08 套餐",
+        "period_start": "2026-10-31T16:00:00.000Z",
+        "period_end_exclusive": "2026-12-31T16:00:00.000Z",
+        "source": "PURCHASE",
+        "migration_source_record_id": null,
+        "reversed_by_event_id": null,
+        "created_by_admin_user_id": "9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc",
+        "created_at": "2026-11-04T16:46:39.487Z",
+        "fixed_fee_amount": "268.00000000",
+        "fixed_fee_currency": "CNY",
+        "fixed_cash_paid_cny": "268.00000000",
+        "current_status": "ACTIVE",
+        "token_usage": {
+          "request_count": "0",
+          "input_tokens": "0",
+          "output_tokens": "0",
+          "cache_tokens": "0",
+          "reasoning_tokens": "0",
+          "true_tokens": "0",
+          "deducted_quota": "0",
+          "deducted_quota_complete": true
+        }
+      }
+    ]
+  },
+  "periodsDbT0": [
+    {
+      "periodStart": "2026-10-31 16:00:00+00",
+      "periodEndExclusive": "2026-12-31 16:00:00+00"
+    }
+  ],
+  "providerFinanceEventAtC0": 1,
+  "renewalTickOld": {
+    "event": "subscription_auto_renewal_tick",
+    "scanned": 0,
+    "created": 0,
+    "failures": [],
+    "skippedQuiescentEnterprises": []
+  },
+  "renewalTickNew": {
+    "event": "subscription_auto_renewal_tick",
+    "scanned": 0,
+    "created": 0,
+    "failures": [],
+    "skippedQuiescentEnterprises": []
+  },
+  "newWorkerOperatingTick": {
+    "event": "provider_operating_sync_tick_completed",
+    "resourcesScanned": 4,
+    "snapshotsCreated": 1,
+    "failed": 0,
+    "notSupported": 0,
+    "skippedQuiescentResources": 0
+  }
+}

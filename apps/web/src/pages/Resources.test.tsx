@@ -336,6 +336,60 @@ describe("厂商资源四 Tab", () => {
     expect(historyRegion).not.toBeNull();
     expect(within(historyRegion as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
   });
+  // D-3/D-4（WP6 S5 补齐）：走查修复文案此前无任何自动断言（inv-wp6.md 风险标注）。
+  // 断言＝渲染含该文案：① 套餐与订阅摘要卡“经营成本合计（含 API 费用估算）”标签（ProviderFinancePanel）；
+  // ② 用量总览模型明细表下沿“预测仅按已观察消费速率估算，不承诺账户实际可用时长”（ResourceUsageOverviewPanel）。
+  it("D-3/D-4 走查修复文案渲染：经营成本合计标签与预测局限说明行", async () => {
+    const user = userEvent.setup();
+    getMock.mockImplementation(async (path: string) => path.startsWith("/provider-finance/summary")
+      ? { month: "2026-09", timezone: "Asia/Shanghai", cashOutflowCny: "600",
+        apiRecharges: [], apiOperatingCosts: [], codingPlanOrders: [],
+        codingPlanFixedCostCny: "600", operatingCostCny: "600",
+        operatingCostByCurrency: [], currentApiBalances: [],
+        currentApiBalancesComplete: true, complete: true, gaps: [] }
+      : financeReadFallback(path, "DARK"));
+    useResourceUsageOverviewMock.mockReturnValue({
+      data: {
+        generatedAt: "2026-08-23T00:00:00.000Z",
+        providerSummaries: [{
+          providerCode: "deepseek", providerName: "DeepSeek", mode: "API", accountCount: 1,
+          totalQuota: null, usedQuota: null, remainingQuota: null, quotaUnit: null,
+          allocatedQuota: "1000", currency: "CNY", rechargeAmount: "100", currentBalance: "87.9",
+          currentPeriodCost: "12.1", packageCost: null, subscriptionPeriodStart: null,
+          subscriptionPeriodEnd: null, snapshotAt: "2026-08-23T00:00:00.000Z",
+          monthlyCost: "12.1", monthlyCostReason: null, monthlyInputTokens: "80",
+          monthlyOutputTokens: "20", monthlyCacheTokens: "10", monthlyReasoningTokens: "2",
+          monthlyTotalTokens: "100", monthlyUsageQuality: "UNKNOWN", monthlyUnknownCount: 2,
+          modelTokenBreakdown: [],
+          tokenRate24h: "4.17", costRate24h: "0.5", estimatedBalanceTokens: null,
+          balanceTokenEstimateConfidence: null, balanceTokenEstimateReason: null,
+          balanceTokenEstimateBasis: null, currentRate24h: null, currentRateUnit: null,
+          forecastConfidence: "MEDIUM", forecastNotCalculableReason: null, forecastDataPoints: 8,
+          forecastExhaustAt: "2026-09-03T05:22:00.000Z", status: "HEALTHY",
+          statusCounts: { ACTIVE: 1 }, abnormalResources: [],
+        }],
+        modelDetails: [{
+          resourceId: "api-1", resourceName: "DeepSeek 主账号", providerCode: "deepseek",
+          providerName: "DeepSeek", mode: "API", unifiedModelId: "model-api",
+          modelAlias: "ql-deepseek-v4", usedQuota: null, remainingQuota: "87.9", quotaUnit: null,
+          currency: "CNY", monthlyCost: "12.1", monthlyCostReason: null,
+          monthlyTotalTokens: "100", usageQuality: "UNKNOWN", unknownCount: 2,
+          historicalUnattributed: false, consumptionRate24h: "4.17",
+          consumptionRateUnit: "TOKEN_PER_HOUR", consumptionRateReason: null,
+          forecastExhaustAt: "2026-09-03T05:22:00.000Z", forecastNotCalculableReason: null,
+          forecastConfidence: "MEDIUM", status: "ACTIVE",
+        }],
+      },
+      isLoading: false, error: null, refetch: vi.fn(),
+    });
+    renderPage("/resources", "DARK");
+    await user.click(screen.getByRole("tab", { name: "套餐与订阅" }));
+    // D-3：摘要卡第三格标签＝“经营成本合计（含 API 费用估算）”（68d2227 修复文案）。
+    expect(await screen.findByText("经营成本合计（含 API 费用估算）")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "用量总览" }));
+    // D-4：模型明细表下沿局限说明行（68d2227 修复文案）。
+    expect(await screen.findByText("预测仅按已观察消费速率估算，不承诺账户实际可用时长")).toBeInTheDocument();
+  });
 });
 
 describe("POOL-010 厂商经营快照", () => {
