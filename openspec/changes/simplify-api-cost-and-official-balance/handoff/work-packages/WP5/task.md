@@ -161,3 +161,14 @@ tasks 的章节编号不是执行顺序，WP2 执行第 4 组而 WP3 执行第 3
 
 - colima 运行中＋`qianliu-pg` 容器（端口 55432）＋建 `qianliu_e2e` 库＋按 `apps/web/e2e/README.md` 配置三个密钥；globalSetup 会清库播种，绝不指向共享/生产库。
 - 测试卫生：worker `report-layout-preview` 类测试会直写 `V4/Evidence` 证据目录（重跑必漂移）——重跑后用 checkout 恢复已跟踪文件、手删新生成文件（WP4 已有先例）。
+
+
+### 开工首阶段 S0：跨包联合审核（WP1-WP4 整分支联审，只读）
+
+进入 50 条用例矩阵前，先把 `ae506fe..HEAD` 全量 diff 当一件制品联合审核（总指挥主持＋glm-flash 只读协查，产物 `WP5/notes/joint-review.md`）：
+
+1. **契约一致性**：WP1 聚合字段 ↔ WP2 缺口码/410 合同 ↔ WP3 状态/刷新合同 ↔ WP4 页面消费——同一语义跨包无两套口径（重点：缺口码、金额完整性、official_balance 状态机）。
+2. **迁移链联审**：0093-0096 连续编号、down 可逆性与守卫（含 0095 多行守卫）、新库全量 vs 旧库升级两路径表结构一致。
+3. **红线复扫**：:443/:451、strict_writes、W5/W6/quiescence、员工额度（0092）、已关账快照、recordBalanceSyncRecovery——对最终分支证伪。
+4. **残留清单**：退役后的死代码/死文案/未消费字段；WP4 悬项③（聚合级 PRICE_BASIS_UNVERIFIED）④（settlement 币种）在此一并裁定处置。
+5. 发现的问题按缺陷流程修复（purchases 410 等既定项一并实施），修复后才开始逐条跑 42＋8 矩阵。
