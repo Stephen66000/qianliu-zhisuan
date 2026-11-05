@@ -41,5 +41,5 @@ R2 关键负向复跑 17/17＋9/9；R3 estimation 复跑 14/14；R4 billing-rule
 ## 6. 提交
 
 - `ea45c4f`（业务修复主体）：F1/F4（contracts 拆分/双滤/租约）＋F3（快照依据）＋F2（缺价）＋w18 夹具补价＋大部分新增回归（23 文件 +477/−43）。
-- `7ceb97e`（文档/证据）：remediation-r1 全套（plan/inv/matrix-r1/report/logs 01-32/backups）＋development-summary/matrix/release-candidate/WP5 report 更新＋截图 superseded 移动（43 文件 +2911/−53）；**另含 4 个测试文件**（w04-provider-route/wp2-pending-admission/attempt-usage-settlement/billing-evidence）——首笔 add 路径遗漏所致，归属上属业务修复的回归测试，两笔合计完整（如实记录）。
+- `0899f04`（文档/证据；R1 复审 C3 更正：原文档曾引用 `7ceb97e`，该提交因两次 amend 被替换、非当前祖先，实际链＝`686100f→ea45c4f→0899f04`）：remediation-r1 全套（plan/inv/matrix-r1/report/logs 01-32/backups）＋development-summary/matrix/release-candidate/WP5 report 更新＋截图 superseded 移动（43 文件 +2911/−53）；**另含 4 个测试文件**（w04-provider-route/wp2-pending-admission/attempt-usage-settlement/billing-evidence）——首笔 add 路径遗漏所致，归属上属业务修复的回归测试，两笔合计完整（如实记录）。
 - 分支：修复期间曾在临时分支 `remediation-r1-f1-f4` 工作，已合回 `codex/simplify-api-cost-and-official-balance`，临时分支已删；终态工作树 tracked 零未提交。

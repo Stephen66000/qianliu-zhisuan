@@ -1,0 +1,34 @@
+# R2-2 database integration batch a1/7 RERUN-1 (after 200ms drain in api-cost-draft-model-alignment) — 2026-11-05T12:05:21Z HEAD=b56c31a+dirty(R2-1+drain)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 <12 files a1>
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/employee-monthly-quota.integration.test.ts (21 tests) 7575ms
+ ✓ src/__tests-integration__/credential-probe-migration.test.ts (1 test) 10938ms
+   ✓ 0073 backfills only correlated historical Chat failures and preserves probe facts on rollback  10937ms
+ ✓ src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts (1 test) 14776ms
+   ✓ 0021 billing_rule 多时间窗迁移 > 旧单窗自动回填，且最近迁移可回滚/重建  9995ms
+ ✓ src/__tests-integration__/alert-event-dispatch-scale.integration.test.ts (1 test) 16020ms
+   ✓ 异常中心调度历史容量 > 65,535 条正常历史决策不会耗尽绑定参数或产生异常  16019ms
+ ✓ src/__tests-integration__/api-cost-draft-model-alignment.integration.test.ts (6 tests) 8077ms
+   ✓ 用量总览模型行期间/处置口径与估算一致（合同 §1.2） > 处置投影口径：UNKNOWN_COST 行置空模型行金额；合法处置排除后模型行与估算恢复同值  374ms
+   ✓ 经营账单当前期 draft 主口径＝估算、桥接字段保留、关账版本不变（合同 §1.3） > 已关账版本快照逐字节不变（AFR-06）；reopen 后 draft 反映当前估算口径  690ms
+ ✓ src/__tests-integration__/api-cost-readers-alignment.integration.test.ts (4 tests) 7638ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 首页/用量总览/同期窗口/统一估算四读取方同范围同币种金额字面值相等  460ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 同期窗口保留 AFR-06：窗口内历史聚合覆盖 NOT_MIGRATED 行，窗口外仍标记缺口  311ms
+ ✓ src/__tests-integration__/directory-repository.integration.test.ts (6 tests) 8298ms
+   ✓ DirectoryRepository > Excel 逐项导入可部分成功，重试不重复建人；导入只建 Person 不建 Principal（Scenario 1.1/1.2）  3299ms
+   ✓ DirectoryRepository > 导入 10 人建 10 条 Person 0 条 Principal；activateMembers 精准开通并幂等（Scenario 1.1/2.1/2.2）  423ms
+ ✓ src/__tests-integration__/dispatch-pricing-readiness.test.ts (20 tests) 7365ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (14 tests) 15169ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  7114ms
+ ✓ src/__tests-integration__/dispatch-pricing-concurrency.test.ts (4 tests) 5136ms
+ ✓ src/__tests-integration__/admin-session-certification.integration.test.ts (4 tests) 4652ms
+ ✓ src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts (6 tests) 4359ms
+
+ Test Files  12 passed (12)
+      Tests  88 passed (88)
+   Start at  20:05:21
+   Duration  32.17s (transform 1.41s, setup 0ms, collect 9.25s, tests 110.00s, environment 1ms, prepare 813ms)
+
+EXIT_CODE=0

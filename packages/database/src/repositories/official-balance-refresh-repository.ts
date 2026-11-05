@@ -1,5 +1,5 @@
 /** WP3 task 3.2：官方余额手动刷新请求（0096 表）——在途租约/幂等重放/终态收敛。 */
-import { type Generated, type Kysely, type Selectable } from "kysely";
+import { sql, type Generated, type Kysely, type Selectable } from "kysely";
 import type { Database } from "../kysely.js";
 
 export interface ProviderResourceBalanceRefreshTable {
@@ -53,14 +53,21 @@ function isUniqueViolation(cause: unknown): boolean {
 export class OfficialBalanceRefreshRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
-  /** 进程崩溃残留的 RUNNING 按 expires_at 租约收敛为 FAILED（非证据，可安全覆盖）。 */
-  private async convergeExpiredLeases(resourceId: string, now: Date): Promise<void> {
+  /**
+   * 进程崩溃残留的 RUNNING 按 expires_at 租约收敛为 FAILED（非证据，可安全覆盖）。
+   * R2 根治（R1 复审 C1）：判定基准由宿主时钟 now 改为 DB 侧 now()——expires_at 可能
+   * 由 DB 时钟写入（夹具直插/运维修正），宿主-testcontainer 时钟偏移（R8a 实测 ~1.2s）
+   * 曾使 DB 侧已过期的租约按宿主时钟判「未过期」而滞留 IN_PROGRESS（AT-X02 三连假阴性）。
+   * 判定与留痕（finished_at/updated_at）同用单条 UPDATE 内的 now()，同一 DB 时钟基准；
+   * 租约时长（leaseMs）/冷却/幂等/状态机合同不变。
+   */
+  private async convergeExpiredLeases(resourceId: string): Promise<void> {
     await this.db.updateTable("provider_resource_balance_refresh")
       .set({ status: "FAILED", error_code: "REFRESH_LEASE_EXPIRED",
-        finished_at: now, updated_at: now })
+        finished_at: sql`now()`, updated_at: sql`now()` })
       .where("provider_resource_id", "=", resourceId)
       .where("status", "=", "RUNNING")
-      .where("expires_at", "<=", now)
+      .where(sql<boolean>`expires_at <= now()`)
       .execute();
   }
 
@@ -68,7 +75,7 @@ export class OfficialBalanceRefreshRepository {
     input: OfficialBalanceRefreshBeginInput,
   ): Promise<{ row: ProviderBalanceRefreshRow; replay: boolean }> {
     const { now } = input;
-    await this.convergeExpiredLeases(input.resourceId, now);
+    await this.convergeExpiredLeases(input.resourceId);
 
     // 幂等重放：同键历史请求直接复用既有结果，不触达上游、不受冷却影响。
     const prior = await this.db.selectFrom("provider_resource_balance_refresh")

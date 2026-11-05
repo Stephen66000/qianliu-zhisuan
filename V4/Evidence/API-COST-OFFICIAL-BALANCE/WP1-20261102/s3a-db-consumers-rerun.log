@@ -1,0 +1,30 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/repositories/monthly-operating-cost.test.ts (18 tests) 26ms
+ ✓ src/repositories/dashboard-monthly-spend.test.ts (3 tests) 4ms
+ ✓ src/repositories/dashboard-home-costs.test.ts (8 tests) 6ms
+ ✓ src/__tests-integration__/pf0085-historical-usage-not-migrated.integration.test.ts (5 tests) 7531ms
+   ✓ Migration 0085: Historical Usage NOT_MIGRATED and Import Run > migrates from clean database to 0085 and verifies additive columns and constraints  3214ms
+   ✓ Migration 0085: Historical Usage NOT_MIGRATED and Import Run > enforces shape constraints for NOT_MIGRATED on API and NOT_APPLICABLE on CODING_PLAN  303ms
+   ✓ Migration 0085: Historical Usage NOT_MIGRATED and Import Run > fails closed on down migration when historical NOT_MIGRATED rows exist  380ms
+   ✓ Migration 0085: Historical Usage NOT_MIGRATED and Import Run > enforces strict immutability and controlled state machine on historical_import_run and run items  303ms
+ ✓ src/__tests-integration__/project-allocation-invariance.integration.test.ts (1 test) 7254ms
+   ✓ B01 不变性（S1–S8 直接断言：原始表/员工账/项目账/总览/部门账/资金账/首页/用量总览） > 配置成员/权重并完成计算后，全部不变性面保持原值  679ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts (15 tests) 8912ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回  381ms
+ ✓ src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts (6 tests) 9680ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 同厂商多账号按各账号余额与价格分别估算，缺价或混合币种明确拒绝  650ms
+   ✓ POOL-042 首页 API 资源 Token 摘要 > 覆盖套餐、缺余额、零价格与 HIGH/MEDIUM 估算可信度  731ms
+ ✓ src/__tests-integration__/finance-period-cost-integrity.integration.test.ts (12 tests) 9730ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > preserves explicit CNY zero in October and historical balance gaps without fabricating carryover  377ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > fails closed for an actual October unknown expense and retains its known part  367ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > uses a covering historical total once and does not apply it to an earlier comparison window  329ms
+ ✓ src/__tests-integration__/pool010-provider-operating.test.ts (5 tests) 10024ms
+   ✓ POOL-010 厂商资源经营快照 > 0025～0029 可连续回滚并重新升级  3454ms
+
+ Test Files  9 passed (9)
+      Tests  73 passed (73)
+   Start at  00:15:12
+   Duration  12.98s (transform 1.97s, setup 0ms, collect 15.34s, tests 53.17s, environment 1ms, prepare 1.46s)
+

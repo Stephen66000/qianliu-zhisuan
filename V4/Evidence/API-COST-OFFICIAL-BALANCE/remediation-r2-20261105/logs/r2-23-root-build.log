@@ -1,0 +1,51 @@
+# R2-2 root build (bind to HEAD b56c31a+dirty(R2-1+drain)) — 2026-11-05T12:22:23Z
+# cmd: corepack pnpm@11.11.0 run build
+# node v22.17.1
+[WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ corepack pnpm@11.11.0 -r run build
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+Scope: 11 of 12 workspace projects
+packages/config build$ tsc -p tsconfig.json --noEmit
+packages/domain build$ tsc -p tsconfig.json --noEmit
+packages/contracts build$ tsc -p tsconfig.json --noEmit
+packages/testing build$ tsc -p tsconfig.json --noEmit
+packages/contracts build: Done
+packages/testing build: Done
+packages/config build: Done
+packages/domain build: Done
+apps/web build$ tsc -p tsconfig.json --noEmit && vite build
+packages/observability build$ tsc -p tsconfig.json --noEmit
+packages/provider-adapters build$ tsc -p tsconfig.json --noEmit
+packages/observability build: Done
+packages/provider-adapters build: Done
+apps/web build: vite v7.1.7 building for production...
+apps/web build: transforming...
+apps/web build: ../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/regexes.js (74:0): A comment
+apps/web build: "/** Anchors a pattern source. The interpolation lives here rather than at the call site because
+apps/web build:  * esbuild will not drop a `@__PURE__` call whose own argument interpolates a variable, but it
+apps/web build:  * will drop `anchor(dateSource)`. Keeping it inline pinned `date` into every bundle. */"
+apps/web build: in "../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/regexes.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+apps/web build: ../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/util.js (400:0): A comment
+apps/web build: "// Wrapped in a `@__PURE__` IIFE: esbuild never tree-shakes a top-level initializer that contains a member access on `Number`, so the bare object literal survived into every bundle."
+apps/web build: in "../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/util.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+apps/web build: ✓ 1902 modules transformed.
+apps/web build: rendering chunks...
+apps/web build: computing gzip size...
+apps/web build: dist/index.html                   1.85 kB │ gzip:   0.97 kB
+apps/web build: dist/assets/index-DGv7YCOA.css   41.84 kB │ gzip:   8.59 kB
+apps/web build: dist/assets/index-dI2sK__v.js   993.96 kB │ gzip: 280.37 kB
+apps/web build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/web build: - Using dynamic import() to code-split the application
+apps/web build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+apps/web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/web build: ✓ built in 3.08s
+apps/web build: Done
+packages/database build$ tsc -p tsconfig.json --noEmit
+packages/database build: Done
+apps/gateway build$ tsc -p tsconfig.json
+apps/control-api build$ tsc -p tsconfig.json
+apps/worker build$ tsc -p tsconfig.json
+apps/control-api build: Done
+apps/worker build: Done
+apps/gateway build: Done
+EXIT_CODE=0

@@ -31,7 +31,7 @@ loadApiCostEstimation(
 | `amounts: {currency, amount}[]` | 按币种分桶的已知金额合计；币种为 NULL 的已计价行不入桶、计 `CURRENCY_MISSING`。消费方一律不得跨币种相加（ACE-07）。 |
 | `completeness` | `KNOWN_PARTIAL`（任一缺口行）／`KNOWN_COMPLETE`（无缺口且有计价行，含期间无行）／`ZERO_CONFIRMED`（无缺口且无计价行，只剩明确零与处置排除）。只反映金额可知性。 |
 | `gaps: {reason, count}[]` | `NOT_MIGRATED`、`USAGE_UNKNOWN`、`PRICE_MISSING`、`CURRENCY_MISSING` 为缺口；`PRICE_BASIS_UNVERIFIED` 为信息项（不影响 completeness）。 |
-| `priceBasis: {ruleId, ruleVersion, sourceStatus}[]` | 期间内计价行涉及的规则版本及该规则现值（非冻结值）的核实状态。 |
+| `priceBasis: {ruleId, ruleVersion, sourceStatus}[]` | 期间内计价行涉及的规则版本及其价格依据核实状态——**结算时冻结快照值**（R1-F3 更正：读 `billing_rule_snapshot->>"sourceStatus"`，旧行快照缺键归 UNVERIFIED，不读规则现值；同规则不同行可因冻结状态不同出现多行）。 |
 | `excludedNoRecordedCost: number` | 被合法历史处置排除的行数（非缺口，处置可追溯，ACE-05 场景2）。 |
 
 既有纯函数（复用入口，勿复制语义）：

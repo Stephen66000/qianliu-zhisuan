@@ -1,0 +1,29 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+[WebServer] [2m$ node --import tsx src/main.ts[22m
+{"status":"ok","enterpriseId":"00000000-0000-4000-8000-000000000001","requestId":"00000000-0000-4000-8000-000000000030","principalId":"00000000-0000-4000-8000-000000000020"}
+
+Running 16 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/wp4-cost-official-balance.spec.ts:62:3 › WP4 API费用估算与官方余额 › ACE-01/OAB-01/OAB-04/OAB-02：资源列表官方余额三态 (3.4s)
+  ✓   2 [chromium] › e2e/wp4-cost-official-balance.spec.ts:119:3 › WP4 API费用估算与官方余额 › OAB-03 手动刷新：无凭证资源 409 credential_missing（零真实上游） (1.9s)
+  ✓   3 [chromium] › e2e/wp4-cost-official-balance.spec.ts:137:3 › WP4 API费用估算与官方余额 › AFR-01 场景1：套餐与订阅面板无 API 资金表单，历史资金记录只读含来源 (2.3s)
+  ✓   4 [chromium] › e2e/wp4-cost-official-balance.spec.ts:164:3 › WP4 API费用估算与官方余额 › ACE-01/F01：用量页估算命名与半开窗估算 0.00104 (3.1s)
+  ✓   5 [chromium] › e2e/wp4-cost-official-balance.spec.ts:184:3 › WP4 API费用估算与官方余额 › AFR-07：DRAFT 现行月无待补提示，有综合费用（含 API 估算） (3.8s)
+  ✓   6 [chromium] › e2e/wp4-cost-official-balance.spec.ts:199:3 › WP4 API费用估算与官方余额 › AFR-07/AFR-06：CLOSED 月已关账横幅＋期初/充值/期末三卡保留 (1.9s)
+  ✓   7 [chromium] › e2e/wp4-cost-official-balance.spec.ts:217:3 › WP4 API费用估算与官方余额 › AT-ACE-14：用量导出 CSV 含 API费用估算 表头 (821ms)
+  ✓   8 [chromium] › e2e/wp4-cost-official-balance.spec.ts:248:3 › WP4 API费用估算与官方余额 › ACE-01/02/05 请求详情：结算汇总 API费用估算 0.00104、1200 Token、attempt 按请求口径 (2.4s)
+  ✓   9 [chromium] › e2e/wp4-cost-official-balance.spec.ts:291:3 › WP4 API费用估算与官方余额 › ACE-07 用量页：已计价 1/2 元行与'未知'缺口行；指标卡'未知'＋价格依据待核实角标 (2.4s)
+  ✓  10 [chromium] › e2e/wp4-cost-official-balance.spec.ts:321:3 › WP4 API费用估算与官方余额 › ACE-07/13/14 账单 DRAFT：待计价说明＋综合费用（含 API 估算）＝CNY 3.00104＋USD 0.5 分列 (4.3s)
+  ✓  11 [chromium] › e2e/wp4-cost-official-balance.spec.ts:364:3 › WP4 API费用估算与官方余额 › OAB-03 unsupported 资源：Token 用量与费用估算照常统计 (1.8s)
+  ✓  12 [chromium] › e2e/wp4-cost-official-balance.spec.ts:379:3 › WP4 API费用估算与官方余额 › OAB-04 过期：资源列表过期标记＋保鲜值 40 (2.4s)
+  ✓  13 [chromium] › e2e/wp4-cost-official-balance.spec.ts:400:3 › WP4 API费用估算与官方余额 › OAB-08 从未成功：暂无官方数据＋失败标记与原因，不显示 0 元 (2.2s)
+  ✓  14 [chromium] › e2e/wp4-cost-official-balance.spec.ts:422:3 › WP4 API费用估算与官方余额 › OAB-09 同账户两 Key：两行各 100，无 200 合计 (2.2s)
+  ✓  15 [chromium] › e2e/wp4-cost-official-balance.spec.ts:445:3 › WP4 API费用估算与官方余额 › ACE-04 资源分解 API 行：价格依据待核实角标＋混币分列原因 (2.8s)
+  ✓  16 [chromium] › e2e/wp4-cost-official-balance.spec.ts:459:3 › WP4 API费用估算与官方余额 › OAB-13/14 供给预测：可信度/覆盖说明与'不可计算'局限文案 (1.5s)
+
+  16 passed (46.0s)
+
+To open last HTML report run:
+
+  pnpm exec playwright show-report
+

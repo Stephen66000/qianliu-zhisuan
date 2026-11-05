@@ -1,0 +1,33 @@
+=== @qianliu/web typecheck ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+WEB_TYPECHECK_EXIT=0
+=== @qianliu/control-api typecheck ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+CONTROL_API_TYPECHECK_EXIT=0
+=== @qianliu/database typecheck ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+DATABASE_TYPECHECK_EXIT=0
+=== @qianliu/web lint ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+WEB_LINT_EXIT=0
+=== @qianliu/control-api lint ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+CONTROL_API_LINT_EXIT=0
+=== @qianliu/database lint ===
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+
+/Users/mac/Projects/仟流智算-api-decouple/packages/database/src/__tests-integration__/wp6-rollback-drill.integration.test.ts
+  487:29  error  'resourceId' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+
+/Users/mac/Projects/仟流智算-api-decouple/packages/database:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @qianliu/database@0.3.0 lint: `eslint src --max-warnings=0`
+Exit status 1
+DATABASE_LINT_EXIT=1

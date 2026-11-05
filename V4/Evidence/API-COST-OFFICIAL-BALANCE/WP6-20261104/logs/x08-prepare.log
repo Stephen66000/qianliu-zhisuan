@@ -1,0 +1,2 @@
+{"step":"migrateToLatest(legacy)","executedCount":93,"head":"0092_employee_monthly_quota"}
+{"step":"seeded","enterpriseId":"6e759353-6880-42bf-b852-6023a9838473","resources":{"apiA":"d67938d6-4832-4b6f-8a54-4cb01c370124","apiB":"ec625c07-22b8-4e2e-84da-3a9ff9db4b0d","planP":"79bb1a3f-bde7-4b08-b0d5-3e914afde38f"},"fixture":"/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-20261104/scripts/x08-fixture.json"}

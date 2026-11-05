@@ -1,0 +1,53 @@
+# R2-2 database integration batch a2/7 RERUN-1 (after 200ms drain in finance-period-cost-integrity + operating-bill-resource-scope + operating-feedback; a2 首跑 operating-feedback 1 断言失败但单文件复跑 8/8 过——疑似负载偶发，本轮整批复跑验证) — 2026-11-05T12:11:06Z HEAD=b56c31a+dirty(R2-1+drain)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 <12 files a2>
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts (1 test) 11898ms
+   ✓ 0063 operating snapshot subscription period binding > 只允许额度配置关联同企业同资源的订阅周期  8989ms
+ ✓ src/__tests-integration__/finance-period-cost-integrity.integration.test.ts (12 tests) 11827ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > preserves explicit CNY zero in October and historical balance gaps without fabricating carryover  529ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > fails closed for an actual October unknown expense and retains its known part  1218ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > uses the same unknown and currency rules in expense projection and finance summaries  307ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > keeps August expenses unknown when an account was only opened in September  475ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > does not turn NOT_MIGRATED into zero without a matching resource and period cost total  554ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > does not let a CNY aggregate cover currency-less imported usage when a USD account also exists  578ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > preserves NOT_MIGRATED as unknown when no aggregate exists  433ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > uses a covering historical total once and does not apply it to an earlier comparison window  623ms
+ ✓ src/__tests-integration__/exception-center-contract.integration.test.ts (55 tests) 15494ms
+   ✓ late failures cannot lower the recovery barrier, and request completion orders long requests  332ms
+   ✓ migration 0070 refuses rollback once any real recovery evidence exists  5400ms
+ ✓ src/__tests-integration__/home-cost-comparison.integration.test.ts (15 tests) 7652ms
+   ✓ cash expense comparison and persisted subscription attribution > a unique paid period removes only the cash gap; strict attribution still requires a stored link  385ms
+   ✓ cash expense comparison and persisted subscription attribution > late historical API aggregate does not close a shorter comparison, and monthly/home facts agree  386ms
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 5549ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > migrateToLatest 建表（含 schema_migrations 与 _w01_baseline_probe）  2098ms
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (9 tests) 9510ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整  584ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  1293ms
+   ✓ 经营分析真实数据链 > S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06）  316ms
+   ✓ 经营分析真实数据链 > S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）  309ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均  424ms
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败  344ms
+ ✓ src/__tests-integration__/model-probe-migration.test.ts (3 tests) 25564ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 加法迁移可应用/回滚，探针证据按 request_hash 幂等且随凭证指纹失效  10763ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 0077 run 身份原子化：同 idempotency_key 并发写入恰一条 run，item 不重复，写入错误不再静默  5691ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 终审整改三：0077 预检 fail-closed——存在重复 run 时拒绝执行且证据零损失  9109ms
+ ✓ src/__tests-integration__/gateway-compat-cost-status.integration.test.ts (8 tests) 7039ms
+ ✓ src/__tests-integration__/operating-bill-resource-scope.integration.test.ts (5 tests) 8002ms
+   ✓ operating bill resource scope > keeps the pre-archive month and excludes empty later months for resource or provider archives  1066ms
+   ✓ operating bill resource scope > retains monthly purchase and subscription payment facts even without API accounts  313ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 10163ms
+   ✓ three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality  664ms
+   ✓ confirmed resource renewals automatically appear once; legacy paid subscriptions are included without migration duplication  755ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  1412ms
+ ✓ src/__tests-integration__/gateway-zero-priced-cost-status.integration.test.ts (2 tests) 3500ms
+ ✓ src/__tests-integration__/kimi-allocation-migration.integration.test.ts (1 test) 7853ms
+   ✓ UAT Kimi 0078 已应用且有探针证据时，归集 0079/0080 顺序升级并保留证据  7853ms
+
+ Test Files  12 passed (12)
+      Tests  126 passed (126)
+   Start at  20:11:07
+   Duration  36.47s (transform 1.40s, setup 0ms, collect 11.18s, tests 124.05s, environment 1ms, prepare 815ms)
+
+EXIT_CODE=0

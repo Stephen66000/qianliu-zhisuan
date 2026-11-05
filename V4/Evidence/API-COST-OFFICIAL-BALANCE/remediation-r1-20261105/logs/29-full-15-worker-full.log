@@ -1,0 +1,135 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/__tests-integration__/directory-sync-worker.test.ts (2 tests) 29861ms
+   ✓ directory sync worker > 凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人  19176ms
+   ✓ directory sync worker > 厂商可重试错误保留 QUEUED，永久凭证错误结束为 FAILED  718ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"e53765a1-3f0f-406b-a293-6addf465709d","provider":"kimi","windows":2,"recovered":false}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"e53765a1-3f0f-406b-a293-6addf465709d","provider":"kimi","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+{"event":"quota_sync_success","resource_id":"1f0a7168-3d62-4a43-ac02-3a878cc75fe1","provider":"zhipu","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过
+{"event":"quota_sync_success","resource_id":"1fc926f6-b8d9-4041-b0fa-5298925eb6a4","provider":"kimi","windows":2,"recovered":false}
+
+ ✓ src/coding-plan-quota/runner.test.ts (3 tests) 40179ms
+   ✓ Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实  17096ms
+   ✓ Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复  2690ms
+   ✓ Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过  1939ms
+ ✓ src/reporting/__tests__/weekly-report-resolution.integration.test.ts (2 tests) 55119ms
+   ✓ Weekly jobs produce actual 2x images before delivery > company preview decodes at 1080x1520 and retains the original viewBox  795ms
+   ✓ Weekly jobs produce actual 2x images before delivery > personal delivery uploads a 1080x1538 image without changing its crop or recipients  1302ms
+ ✓ src/reporting/__tests__/delivery.integration.test.ts (13 tests) 59981ms
+   ✓ Postgres report execution invariants > freezes snapshot once and parallel workers send each message once  1022ms
+   ✓ Postgres report execution invariants > retries only failed text, preserves image message id, applies backoff and max3  778ms
+   ✓ Postgres report execution invariants > response loss and receipt persistence failure become UNKNOWN without restart replay  486ms
+   ✓ Postgres report execution invariants > missing identity is durable failure and incentive guards reserve both day and week  307ms
+   ✓ Postgres report execution invariants > legacy completion stays unverified without creating delivery facts  1135ms
+   ✓ Postgres report execution invariants > manual UNKNOWN retry requires explicit acknowledgement and records immutable audit  486ms
+   ✓ Postgres report execution invariants > dirty reporting data records a durable block instead of sending an empty report  1338ms
+   ✓ Postgres report execution invariants > schema rollback retains actual delivery evidence and reapplies without duplicates  4149ms
+   ✓ Postgres report execution invariants > expired media is re-uploaded while successful messages remain immutable  650ms
+ ✓ src/reporting/__tests__/monthly-report.integration.test.ts (5 tests) 61715ms
+   ✓ closed-month reports share the weekly high-resolution layout > includes both September boundaries and excludes October usage and its mutable quota  1472ms
+   ✓ closed-month reports share the weekly high-resolution layout > renders and delivers a personal month card using the existing font, crop and recipient  1335ms
+   ✓ closed-month reports share the weekly high-resolution layout > uses frozen monthly limits after a grant edit and rejects an unproven monthly limit  774ms
+   ✓ closed-month reports share the weekly high-resolution layout > a missing identity is recorded and does not block the next personal report  1623ms
+ ✓ src/reporting/__tests__/quota-preflight.integration.test.ts (8 tests) 63818ms
+   ✓ read-only employee quota switch preflight > proposes a future full local month and preserves legacy counters and every write target  643ms
+   ✓ read-only employee quota switch preflight > rejects absent or incompatible basis null  417ms
+   ✓ read-only employee quota switch preflight > does not mistake an explicitly disabled model or an unlisted Key model for an authorized route  390ms
+   ✓ read-only employee quota switch preflight > accepts an exclusively authorized plan pool with a matching frozen basis and activation  346ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles PONG and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-redis.test.ts (3 tests) 2656ms
+   ✓ real Redis connection handles SILENT and closes every socket  2542ms
+ ✓ src/reporting/__tests__/milestone-store.integration.test.ts (1 test) 4114ms
+   ✓ Redis milestone compatibility receipts > parallel or resumed success increments the weekly win count once  4113ms
+ ✓ src/runtime-assurance/__tests__/wecom-report-http.test.ts (14 tests) 340ms
+ ✓ src/reporting/__tests__/report-layout-preview.test.ts (1 test) 217ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 170ms
+ ✓ src/reporting/__tests__/render-png-resolution.test.ts (8 tests) 116ms
+ ✓ src/reporting/__tests__/company-monthly-contract.test.ts (3 tests) 88ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (3 tests) 83ms
+ ✓ src/directory/connector.test.ts (11 tests) 31ms
+ ✓ src/runtime-assurance/scheduler.test.ts (4 tests) 36ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 28ms
+ ✓ src/reporting/__tests__/monthly-period.test.ts (13 tests) 15ms
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-probes.test.ts (6 tests) 17ms
+stderr | src/__tests-integration__/runtime-assurance-worker.test.ts > RA-W05A/W05B/W06 Worker 闭环 > 调度循环成功和失败均更新健康状态并响应停止信号
+{"event":"runtime_assurance_tick_failed","error_type":"TypeError"}
+
+ ✓ src/runtime-assurance/scheduler-loop.test.ts (6 tests) 12ms
+ ✓ src/subscription-renewal/runner.test.ts (3 tests) 5ms
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 12ms
+ ✓ src/__tests-integration__/runtime-assurance-worker.test.ts (5 tests) 50790ms
+   ✓ RA-W05A/W05B/W06 Worker 闭环 > 无页面访问自动恢复，触发／恢复各向本人 userid 发送一次  2013ms
+ ✓ src/reporting/__tests__/delivery-scheduler.test.ts (12 tests) 8ms
+stderr | src/runtime-assurance/observed-task.test.ts > database failure does not replace the original error; recovery flushes the pending failure first
+{"event":"task_fault_record_unavailable","task":"task"}
+
+ ✓ src/runtime-assurance/observed-task.test.ts (3 tests) 8ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 14ms
+ ✓ src/usage-aggregate/runner.test.ts (2 tests) 6ms
+ ✓ src/operating-bill/runner.test.ts (4 tests) 12ms
+ ✓ src/runtime-assurance/scheduled-tasks.test.ts (3 tests) 6ms
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ ✓ src/runtime-assurance/infrastructure-checks.test.ts (2 tests) 4ms
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 2ms
+ ✓ src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts (3 tests) 47514ms
+   ✓ PF-INIT WP04：Worker 静默跳过与自动恢复 > 自动续订：有效静默租约内整企业跳过（零资金事件），租约到期后自动恢复  385ms
+   ✓ PF-INIT WP04：Worker 静默跳过与自动恢复 > 厂商经营同步：静默期内零扫描零快照零 attempt，跨企业时只跳过目标企业  695ms
+ ✓ src/reporting/__tests__/model-report-labels.integration.test.ts (4 tests) 93966ms
+   ✓ report model identity and complete counts > counts four used models before limiting the table to three without changing any totals  18230ms
+   ✓ report model identity and complete counts > retains principal, tenant and exclusive time-range filters for both count and Top3  10162ms
+   ✓ report model identity and complete counts > the actual daily job passes four to the renderer while keeping the original three rows  10654ms
+ ✓ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests) 35482ms
+ ✓ src/reporting/__tests__/report-facts.integration.test.ts (9 tests) 41750ms
+   ✓ employee report frozen facts > keeps the same snapshot when a model and grant change between overview and detail reads  477ms
+   ✓ employee report frozen facts > uses November quota at the end of a crossing week and creates no historical quota rows  704ms
+   ✓ employee report frozen facts > initializes one current monthly account and renders separate raw/plan overage and unresolved states  750ms
+ ✓ src/provider-operating-sync/runner.test.ts (4 tests) 38004ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 周期门禁：P1 内重复 tick 跳过零上游调用；到点恢复；同日多次尝试各留一行；P1 可配置且非法值 fail-fast  8438ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 资金模式 DARK/OFF 仍执行同步并写入快照（OAB-03 场景：不因旧资金开关关闭而跳过）；纯查询零资金事实写入  881ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > F1 冒充行免疫：balance_source=NULL 的 PROVIDER_SYNC 冒充行不触发耗尽资源恢复  512ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 恢复链回归：新隔离被更新官方证据解除；证据不足不恢复；失败保鲜最后成功值与 last_success_data_at  537ms
+
+ Test Files  36 passed (36)
+      Tests  201 passed (201)
+   Start at  17:06:44
+   Duration  107.22s (transform 3.69s, setup 0ms, collect 51.46s, tests 626.18s, environment 5ms, prepare 5.27s)
+
+EXIT_CODE=0

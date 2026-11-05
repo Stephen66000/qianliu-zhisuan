@@ -1,0 +1,53 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+
+{"level":30,"time":1793639263379,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"06dbb88d-7320-49d7-ad94-5cdde36c287e","req":{"method":"GET","url":"/v1/models","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263395,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"06dbb88d-7320-49d7-ad94-5cdde36c287e","res":{"statusCode":200},"responseTime":16.074999999999818,"msg":"request completed"}
+{"level":30,"time":1793639263396,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ff481d34-9f0e-4847-a662-d0f1e6e54040","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263478,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ff481d34-9f0e-4847-a662-d0f1e6e54040","res":{"statusCode":200},"responseTime":81.97091600000022,"msg":"request completed"}
+·{"level":30,"time":1793639263484,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a4437aaa-c17c-4ec8-b14d-654e12b05eba","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263537,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a4437aaa-c17c-4ec8-b14d-654e12b05eba","res":{"statusCode":200},"responseTime":53.26470900000004,"msg":"request completed"}
+{"level":30,"time":1793639263540,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ab6fd8b5-7be9-4829-8ed3-7b6efe61a08c","req":{"method":"GET","url":"/v1/models","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263546,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ab6fd8b5-7be9-4829-8ed3-7b6efe61a08c","res":{"statusCode":200},"responseTime":6.026042000000416,"msg":"request completed"}
+{"level":30,"time":1793639263547,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a172ec19-8e7e-4fb9-b7a5-13b0fbeb5a78","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+·{"level":30,"time":1793639263603,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a172ec19-8e7e-4fb9-b7a5-13b0fbeb5a78","res":{"statusCode":200},"responseTime":56.13520900000003,"msg":"request completed"}
+·{"level":30,"time":1793639263726,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"b6f4ddfa-1ecd-4aaf-ba6b-07f42ab1ffac","req":{"method":"POST","url":"/v1/embeddings","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263728,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"b6f4ddfa-1ecd-4aaf-ba6b-07f42ab1ffac","res":{"statusCode":422},"responseTime":1.802625000000262,"msg":"request completed"}
+{"level":30,"time":1793639263728,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"0dd4a9e3-106a-4891-b7b5-4599a85585a7","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263783,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"0dd4a9e3-106a-4891-b7b5-4599a85585a7","res":{"statusCode":200},"responseTime":54.962916999999834,"msg":"request completed"}
+{"level":30,"time":1793639263786,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"1109d038-e753-4d9b-9cc4-73ffe4e135c8","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263840,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"1109d038-e753-4d9b-9cc4-73ffe4e135c8","res":{"statusCode":200},"responseTime":53.897500000000036,"msg":"request completed"}
+{"level":30,"time":1793639263846,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"bb61bfbc-339e-467b-8fa0-483bd198132f","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263899,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"bb61bfbc-339e-467b-8fa0-483bd198132f","res":{"statusCode":200},"responseTime":52.62495800000033,"msg":"request completed"}
+···{"level":30,"time":1793639263901,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"0a71a36b-53ab-4bb2-b073-b56588e8e1e6","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639263955,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"0a71a36b-53ab-4bb2-b073-b56588e8e1e6","res":{"statusCode":200},"responseTime":54.389624999999796,"msg":"request completed"}
+{"level":30,"time":1793639263956,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a0321de3-e77f-4650-b3f7-6052a3ec7055","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264005,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"a0321de3-e77f-4650-b3f7-6052a3ec7055","res":{"statusCode":200},"responseTime":49.26875000000018,"msg":"request completed"}
+·{"level":30,"time":1793639264011,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"33098b4b-eee0-4b73-895b-67e4d607eed2","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264061,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"33098b4b-eee0-4b73-895b-67e4d607eed2","res":{"statusCode":200},"responseTime":49.35370899999998,"msg":"request completed"}
+{"level":30,"time":1793639264061,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"e743df85-334a-41cb-b938-a218b627fb17","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264066,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"e743df85-334a-41cb-b938-a218b627fb17","res":{"statusCode":409},"responseTime":4.495125000000371,"msg":"request completed"}
+{"level":30,"time":1793639264066,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"c91f0867-11bb-48ff-bd48-b48b0d8712a3","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264068,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"c91f0867-11bb-48ff-bd48-b48b0d8712a3","res":{"statusCode":409},"responseTime":2.484207999999853,"msg":"request completed"}
+{"level":30,"time":1793639264072,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"af49eed7-e163-46d2-a9d0-304f81ab67cc","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264076,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ccdaf9f7-39b4-4f13-ba48-9b6386d2e67c","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264078,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"ccdaf9f7-39b4-4f13-ba48-9b6386d2e67c","res":{"statusCode":409},"responseTime":2.3551669999997102,"msg":"request completed"}
+{"level":30,"time":1793639264121,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"af49eed7-e163-46d2-a9d0-304f81ab67cc","res":{"statusCode":200},"responseTime":48.97883399999955,"msg":"request completed"}
+··{"level":30,"time":1793639264124,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"6c85e577-e316-461f-bf00-c4d393ce437b","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264140,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"6c85e577-e316-461f-bf00-c4d393ce437b","res":{"statusCode":503},"responseTime":15.609333000000333,"msg":"request completed"}
+{"level":30,"time":1793639264142,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"8666e363-26ff-4cfd-8700-34a9fbadca30","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264146,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"8666e363-26ff-4cfd-8700-34a9fbadca30","res":{"statusCode":409},"responseTime":3.8546669999996084,"msg":"request completed"}
+{"level":30,"time":1793639264151,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"2cbecd04-b8ef-4bda-9257-6ceca987c5dc","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264165,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"2cbecd04-b8ef-4bda-9257-6ceca987c5dc","res":{"statusCode":403},"responseTime":14.346166999999696,"msg":"request completed"}
+{"level":30,"time":1793639264169,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"35f6614c-09ae-4ba6-a3b8-33bae2d15940","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264201,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"35f6614c-09ae-4ba6-a3b8-33bae2d15940","res":{"statusCode":403},"responseTime":32.28387500000008,"msg":"request completed"}
+{"level":30,"time":1793639264204,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"29856dbd-74cd-4042-b433-d4b2231f50e8","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639264240,"pid":83601,"hostname":"Stephen-macbook.local","reqId":"29856dbd-74cd-4042-b433-d4b2231f50e8","res":{"statusCode":403},"responseTime":35.99633400000039,"msg":"request completed"}
+····
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  01:07:38
+   Duration  6.26s (transform 1.16s, setup 0ms, collect 2.13s, tests 3.87s, environment 0ms, prepare 53ms)
+
+EXIT=0

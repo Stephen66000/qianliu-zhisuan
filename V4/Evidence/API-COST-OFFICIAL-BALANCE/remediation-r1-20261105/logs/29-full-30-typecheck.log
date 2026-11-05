@@ -1,0 +1,28 @@
+===== typecheck @qianliu/domain =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/domain]=0
+===== typecheck @qianliu/provider-adapters =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/provider-adapters]=0
+===== typecheck @qianliu/database =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/database]=0
+===== typecheck @qianliu/control-api =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/control-api]=0
+===== typecheck @qianliu/gateway =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/gateway]=0
+===== typecheck @qianliu/worker =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/worker]=0
+===== typecheck @qianliu/web =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT_CODE[@qianliu/web]=0

@@ -1,0 +1,38 @@
+{"level":30,"time":1793810418029,"pid":99198,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:28787"}
+{"level":30,"time":1793810418029,"pid":99198,"hostname":"Stephen-macbook.local","port":28787,"host":"127.0.0.1","msg":"gateway listening (real-pipeline; caller=openai-compatible-http)"}
+{"level":30,"time":1793810418213,"pid":99198,"hostname":"Stephen-macbook.local","reqId":"8b8f0390-647c-4ed4-946c-9caaebe45b0f","req":{"method":"GET","url":"/health","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":57872},"msg":"incoming request"}
+{"level":30,"time":1793810418215,"pid":99198,"hostname":"Stephen-macbook.local","reqId":"8b8f0390-647c-4ed4-946c-9caaebe45b0f","res":{"statusCode":200},"responseTime":1.9360410000001593,"msg":"request completed"}
+{"level":30,"time":1793810448536,"pid":99198,"hostname":"Stephen-macbook.local","msg":"gateway 收到 SIGTERM，开始优雅停机"}
+{"level":30,"time":1793810448537,"pid":99198,"hostname":"Stephen-macbook.local","msg":"gateway 已安全停止"}
+{"level":30,"time":1793810475505,"pid":136,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:28787"}
+{"level":30,"time":1793810475505,"pid":136,"hostname":"Stephen-macbook.local","port":28787,"host":"127.0.0.1","msg":"gateway listening (real-pipeline; caller=openai-compatible-http)"}
+{"level":30,"time":1793810476439,"pid":136,"hostname":"Stephen-macbook.local","reqId":"50b2715d-6167-49f2-aaa9-221933330139","req":{"method":"GET","url":"/health","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":57958},"msg":"incoming request"}
+{"level":30,"time":1793810476442,"pid":136,"hostname":"Stephen-macbook.local","reqId":"50b2715d-6167-49f2-aaa9-221933330139","res":{"statusCode":200},"responseTime":2.398542000000134,"msg":"request completed"}
+{"level":30,"time":1793810478304,"pid":136,"hostname":"Stephen-macbook.local","reqId":"e51fb9d1-b99f-45a3-84a0-d53eb02c1590","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":57969},"msg":"incoming request"}
+{"level":30,"time":1793810478516,"pid":136,"hostname":"Stephen-macbook.local","reqId":"e51fb9d1-b99f-45a3-84a0-d53eb02c1590","res":{"statusCode":200},"responseTime":212.6111249999999,"msg":"request completed"}
+{"level":30,"time":1793810612004,"pid":136,"hostname":"Stephen-macbook.local","msg":"gateway 收到 SIGTERM，开始优雅停机"}
+{"level":30,"time":1793810612005,"pid":136,"hostname":"Stephen-macbook.local","msg":"gateway 已安全停止"}
+{"level":30,"time":1793810640178,"pid":1849,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:28787"}
+{"level":30,"time":1793810640178,"pid":1849,"hostname":"Stephen-macbook.local","port":28787,"host":"127.0.0.1","msg":"gateway listening (real-pipeline; caller=openai-compatible-http)"}
+{"level":30,"time":1793810641139,"pid":1849,"hostname":"Stephen-macbook.local","reqId":"50641105-911a-448e-ac8b-6ebbff73a61a","req":{"method":"GET","url":"/health","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58075},"msg":"incoming request"}
+{"level":30,"time":1793810641142,"pid":1849,"hostname":"Stephen-macbook.local","reqId":"50641105-911a-448e-ac8b-6ebbff73a61a","res":{"statusCode":200},"responseTime":2.545375000000149,"msg":"request completed"}
+{"level":30,"time":1793810642928,"pid":1849,"hostname":"Stephen-macbook.local","reqId":"7243d87a-ae16-4e73-9818-d173e5423bac","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58086},"msg":"incoming request"}
+{"level":30,"time":1793810643151,"pid":1849,"hostname":"Stephen-macbook.local","reqId":"7243d87a-ae16-4e73-9818-d173e5423bac","res":{"statusCode":200},"responseTime":222.54129199999988,"msg":"request completed"}
+{"level":30,"time":1793810665623,"pid":1849,"hostname":"Stephen-macbook.local","msg":"gateway 收到 SIGTERM，开始优雅停机"}
+{"level":30,"time":1793810665624,"pid":1849,"hostname":"Stephen-macbook.local","msg":"gateway 已安全停止"}
+{"level":30,"time":1793810689368,"pid":2855,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:28787"}
+{"level":30,"time":1793810689368,"pid":2855,"hostname":"Stephen-macbook.local","port":28787,"host":"127.0.0.1","msg":"gateway listening (real-pipeline; caller=openai-compatible-http)"}
+{"level":30,"time":1793810690247,"pid":2855,"hostname":"Stephen-macbook.local","reqId":"21ca0aa6-a05f-42c5-aabf-7fb225308aed","req":{"method":"GET","url":"/health","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58162},"msg":"incoming request"}
+{"level":30,"time":1793810690249,"pid":2855,"hostname":"Stephen-macbook.local","reqId":"21ca0aa6-a05f-42c5-aabf-7fb225308aed","res":{"statusCode":200},"responseTime":2.0591249999999945,"msg":"request completed"}
+{"level":30,"time":1793810692034,"pid":2855,"hostname":"Stephen-macbook.local","reqId":"3d29fdea-9d5d-4266-9898-a55a6988ea01","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58173},"msg":"incoming request"}
+{"level":30,"time":1793810692251,"pid":2855,"hostname":"Stephen-macbook.local","reqId":"3d29fdea-9d5d-4266-9898-a55a6988ea01","res":{"statusCode":200},"responseTime":216.6574169999999,"msg":"request completed"}
+{"level":30,"time":1793810696859,"pid":2855,"hostname":"Stephen-macbook.local","msg":"gateway 收到 SIGTERM，开始优雅停机"}
+{"level":30,"time":1793810696861,"pid":2855,"hostname":"Stephen-macbook.local","msg":"gateway 已安全停止"}
+{"level":30,"time":1793810812527,"pid":4123,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:28787"}
+{"level":30,"time":1793810812527,"pid":4123,"hostname":"Stephen-macbook.local","port":28787,"host":"127.0.0.1","msg":"gateway listening (real-pipeline; caller=openai-compatible-http)"}
+{"level":30,"time":1793810813467,"pid":4123,"hostname":"Stephen-macbook.local","reqId":"0ae1c4da-fc6b-4119-a7fe-e181ddc003bb","req":{"method":"GET","url":"/health","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58284},"msg":"incoming request"}
+{"level":30,"time":1793810813470,"pid":4123,"hostname":"Stephen-macbook.local","reqId":"0ae1c4da-fc6b-4119-a7fe-e181ddc003bb","res":{"statusCode":200},"responseTime":1.9137080000000424,"msg":"request completed"}
+{"level":30,"time":1793810815286,"pid":4123,"hostname":"Stephen-macbook.local","reqId":"9acbd713-3c49-4e1b-bd5a-64f04f02de92","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:28787","remoteAddress":"127.0.0.1","remotePort":58295},"msg":"incoming request"}
+{"level":30,"time":1793810815517,"pid":4123,"hostname":"Stephen-macbook.local","reqId":"9acbd713-3c49-4e1b-bd5a-64f04f02de92","res":{"statusCode":200},"responseTime":230.35020799999984,"msg":"request completed"}
+{"level":30,"time":1793810820168,"pid":4123,"hostname":"Stephen-macbook.local","msg":"gateway 收到 SIGTERM，开始优雅停机"}
+{"level":30,"time":1793810820169,"pid":4123,"hostname":"Stephen-macbook.local","msg":"gateway 已安全停止"}

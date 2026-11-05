@@ -265,6 +265,41 @@ describe("POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.
     expect(await refreshRowCount(seed.deepseekResourceId)).toBe(2);
   });
 
+  it("AT-X02 skew 负向（R2 C1）：DB 时钟已过期的 RUNNING（expires_at = now()-2s）必须被 begin 收敛为 FAILED，不得按宿主时钟滞留 IN_PROGRESS", async () => {
+    // 依据：R1 复审 C1——宿主-testcontainer 时钟偏移（R8a 实测 ~1.2s，宿主落后）曾使
+    // 「DB 时钟已过期」的租约按宿主时钟判未过期而滞留 IN_PROGRESS。根治后判定基准为
+    // DB now()；本用例直插 DB 时钟过去 2s 的 RUNNING（2s 裕量 > 实测偏移 1.2s）：若实现
+    // 回退为宿主时钟判定且宿主落后 <2s（本环境常态），收敛不触发 → IN_PROGRESS → 必失败。
+    const seed = await seedEnterprise("refresh-skew-expired");
+    await sql`
+      INSERT INTO provider_resource_balance_refresh
+        (enterprise_id, provider_resource_id, actor_admin_id, idempotency_key,
+         status, started_at, expires_at, updated_at)
+      SELECT ${seed.enterpriseId}::uuid, ${seed.deepseekResourceId}::uuid,
+             a.id::uuid, gen_random_uuid(), 'RUNNING',
+             now() - interval '62 seconds', now() - interval '2 seconds', now()
+        FROM admin_user a WHERE a.enterprise_id = ${seed.enterpriseId}::uuid LIMIT 1
+    `.execute(db);
+    stubFetch(() => ({ ok: true, status: 200, json: async () => okBalance("80") }));
+    const recovered = await refresh(seed.superCookie, seed.deepseekResourceId);
+    expect(recovered.statusCode).toBe(200);
+    const payload = recovered.json() as { state: string; result?: { outcome: string } };
+    expect(payload.state).not.toBe("IN_PROGRESS");
+    expect(payload.state).toBe("ACCEPTED");
+    expect(payload.result?.outcome).toBe("SUCCEEDED");
+    // 收敛留痕：FAILED/REFRESH_LEASE_EXPIRED，且留痕与租约同一 DB 时钟（finished_at ≥ expires_at）。
+    const converged = await sql<{ status: string; error_code: string | null; finished_at: Date; expires_at: Date }>`
+      SELECT status, error_code, finished_at, expires_at FROM provider_resource_balance_refresh
+       WHERE provider_resource_id = ${seed.deepseekResourceId}::uuid
+         AND error_code = 'REFRESH_LEASE_EXPIRED'
+    `.execute(db);
+    expect(converged.rows).toHaveLength(1);
+    expect(converged.rows[0]!.status).toBe("FAILED");
+    expect(converged.rows[0]!.finished_at.getTime())
+      .toBeGreaterThanOrEqual(converged.rows[0]!.expires_at.getTime());
+    expect(await refreshRowCount(seed.deepseekResourceId)).toBe(2);
+  });
+
   it("AT-OAB-06 view-only：POST 刷新 403，GET 列表余额可读；不支持厂商 422 零写入；缺凭证 409；未知资源 404", async () => {
     const seed = await seedEnterprise("refresh-perms");
     stubFetch(() => ({ ok: true, status: 200, json: async () => okBalance("70") }));

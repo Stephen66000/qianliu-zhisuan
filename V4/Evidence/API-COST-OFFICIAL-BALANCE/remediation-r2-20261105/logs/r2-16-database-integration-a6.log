@@ -1,0 +1,45 @@
+# R2-2 database integration batch a6/7 — 2026-11-05T12:15:21Z HEAD=b56c31a+dirty(R2-1+drain)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 <12 files a6>
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/runtime-admin-release-rehearsal.integration.test.ts (1 test) 10046ms
+   ✓ 0066 备份可恢复，0067/0068 保留管理员历史引用且归档后禁止回退  10046ms
+ ✓ src/__tests-integration__/runtime-admin-migrations.integration.test.ts (1 test) 12016ms
+   ✓ 0067/0068 运行保障与管理员迁移 > 补齐历史异常资源，并阻止存在已清理管理员时回退  12016ms
+ ✓ src/__tests-integration__/runtime-assurance-foundation.integration.test.ts (1 test) 10871ms
+   ✓ RA-W01 0030 运行保障底座迁移 > 空库升级、依次回滚 0031/0030、重升后 Schema 指纹一致  7090ms
+ ✓ src/__tests-integration__/w20-final-migration.integration.test.ts (2 tests) 18770ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 同一 1.0 数据可升级、重建派生聚合、允许条件下 down 并再次升级  11618ms
+   ✓ W20-10 0045 到 0051 升级、回退与读模型重建 > 0053 已有期初余额事实时拒绝破坏性回退  3075ms
+ ✓ src/__tests-integration__/usage-aggregate.integration.test.ts (7 tests) 10863ms
+   ✓ W20-04 UsageAggregateRepository > 纽约 DST 回拨保留两个 01 时桶，春季自然日只有 23 个小时桶  723ms
+   ✓ W20-04 UsageAggregateRepository > 定时保鲜当前空小时，每日补算范围同时产生 HOUR/DAY 空桶水位  472ms
+ ✓ src/__tests-integration__/usage-cost-disposition-read.integration.test.ts (4 tests) 5776ms
+   ✓ cost disposition read overlays > excludes an exact unrecorded cancelled row across views without overwriting its original facts  538ms
+   ✓ cost disposition read overlays > leaves unhandled unknown lines and their department gaps visible  514ms
+ ✓ src/__tests-integration__/standard-home.integration.test.ts (15 tests) 14288ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > 四指标、同期窗口与资源区聚合按口径返回  5676ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C2 F-B：financeRead=true 时同期费用走资金读模型口径并透传缺口  333ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > 费用MTD分子分母都截到同一时刻，查询不写历史账本  660ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > R01-F02：同期 Token 质量与未知数进入契约（分母不完整可见）  648ms
+   ✓ 标准版首页聚合（getStandardHomeSummary） > V14-C4 G02b：countFinanceGaps 六缺口码正/反控制（数据级定向故障注入）  321ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 14324ms
+   ✓ migration up/down/up is reversible before instructions or system facts exist  1165ms
+   ✓ due-time creation is atomic, concurrent/repeated ticks create one record, and reports update automatically  553ms
+   ✓ cancellation keeps existing periods and money, blocks later renewal and is not undone by replay  893ms
+   ✓ scheduled catch-up persists missed periods, skips cancelled resources and never bypasses closed months  475ms
+   ✓ August registered Kimi and Zhipu fees appear in history, August totals and procurement without September duplicates  692ms
+   ✓ new other-provider plan persists opt-out, then opt-in runs scheduler, history and procurement once, cancellation stops it  681ms
+ ✓ src/__tests-integration__/usage-repository.integration.test.ts (5 tests) 5881ms
+ ✓ src/__tests-integration__/subscription-link-repair.integration.test.ts (4 tests) 5876ms
+ ✓ src/__tests-integration__/w17-reconciliation.test.ts (4 tests) 4463ms
+ ✓ src/__tests-integration__/usage-overview.integration.test.ts (15 tests) 7964ms
+   ✓ W20-04 UsageOverviewRepository > 完整桶水位时实际读聚合，与 LIVE 账本的指标趋势排名一致  1452ms
+
+ Test Files  12 passed (12)
+      Tests  69 passed (69)
+   Start at  20:15:21
+   Duration  34.65s (transform 1.33s, setup 0ms, collect 8.78s, tests 121.14s, environment 2ms, prepare 781ms)
+
+EXIT_CODE=0

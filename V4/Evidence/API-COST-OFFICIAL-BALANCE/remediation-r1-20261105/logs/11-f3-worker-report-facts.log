@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests) 5286ms
+ ✓ src/reporting/__tests__/report-facts.integration.test.ts (9 tests) 6104ms
+   ✓ employee report frozen facts > initializes one current monthly account and renders separate raw/plan overage and unresolved states  378ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  13:15:44
+   Duration  9.18s (transform 1.34s, setup 0ms, collect 5.25s, tests 11.39s, environment 0ms, prepare 136ms)
+

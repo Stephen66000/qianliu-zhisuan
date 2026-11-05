@@ -25,6 +25,16 @@
 - 用例级回归累计（R2-R5）：control-api routes 5＋w04 17＋refresh/discovery/pool025 32＋CA 下游 4×2＋worker runner 4×2＋worker report-facts 11；database states 9＋forecast 5＋estimation 13＋DB 下游 83＋97＋pool010/经营分析 24；gateway 单测 19＋集成 7×2；domain 413；另有 X06 脚本复跑、0091 水位探针、A/B 四样本。合计定向回归 **约 870 用例次全绿**（精确数以各 log 为准；logs/08 有 1 个非用例性 teardown 断连 error，logs/15/16 初次误跑全套已如实留痕后定向复跑）。
 - **全量 build/回归终态复跑未在本轮执行**——验收意见 6 要求的"最终全量 build/回归证据"归 R8 总指挥复核后归档，本表不冒充。
 
+## 2b. R2 闭合记录（2026-11-05，R1 复审三类条件）
+
+| 条件 | 闭合证据 |
+|---|---|
+| C1 AT-X02 | 根治＝convergeExpiredLeases 判定改 DB 侧 now()（official-balance-refresh-repository.ts，租约/冷却/幂等合同不变）；时钟探针入档（remediation-r2-20261105/logs/r2-01，实测 skew +1.2~1.3s 且捕获宿主时钟阶跃）；skew 负向用例（DB 钟 expires_at=now()-2s 立即收敛 ACCEPTED）；目标文件三连 8/8＋全量上下文批 44/44＋db 批 12/12（logs/r2-02-{1,2,3}、r2-03）。**matrix.md X02 行终判权属验收人** |
+| C2 干净复跑 | database 单测 245/245＋集成 a1-a7 610/610 全批 exit 0（4 文件 afterAll 排空加固，WP5 先例；a1/a2 首跑 57P01 记录于复跑日志头）；容量 2 文件：W20-10 红（resourceUtilization 1540.44>1000，指标轮换震荡如实）、usage-aggregate-capacity 单跑 368.96s 过（边界状态）；gateway 31 文件全量一次 250/250 exit 0（r2-20，拼接证据替换）；根 build exit 0（r2-23，Node 引擎警告归档） |
+| C3 证据绑定 | .gitignore 加 `!V4/Evidence/**/*.log` 例外；R1 全部 31 份＋R2 全部日志随候选 SHA 入库；R1 report 提交链更正（7ceb97e 系 amend 被替换，实际链 686100f→ea45c4f→0899f04→b56c31a→R2 提交）；过时表述清理＝usage-overview-repository 两处"规则现值"注释按 F3 语义更正、WP1 合同 §1 priceBasis 行更新 |
+
+数字对照（验收人 611/613、1029.86ms）：R2-2 实测全库集成 612/613（usage-aggregate-capacity 本轮单跑通过故 +1）；W20-10 R1 轮 subjectUsage 1029.86、R2 轮 resourceUtilization 1540.44——同用例不同指标轮换触发，两轮数值均如实入档。
+
 ## 3. 附注一：受影响验收条目处置表（四阻断映射）
 
 | 条目 | 退回依据（验收意见） | 修复 | 负向/修复回归是否实际执行 | 处置 |

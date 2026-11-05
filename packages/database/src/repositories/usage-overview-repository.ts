@@ -35,8 +35,9 @@ export interface UsageOverviewMetrics {
   realTokens: string;
   apiCost: string | null;
   apiCostStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED";
-  /** S2B（R7 裁定）：窗口级"价格依据待核实"——对该窗口企业级调一次 loadApiCostEstimation，
-   *  期间计价行涉及的任一规则现值 sourceStatus='UNVERIFIED' 即 true。仅汇总级透出；
+  /** S2B（R7 裁定；语义随 R1-F3 更正）：窗口级"价格依据待核实"——对该窗口企业级调一次
+   *  loadApiCostEstimation，期间计价行依据取**结算时冻结快照** sourceStatus（F3：旧行
+   *  快照缺键归 UNVERIFIED，不读规则现值），任一 'UNVERIFIED' 即 true。仅汇总级透出；
    *  趋势点/主体排名行（Omit 排除）不拆分主体维度，apiCostStatus 五值枚举与金额口径不变。
    *  仅当 billing_rule.source_status 列存在（0093+）时产出；既有生产 schema（0093 前，
    *  如 worker 独立报表的 0091 水位）上省略该字段——旧 schema 无"核实"概念，语义是
@@ -136,9 +137,10 @@ export class UsageOverviewRepository {
     const [trend, ranking, estimation] = await Promise.all([
       this.loadTrend(input, range, facts, currentTime),
       this.loadRanking(facts, aggregate.metrics.realTokens, input.enterpriseId, range.range_end),
-      // S2B（R7）：判定源统一＝loadApiCostEstimation（WP1 合同 §1：priceBasis 为规则现值，
-      // 非冻结值）；企业级、同窗口（range 为本仓库已解析的企业时区窗口）。只读额外一次
-      // ledger_line（resource_mode='API'）＋billing_rule.source_status，不改任何聚合口径。
+      // S2B（R7；语义随 R1-F3 更正）：判定源统一＝loadApiCostEstimation（WP1 合同 §1
+      // v1.2：priceBasis 取**结算时冻结快照** sourceStatus，旧行缺键归 UNVERIFIED，
+      // 不再读规则现值）；企业级、同窗口（range 为本仓库已解析的企业时区窗口）。只读
+      // 额外一次 ledger_line（resource_mode='API'）快照键，不改任何聚合口径。
       // 兼容门（WP5）：loadApiCostEstimation 的 SQL 引用 0093 才有的 billing_rule.source_status，
       // 在既有生产 schema（0093 前，如 worker 独立报表 migrateTo 0091 水位）上会因缺列报错；
       // 先做列存在性检查（见 hasBillingRuleSourceStatusColumn），列不存在则返回 null，

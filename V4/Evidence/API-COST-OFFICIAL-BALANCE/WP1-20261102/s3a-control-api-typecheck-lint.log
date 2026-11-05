@@ -1,0 +1,5 @@
+# pnpm -C apps/control-api exec tsc -p tsconfig.json --noEmit
+EXIT=0
+
+# pnpm -C apps/control-api exec eslint src --max-warnings=0
+EXIT=0

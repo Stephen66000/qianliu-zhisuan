@@ -1,0 +1,20 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/api-cost-readers-alignment.integration.test.ts (4 tests) 5084ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 7243ms
+   ✓ three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality  366ms
+   ✓ confirmed resource renewals automatically appear once; legacy paid subscriptions are included without migration duplication  320ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  888ms
+ ✓ src/__tests-integration__/subscription-auto-renewal.integration.test.ts (10 tests) 7548ms
+   ✓ migration up/down/up is reversible before instructions or system facts exist  783ms
+   ✓ cancellation keeps existing periods and money, blocks later renewal and is not undone by replay  443ms
+   ✓ new other-provider plan persists opt-out, then opt-in runs scheduler, history and procurement once, cancellation stops it  347ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (10 tests) 8653ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  3171ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  01:30:55
+   Duration  10.83s (transform 1.26s, setup 0ms, collect 7.98s, tests 28.53s, environment 0ms, prepare 398ms)
+

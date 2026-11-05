@@ -1,0 +1,55 @@
+# R2-2 database integration batch a5/7 — 2026-11-05T12:14:07Z HEAD=b56c31a+dirty(R2-1+drain)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 <12 files a5>
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/provider-finance-usage-disposition.integration.test.ts (6 tests) 11816ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > upgrades an existing 0085 database without changing its ledger facts  2622ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > carries over the known balance after exactly four decisions while retaining every raw fact  534ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > rejects recorded costs and never lets an old decision hide a subsequently priced row  337ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > enforces immutable tenant-bound original snapshots and refuses audit-data rollback  1985ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 13408ms
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  2519ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  6280ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (3 tests) 16617ms
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  9884ms
+   ✓ provider finance cutover rehearsal > returns GO candidate only when opening, monthly and balance conservation are complete  1441ms
+   ✓ provider finance cutover rehearsal > 口径切换同事务推脏已启用账期 → 重算后归集口径更新（R05 收口项）  811ms
+ ✓ src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts (1 test) 11730ms
+   ✓ 0062 resource status event timestamp repair > uses an insert-time SQL clock and keeps the safe default after rollback  8925ms
+ ✓ src/__tests-integration__/quota-block-repository.integration.test.ts (11 tests) 10573ms
+   ✓ 0087 迁移 > 默认值正确：revision=0、block NULL、事件 incident 列 NULL  2920ms
+   ✓ 0087 迁移 > 有耗尽事实时 down 拒绝执行（计划§10）  1990ms
+   ✓ 明确耗尽故障（F2/D4） > 首次 5 小时耗尽：创建 incident、EXHAUSTED、revision 递增、事件绑定 incident  440ms
+   ✓ 额度 GET 条件提交（F4） > Kimi 双窗口正余量 → block 清空、DEGRADED、同 incident 事件关闭；旧零值不无限回溯  310ms
+ ✓ src/__tests-integration__/quota-block-transaction-faults.integration.test.ts (7 tests) 8917ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在窗口写入阶段（provider_quota_window）失败 → 整事务回滚，无部分放行  2962ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在状态迁移审计阶段（resource_status_event）失败 → 整事务回滚，无部分放行  313ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在Key 模型刷新阶段（principal_key）失败 → 整事务回滚，无部分放行  373ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在额度事件关闭阶段（availability_event）失败 → 整事务回滚，无部分放行  388ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 注入清除后同一资源可正常恢复（故障不留下毒化状态）  329ms
+   ✓ CPQW 任务2.2：与授权撤销的锁顺序核对 > 额度恢复提交与授权撤销并发交替：无死锁逃逸、无部分状态（资源锁→主体锁单向序）  911ms
+ ✓ src/__tests-integration__/provider-finance-activation-preview.integration.test.ts (5 tests) 6986ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 只读投影零写入，候选元数据仅在独立控制事务落库  2402ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 固定修复行集只包含候选时点已存在的资格行，不吸收之后新增的行  413ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > API 资源＋已定价用量＋无任何期初：纯套餐草稿预检出 GO，不因 API 资金缺口阻断（WP2-S4 / R5＋R8 / AFR-04）  341ms
+ ✓ src/__tests-integration__/provider-finance-recorded-cost-disposition.integration.test.ts (22 tests) 7431ms
+   ✓ exact server-recorded-cost decisions > excludes only the four previewed rows, preserves raw evidence, and replays without a second audit  384ms
+   ✓ owner-scoped accounting policy for future unrecorded cancellations > requires explicit policy activation, preserves all original facts, and removes false gaps across read paths  312ms
+ ✓ src/__tests-integration__/quota-pricing-configuration.test.ts (23 tests) 10378ms
+ ✓ src/__tests-integration__/provider-finance-activation-migration.integration.test.ts (6 tests) 37969ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 候选 TTL 固定 30 分钟、状态白名单不含 ACTIVATING、终态不可修改  7678ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 企业级激活幂等键唯一，且预检候选不进入资金事实表  6145ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 静默租约上限 60 分钟、审计留痕、到期自动失效且不可复活  5567ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 0094 后资源资金门禁退役：新 API 资源无 finance_state 行且立即可服务（AFR-02）  5625ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 0094 down 恢复种入触发器（正反控制），存量 finance_state 行原样保留（D4/AFR-02）  6105ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > Gateway 可服务资源不再排除存量 PENDING，存量 READY 语义不变；存在激活事实时拒绝回退  6849ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (11 tests) 6119ms
+ ✓ src/__tests-integration__/provider-finance-resource-opening.integration.test.ts (5 tests) 7990ms
+
+ Test Files  12 passed (12)
+      Tests  103 passed (103)
+   Start at  20:14:08
+   Duration  45.54s (transform 1.30s, setup 0ms, collect 12.40s, tests 149.93s, environment 1ms, prepare 806ms)
+
+EXIT_CODE=0

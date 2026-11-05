@@ -1,0 +1,28 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (9 tests) 17026ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整  565ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  2104ms
+   ✓ 经营分析真实数据链 > S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06）  451ms
+   ✓ 经营分析真实数据链 > S3c：多币种估算不混加，apiSpend 为 null 且不完整（ACE-07）  490ms
+   ✓ 经营分析真实数据链 > S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）  764ms
+   ✓ 经营分析真实数据链 > S3c：资金轨迹字段（期初/充值/实付/期末）与估算 apiSpend 并存产出  670ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均  982ms
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败  756ms
+   ✓ 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人  683ms
+ ✓ src/__tests-integration__/pool010-provider-operating.test.ts (5 tests) 19751ms
+   ✓ POOL-010 厂商资源经营快照 > 厂商购买额度与主体 Grant 分列，既有未知值不伪造 0  926ms
+   ✓ POOL-010 厂商资源经营快照 > API 预测按最新余额匹配，不把额度字段混入首页或调度比例  513ms
+   ✓ POOL-010 厂商资源经营快照 > 0025～0029 可连续回滚并重新升级  7308ms
+ ✓ src/__tests-integration__/wp3-official-balance-refresh.integration.test.ts (7 tests) 20703ms
+   ✓ 0096 官方余额手动刷新请求表（task 3.2） > down：drop 表（纯协调状态，无数据守卫）；重新 up 恢复  10730ms
+ ✓ src/__tests-integration__/wp3-operating-sync-decouple.integration.test.ts (3 tests) 23483ms
+   ✓ 0095 官方余额同步解耦（drop provider_resource_operating_sync_attempt_daily_uq） > 0095 正向/down 全链路：0094 下同日第二行被拒；0095 放开后多行可插且旧行保留；多行时 down 拒绝  11235ms
+   ✓ 0095 官方余额同步解耦（drop provider_resource_operating_sync_attempt_daily_uq） > 单行路径 down 成功：索引重建且唯一性恢复，重新 up 再次放开  4652ms
+
+ Test Files  4 passed (4)
+      Tests  24 passed (24)
+   Start at  12:48:51
+   Duration  25.77s (transform 1.21s, setup 0ms, collect 8.02s, tests 80.96s, environment 1ms, prepare 351ms)
+

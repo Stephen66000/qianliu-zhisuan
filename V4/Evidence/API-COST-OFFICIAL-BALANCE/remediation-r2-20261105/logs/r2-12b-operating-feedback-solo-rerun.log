@@ -1,0 +1,17 @@
+# R2-2 operating-feedback solo rerun (diagnose a2 real failure) — 2026-11-05T12:10:05Z HEAD=b56c31a+dirty(R2-1+drain)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 src/__tests-integration__/operating-feedback.integration.test.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 6441ms
+   ✓ three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality  359ms
+   ✓ confirmed resource renewals automatically appear once; legacy paid subscriptions are included without migration duplication  360ms
+   ✓ historical foreign-currency purchases are not guessed as RMB or hidden from annual completeness  414ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  1208ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:10:06
+   Duration  8.58s (transform 962ms, setup 0ms, collect 1.92s, tests 6.44s, environment 0ms, prepare 56ms)
+
+EXIT_CODE=0

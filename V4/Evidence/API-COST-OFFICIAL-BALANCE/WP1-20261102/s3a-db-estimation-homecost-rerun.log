@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts (5 tests) 4017ms
+ ✓ src/__tests-integration__/home-cost-comparison.integration.test.ts (15 tests) 4721ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (10 tests) 7228ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  2829ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  00:14:51
+   Duration  9.38s (transform 1.05s, setup 0ms, collect 5.54s, tests 15.97s, environment 0ms, prepare 241ms)
+

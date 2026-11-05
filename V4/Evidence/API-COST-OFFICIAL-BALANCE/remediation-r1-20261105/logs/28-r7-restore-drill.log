@@ -1,0 +1,452 @@
+[R7 15:21:08] === Step 0 前置检查 ===
++ docker_ready
+  exit=0
+[R7 15:21:08] docker daemon OK（context=colima）
+[R7 15:21:08] 发现同名演练容器残留，仅清理演练容器 wp6-r7-restore
++ docker rm -f wp6-r7-restore
+wp6-r7-restore
+  exit=0
+[R7 15:21:08] === Step 1 起隔离 Postgres 容器 wp6-r7-restore（端口 55436，digest 与先例一致） ===
++ docker run -d --name wp6-r7-restore -e POSTGRES_DB=wp6_r7_drill -e POSTGRES_USER=wp6_r7 -e POSTGRES_PASSWORD=wp6_r7_drill_only -p 127.0.0.1:55436:5432 postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+2c5c43a16a41d0ca7fe665a1ae59d72b9a9debb52f60c06807f4b6aeb915537b
+  exit=0
+[R7 15:21:11] 演练库就绪（db=wp6_r7_drill user=wp6_r7 port=55436）
+PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+[R7 15:21:11] === Step 2 候选代码 migrateToLatest（0096）＋seedDrill 同型造数 ===
++ DATABASE_URL=postgres://wp6_r7:wp6_r7_drill_only@127.0.0.1:55436/wp6_r7_drill /Users/mac/Projects/仟流智算-api-decouple/node_modules/.bin/tsx /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/r7-restore-drill-phase.ts prepare
+{
+  "executedMigrations": [
+    "0000_baseline_probe",
+    "0001_enterprise_admin_session",
+    "0002_principal",
+    "0003_principal_key",
+    "0004_principal_grant",
+    "0005_provider_resource_route",
+    "0006_operation_log",
+    "0007_gateway_request",
+    "0008_attempt_usage",
+    "0009_ledger",
+    "0010_resource_credential_lifecycle",
+    "0011_billing_rule",
+    "0012_concurrency_lease",
+    "0013_supply_forecast",
+    "0014_dispatch_policy",
+    "0015_reconciliation",
+    "0016_alert_disposition_type",
+    "0017_alert_event_and_version",
+    "0018_billing_rule_version",
+    "0019_alert_source_clear",
+    "0020_p0_billing_snapshot_and_reasoning_usage",
+    "0021_billing_rule_multi_windows",
+    "0022_principal_key_minimum_model_permissions",
+    "0023_principal_key_single_active",
+    "0024_gateway_request_idempotency",
+    "0025_principal_archive",
+    "0026_provider_resource_operating_snapshot",
+    "0027_usage_ledger_filters",
+    "0028_enterprise_reference_guards",
+    "0029_provider_quota_auto_calculation",
+    "0030_runtime_assurance_foundation",
+    "0031_gateway_stream_resilience",
+    "0032_admin_lifecycle",
+    "0033_operating_bill",
+    "0034_supply_forecast_production",
+    "0035_deployment_log",
+    "0036_provider_model_discovery",
+    "0037_client_identity",
+    "0038_employee_model_authorization_rule",
+    "0039_principal_provider_pool",
+    "0040_employee_model_rule_pool_quotas",
+    "0041_provider_quota_window",
+    "0042_alias_ql_format",
+    "0043_single_owner_rule_history",
+    "0044_operating_bill_model_identity",
+    "0045_zhipu_weekday_window_alias",
+    "0046_directory_import_foundation",
+    "0047_usage_bucket_aggregate",
+    "0048_department_cost_budget_and_purchase",
+    "0049_resource_utilization_and_procurement_review",
+    "0050_group2_policy_lifecycle",
+    "0051_pool20_operating_sync_and_closing_confirmation",
+    "0052_dispatch_restore_and_resource_utilization",
+    "0053_operating_bill_opening_balance",
+    "0054_usage_aggregate_settlement_time",
+    "0055_upstream_error_evidence",
+    "0056_resource_monthly_budget",
+    "0057_model_discovery_v12",
+    "0058_principal_grant_archive",
+    "0059_provider_finance_ledger",
+    "0060_provider_finance_legacy_cost_resolution",
+    "0061_provider_finance_audit_hardening",
+    "0062_resource_fact_reconciliation",
+    "0063_operating_snapshot_subscription_period",
+    "0064_quota_pricing_and_policy_archive",
+    "0065_principal_accounting_assignment",
+    "0066_subscription_auto_renewal",
+    "0067_admin_cleanup",
+    "0068_alert_resource_context",
+    "0069_auth_error_evidence",
+    "0070_alert_recovery_evidence",
+    "0071_enterprise_contact_details",
+    "0072_admin_roles_security",
+    "0073_credential_chat_probe",
+    "0074_runtime_notification_recipients",
+    "0075_provider_resource_archive",
+    "0076_provider_model_probe",
+    "0077_provider_model_probe_run_identity",
+    "0078_provider_model_probe_enum_checks",
+    "0079_project_allocation_relations",
+    "0080_project_allocation_compute",
+    "0081_provider_finance_activation",
+    "0082_provider_finance_candidate_draft",
+    "0083_provider_finance_resource_opening_trigger",
+    "0084_provider_finance_historical_usage_cost",
+    "0085_historical_usage_not_migrated",
+    "0086_provider_finance_usage_cost_disposition",
+    "0087_coding_plan_quota_block_state",
+    "0088_principal_key_limit_enforcement",
+    "0089_model_validation_binding",
+    "0090_report_delivery",
+    "0091_recorded_cost_accounting_policy",
+    "0092_employee_monthly_quota",
+    "0093_billing_rule_source_status",
+    "0094_retire_api_finance_pending_admission",
+    "0095_official_balance_sync_decouple",
+    "0096_official_balance_refresh_request"
+  ],
+  "migrationHeads": {
+    "byTimestamp": "0096_official_balance_refresh_request",
+    "byName": "0096_official_balance_refresh_request"
+  },
+  "fixture": {
+    "enterpriseId": "f01d5faa-0d54-449c-8d68-500c4395f923",
+    "principalId": "7051f4ae-d781-457d-af35-69b803258d8e",
+    "keyId": "4060d874-2c51-4c64-bb28-b82bb06c2dfc",
+    "grantId": "6210175e-5efa-45f9-9a8b-7f4a0bff6209",
+    "periodId": "ddd454c4-c1b4-442f-8c68-80f19d7c7cfc",
+    "providerId": "059a1676-5e89-4145-b444-f23a8f3d2d06",
+    "freshApiResourceId": "f6b15893-9207-4899-8950-b48e04e90c60",
+    "legacyPendingResourceId": "c5729763-f60f-41eb-ae08-1762bb590d76",
+    "requestId": "b5308447-cf8f-4b96-8d53-29e29335ddef",
+    "attemptId": "0af9c89e-9d9d-4e59-9d0b-a452029c8be5"
+  }
+}
+  exit=0 (pipeline)
+[R7 15:21:13] 迁移链含 0096 且水位=0096；fixture 已记录（enterprise=f01d5faa-0d54-449c-8d68-500c4395f923）
+[R7 15:21:13] === Step 3 备份点摘要（八组受保护行集 sha256＋迁移头＋kysely_migration 摘要） ===
++ DATABASE_URL=postgres://wp6_r7:wp6_r7_drill_only@127.0.0.1:55436/wp6_r7_drill /Users/mac/Projects/仟流智算-api-decouple/node_modules/.bin/tsx /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/r7-restore-drill-phase.ts digest /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/fixture.json
+[r7-digest] requests sha256=f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2 empty=false
+[r7-digest] attempts sha256=06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a empty=false
+[r7-digest] usage_events sha256=4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b empty=false
+[r7-digest] ledger_lines sha256=6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e empty=false
+[r7-digest] ledger_transactions sha256=ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93 empty=false
+[r7-digest] quota_periods sha256=fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0 empty=false
+[r7-digest] quota_usages sha256=94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98 empty=false
+[r7-digest] finance_states sha256=b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5 empty=false
+[r7-digest] head(timestamp desc)=0096_official_balance_refresh_request head(name desc)=0096_official_balance_refresh_request
+[r7-digest] kysely_migration sha256=1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3
+{
+  "migrationHeads": {
+    "byTimestamp": "0096_official_balance_refresh_request",
+    "byName": "0096_official_balance_refresh_request"
+  },
+  "protectedDigests": {
+    "requests": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+    "attempts": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+    "usage_events": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+    "ledger_lines": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+    "ledger_transactions": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+    "quota_periods": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+    "quota_usages": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+    "finance_states": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5"
+  },
+  "migrationLogDigest": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3"
+}
+  exit=0 (pipeline)
+[R7 15:21:13] 备份点八行集全部非空；迁移头双口径均=0096_official_balance_refresh_request
+[R7 15:21:13] === Step 4a 备份制品 A：pg_dump -Fc（先例同构） ===
++ docker exec wp6-r7-restore pg_dump -Fc -U wp6_r7 -d wp6_r7_drill > /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/r7-drill-fc.dump
+  exit=0
++ docker cp /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/r7-drill-fc.dump → wp6-r7-restore:/tmp/（容器内 pg_restore --list 结构校验）
+pg_restore --list OK
+[R7 15:21:14] 制品 A 大小:   627714 bytes
+[R7 15:21:14] === Step 4b 备份制品 B：pg_dump -Fp | gzip（rollback.sh 消费的 .sql.gz 同构） ===
++ docker exec wp6-r7-restore pg_dump -Fp -U wp6_r7 -d wp6_r7_drill | gzip > /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/r7-drill-full.sql.gz
+  exit=0 (pipeline, pipefail)
++ gzip -t /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/r7-drill-full.sql.gz
+  exit=0
+[R7 15:21:14] 制品 B 大小:    53463 bytes；gzip -t 通过
+[R7 15:21:14] === Step 5 破坏性模拟：写入备份后新增数据（备份点之外） ===
++ DATABASE_URL=postgres://wp6_r7:wp6_r7_drill_only@127.0.0.1:55436/wp6_r7_drill /Users/mac/Projects/仟流智算-api-decouple/node_modules/.bin/tsx /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/r7-restore-drill-phase.ts mutate /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/fixture.json
+[r7-mutate] inserted provider_resource id=98a8b020-fc8d-414c-8930-8a9d814a609e
+[r7-mutate] inserted ai_request id=e2dde9a4-6ebf-4395-a30e-66a5c8cd0e79
+{
+  "providerResourceId": "98a8b020-fc8d-414c-8930-8a9d814a609e",
+  "providerResourceName": "R7 备份后新增资源（恢复后必须消失）",
+  "requestId": "e2dde9a4-6ebf-4395-a30e-66a5c8cd0e79"
+}
+  exit=0 (pipeline)
+[R7 15:21:15] 备份后新增数据已确认在库：provider_resource id=98a8b020-fc8d-414c-8930-8a9d814a609e（count=1）、ai_request id=e2dde9a4-6ebf-4395-a30e-66a5c8cd0e79（count=1）
+[R7 15:21:15] === Step 6 恢复路线 A（rollback.sh 模式）：dropdb --force＋createdb → gunzip | psql ===
++ pexec 'dropdb --if-exists --force ...; createdb ...'（演练隔离容器内）
+  exit=0
++ gunzip -c /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/r7-drill-full.sql.gz | docker exec -i wp6-r7-restore psql -v ON_ERROR_STOP=1 ...
+  exit=0 (pipeline, pipefail)；psql 输出行数:     1229
++ DATABASE_URL=postgres://wp6_r7:wp6_r7_drill_only@127.0.0.1:55436/wp6_r7_drill /Users/mac/Projects/仟流智算-api-decouple/node_modules/.bin/tsx /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/r7-restore-drill-phase.ts verify /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/fixture.json /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/baseline.json /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/mutation.json
+[r7-verify] PASS migration_head_rollback_sh_timestamp_desc expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS migration_head_by_name_desc expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS migration_head_is_0096 expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS protected_set_verbatim:requests expected="f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2" actual="f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2"
+[r7-verify] PASS protected_set_verbatim:attempts expected="06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a" actual="06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a"
+[r7-verify] PASS protected_set_verbatim:usage_events expected="4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b" actual="4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b"
+[r7-verify] PASS protected_set_verbatim:ledger_lines expected="6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e" actual="6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e"
+[r7-verify] PASS protected_set_verbatim:ledger_transactions expected="ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93" actual="ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93"
+[r7-verify] PASS protected_set_verbatim:quota_periods expected="fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0" actual="fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0"
+[r7-verify] PASS protected_set_verbatim:quota_usages expected="94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98" actual="94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98"
+[r7-verify] PASS protected_set_verbatim:finance_states expected="b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5" actual="b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5"
+[r7-verify] PASS post_backup_provider_resource_absent expected="0" actual="0"
+[r7-verify] PASS post_backup_ai_request_absent expected="0" actual="0"
+[r7-verify] PASS kysely_migration_log_verbatim expected="1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3" actual="1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3"
+[r7-verify] allPass=true
+{
+  "migrationHeads": {
+    "byTimestamp": "0096_official_balance_refresh_request",
+    "byName": "0096_official_balance_refresh_request"
+  },
+  "protectedDigests": {
+    "requests": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+    "attempts": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+    "usage_events": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+    "ledger_lines": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+    "ledger_transactions": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+    "quota_periods": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+    "quota_usages": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+    "finance_states": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5"
+  },
+  "migrationLogDigest": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+  "checks": [
+    {
+      "check": "migration_head_rollback_sh_timestamp_desc",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "migration_head_by_name_desc",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "migration_head_is_0096",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:requests",
+      "expected": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+      "actual": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:attempts",
+      "expected": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+      "actual": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:usage_events",
+      "expected": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+      "actual": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:ledger_lines",
+      "expected": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+      "actual": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:ledger_transactions",
+      "expected": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+      "actual": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:quota_periods",
+      "expected": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+      "actual": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:quota_usages",
+      "expected": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+      "actual": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:finance_states",
+      "expected": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+      "actual": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+      "pass": true
+    },
+    {
+      "check": "post_backup_provider_resource_absent",
+      "expected": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "check": "post_backup_ai_request_absent",
+      "expected": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "check": "kysely_migration_log_verbatim",
+      "expected": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+      "actual": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+      "pass": true
+    }
+  ],
+  "allPass": true
+}
+  verify exit=0
+[R7 15:21:17] === Step 7 恢复路线 B（-Fc）：重复破坏（dropdb --force＋createdb）→ pg_restore ===
++ pexec 'dropdb --if-exists --force ...; createdb ...'（再次破坏到空库）
+  exit=0
++ docker exec wp6-r7-restore pg_restore --exit-on-error -U wp6_r7 -d wp6_r7_drill /tmp/r7-drill-fc.dump
+pg_restore OK
++ DATABASE_URL=postgres://wp6_r7:wp6_r7_drill_only@127.0.0.1:55436/wp6_r7_drill /Users/mac/Projects/仟流智算-api-decouple/node_modules/.bin/tsx /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/r7-restore-drill-phase.ts verify /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/fixture.json /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/baseline.json /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/mutation.json
+[r7-verify] PASS migration_head_rollback_sh_timestamp_desc expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS migration_head_by_name_desc expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS migration_head_is_0096 expected="0096_official_balance_refresh_request" actual="0096_official_balance_refresh_request"
+[r7-verify] PASS protected_set_verbatim:requests expected="f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2" actual="f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2"
+[r7-verify] PASS protected_set_verbatim:attempts expected="06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a" actual="06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a"
+[r7-verify] PASS protected_set_verbatim:usage_events expected="4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b" actual="4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b"
+[r7-verify] PASS protected_set_verbatim:ledger_lines expected="6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e" actual="6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e"
+[r7-verify] PASS protected_set_verbatim:ledger_transactions expected="ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93" actual="ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93"
+[r7-verify] PASS protected_set_verbatim:quota_periods expected="fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0" actual="fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0"
+[r7-verify] PASS protected_set_verbatim:quota_usages expected="94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98" actual="94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98"
+[r7-verify] PASS protected_set_verbatim:finance_states expected="b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5" actual="b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5"
+[r7-verify] PASS post_backup_provider_resource_absent expected="0" actual="0"
+[r7-verify] PASS post_backup_ai_request_absent expected="0" actual="0"
+[r7-verify] PASS kysely_migration_log_verbatim expected="1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3" actual="1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3"
+[r7-verify] allPass=true
+{
+  "migrationHeads": {
+    "byTimestamp": "0096_official_balance_refresh_request",
+    "byName": "0096_official_balance_refresh_request"
+  },
+  "protectedDigests": {
+    "requests": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+    "attempts": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+    "usage_events": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+    "ledger_lines": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+    "ledger_transactions": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+    "quota_periods": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+    "quota_usages": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+    "finance_states": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5"
+  },
+  "migrationLogDigest": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+  "checks": [
+    {
+      "check": "migration_head_rollback_sh_timestamp_desc",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "migration_head_by_name_desc",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "migration_head_is_0096",
+      "expected": "0096_official_balance_refresh_request",
+      "actual": "0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:requests",
+      "expected": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+      "actual": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:attempts",
+      "expected": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+      "actual": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:usage_events",
+      "expected": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+      "actual": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:ledger_lines",
+      "expected": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+      "actual": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:ledger_transactions",
+      "expected": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+      "actual": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:quota_periods",
+      "expected": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+      "actual": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:quota_usages",
+      "expected": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+      "actual": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+      "pass": true
+    },
+    {
+      "check": "protected_set_verbatim:finance_states",
+      "expected": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+      "actual": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+      "pass": true
+    },
+    {
+      "check": "post_backup_provider_resource_absent",
+      "expected": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "check": "post_backup_ai_request_absent",
+      "expected": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "check": "kysely_migration_log_verbatim",
+      "expected": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+      "actual": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+      "pass": true
+    }
+  ],
+  "allPass": true
+}
+  verify exit=0
+[R7 15:21:18] === Step 8 制品移入证据目录＋容器保留（0096 恢复态） ===
+[R7 15:21:18] 制品与 JSON 已复制到 /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/backups
+[R7 15:21:18] 结构化结果: /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/logs/28-r7-restore-drill-result.json
+[R7 15:21:18] 结束状态：容器 wp6-r7-restore 保留（docker ps 如下）
++ docker ps --filter name=wp6-r7-restore --format {{.Names}} {{.Image}} {{.Status}} {{.Ports}}
+wp6-r7-restore postgres:17-alpine Up 10 seconds 127.0.0.1:55436->5432/tcp
+  exit=0
+[R7 15:21:19] 最终迁移头（容器内 rollback.sh 口径）: 0096_official_balance_refresh_request
+[R7 15:21:19] work dir 保留于: /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA
+[R7] RESULT=PASS
+[R7] work dir kept: /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA

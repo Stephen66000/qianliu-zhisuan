@@ -1,0 +1,80 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (9 tests) 26804ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整  676ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  2375ms
+   ✓ 经营分析真实数据链 > S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06）  727ms
+   ✓ 经营分析真实数据链 > S3c：多币种估算不混加，apiSpend 为 null 且不完整（ACE-07）  778ms
+   ✓ 经营分析真实数据链 > S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）  845ms
+   ✓ 经营分析真实数据链 > S3c：资金轨迹字段（期初/充值/实付/期末）与估算 apiSpend 并存产出  880ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均  1221ms
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败  1101ms
+   ✓ 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人  846ms
+ ✓ src/__tests-integration__/finance-period-cost-integrity.integration.test.ts (12 tests) 29420ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > preserves explicit CNY zero in October and historical balance gaps without fabricating carryover  1337ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > fails closed for an actual October unknown expense and retains its known part  3395ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > renders an established zero-cost currency even when all balance facts are normal  435ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > uses the same unknown and currency rules in expense projection and finance summaries  705ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > keeps August expenses unknown when an account was only opened in September  1327ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > does not turn NOT_MIGRATED into zero without a matching resource and period cost total  1413ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > does not manufacture September zero from a future October opening account  379ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > keeps a priced CNY 7 expense complete even when that account has no opening  420ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > keeps a priced CNY 0 expense complete even when that account has no opening  360ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > does not let a CNY aggregate cover currency-less imported usage when a USD account also exists  1241ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > preserves NOT_MIGRATED as unknown when no aggregate exists  1469ms
+   ✓ monthly expenses remain independent of accumulated balance uncertainty > uses a covering historical total once and does not apply it to an earlier comparison window  1539ms
+ ✓ src/__tests-integration__/exception-center-contract.integration.test.ts (55 tests) 33974ms
+   ✓ F01 retains failed sync history before the first visit and separates recurrence  639ms
+   ✓ F03 uses the triggering request month and keeps the observation clock separate  443ms
+   ✓ absence, normal resource state and unrelated model successes cannot turn observations green; matching success can  386ms
+   ✓ recovery follows stable model identity across renames and never accepts a recycled alias  303ms
+   ✓ background failure is recovered only by a later completed task, not by opening the page  353ms
+   ✓ late failures cannot lower the recovery barrier, and request completion orders long requests  707ms
+   ✓ planned runtime blocks are excluded from new and historical faults without hiding upstream blocks or cross-tenant uncertainty  316ms
+   ✓ refuses successful-looking recovery when block evidence is invalid  337ms
+   ✓ concurrent observation writers retain the earliest occurrence and latest completion  303ms
+   ✓ migration 0070 refuses rollback once any real recovery evidence exists  12382ms
+   ✓ legacy request records are refreshed without duplicate facts, while note length and handler identity remain enforced  373ms
+ ✓ src/__tests-integration__/home-cost-comparison.integration.test.ts (15 tests) 20958ms
+   ✓ cash expense comparison and persisted subscription attribution > a unique paid period removes only the cash gap; strict attribution still requires a stored link  932ms
+   ✓ cash expense comparison and persisted subscription attribution > adjacent periods use an exclusive end; paid August carryover adds no September cash  311ms
+   ✓ cash expense comparison and persisted subscription attribution > overlap is a real gap even when both periods are paid and one is linked  305ms
+   ✓ cash expense comparison and persisted subscription attribution > late historical API aggregate does not close a shorter comparison, and monthly/home facts agree  1579ms
+   ✓ cash expense comparison and persisted subscription attribution > read-only repair proposal fixes exact IDs and detects line/period drift, including ambiguous matches  394ms
+   ✓ cash expense comparison and persisted subscription attribution > rehearses fixed-row links, verifies unchanged amounts/non-target fields, and rolls the transaction back  348ms
+ ✓ src/__tests-integration__/operating-feedback.integration.test.ts (8 tests) 23998ms
+   ✓ three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality  1323ms
+   ✓ confirmed resource renewals automatically appear once; legacy paid subscriptions are included without migration duplication  1286ms
+   ✓ saved project owner/department automatically classify missing historical usage without writing attribution snapshots  506ms
+   ✓ automatic saved rules preserve known historical attribution and tenant boundaries  446ms
+   ✓ system-synced paid subscription renewal automatically enters monthly procurement with its real source  873ms
+   ✓ historical foreign-currency purchases are not guessed as RMB or hidden from annual completeness  475ms
+   ✓ failed zero-consumption API record cannot hide known spending; a real unpriced response preserves the known subtotal  5218ms
+ ✓ src/__tests-integration__/model-probe-migration.test.ts (3 tests) 55470ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 加法迁移可应用/回滚，探针证据按 request_hash 幂等且随凭证指纹失效  27595ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 0077 run 身份原子化：同 idempotency_key 并发写入恰一条 run，item 不重复，写入错误不再静默  14051ms
+   ✓ 0076 provider_model_probe 迁移与探针证据 > 终审整改三：0077 预检 fail-closed——存在重复 run 时拒绝执行且证据零损失  13822ms
+ ✓ src/__tests-integration__/operating-snapshot-subscription-period-migration.integration.test.ts (1 test) 27949ms
+   ✓ 0063 operating snapshot subscription period binding > 只允许额度配置关联同企业同资源的订阅周期  19864ms
+ ✓ src/__tests-integration__/kimi-allocation-migration.integration.test.ts (1 test) 17198ms
+   ✓ UAT Kimi 0078 已应用且有探针证据时，归集 0079/0080 顺序升级并保留证据  17198ms
+ ✓ src/__tests-integration__/migration.integration.test.ts (7 tests) 18257ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > migrateToLatest 建表（含 schema_migrations 与 _w01_baseline_probe）  6490ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > migrateDown 回滚最近迁移  639ms
+   ✓ Kysely 迁移框架（PG17 Testcontainer） > 再次 migrateToLatest 幂等重建  572ms
+ ✓ src/__tests-integration__/operating-bill-resource-scope.integration.test.ts (5 tests) 19301ms
+   ✓ operating bill resource scope > keeps the pre-archive month and excludes empty later months for resource or provider archives  1957ms
+   ✓ operating bill resource scope > retains archived resources with real monthly usage and its cost  506ms
+   ✓ operating bill resource scope > carries both zero and nonzero financial accounts after resource and provider archives  606ms
+   ✓ operating bill resource scope > retains monthly purchase and subscription payment facts even without API accounts  660ms
+   ✓ operating bill resource scope > preserves legacy zero balance evidence without turning it into a finance opening  660ms
+ ✓ src/__tests-integration__/gateway-compat-cost-status.integration.test.ts (8 tests) 18543ms
+ ✓ src/__tests-integration__/gateway-zero-priced-cost-status.integration.test.ts (2 tests) 4675ms
+
+ Test Files  12 passed (12)
+      Tests  126 passed (126)
+   Start at  16:48:58
+   Duration  83.21s (transform 1.91s, setup 0ms, collect 18.00s, tests 296.55s, environment 2ms, prepare 1.19s)
+
+EXIT_CODE=0

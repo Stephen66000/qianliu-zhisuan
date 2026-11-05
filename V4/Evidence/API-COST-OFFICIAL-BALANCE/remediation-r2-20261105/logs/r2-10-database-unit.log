@@ -1,0 +1,46 @@
+# R2-2 database unit full — 2026-11-05T12:03:53Z HEAD=b56c31a+dirty(R2-1)
+# cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec vitest run --config ../../vitest.config.ts --maxWorkers=4 src/repositories src/cli
+# node v22.17.1 pnpm 11.11.0
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/repositories/monthly-operating-cost.test.ts (18 tests) 16ms
+ ✓ src/cli/provider-finance-activate.test.ts (1 test) 300ms
+ ✓ src/repositories/principal-access-config-repository.mutation.test.ts (6 tests) 18ms
+ ✓ src/repositories/pool039-repositories.mutation.test.ts (10 tests) 17ms
+ ✓ src/repositories/employee-model-rule-repository.mutation.test.ts (11 tests) 10ms
+ ✓ src/repositories/dashboard-home-providers.test.ts (18 tests) 19ms
+ ✓ src/repositories/gateway-ledger-settlement-quality.test.ts (15 tests) 20ms
+ ✓ src/repositories/principal-access-locks.mutation.test.ts (3 tests) 12ms
+ ✓ src/repositories/operating-bill-account-aggregate.test.ts (22 tests) 8ms
+ ✓ src/repositories/dashboard-overages.mutation.test.ts (4 tests) 12ms
+ ✓ src/repositories/dashboard-monthly-spend.test.ts (3 tests) 4ms
+ ✓ src/repositories/employee-model-rule-lifecycle.mutation.test.ts (5 tests) 7ms
+ ✓ src/repositories/principal-access-quota-view.test.ts (4 tests) 3ms
+ ✓ src/repositories/subscription-renewal-calendar.test.ts (7 tests) 3ms
+ ✓ src/repositories/dispatch-policy-clone.test.ts (4 tests) 2ms
+ ✓ src/repositories/operating-bill-monthly-cost.test.ts (5 tests) 3ms
+ ✓ src/repositories/gateway-ledger-cost-status.test.ts (13 tests) 4ms
+ ✓ src/repositories/pricing-set-validation.test.ts (17 tests) 4ms
+ ✓ src/repositories/employee-model-authorization-policy.test.ts (4 tests) 2ms
+ ✓ src/repositories/usage-quality.test.ts (2 tests) 2ms
+ ✓ src/repositories/gateway-ledger-terminal-contract.test.ts (17 tests) 4ms
+ ✓ src/repositories/operating-bill-cost-quality.test.ts (5 tests) 3ms
+ ✓ src/repositories/operating-bill-concurrency.test.ts (7 tests) 4ms
+ ✓ src/repositories/provider-operating.test.ts (4 tests) 3ms
+ ✓ src/repositories/provider-finance-resource-enablement.test.ts (6 tests) 3ms
+ ✓ src/repositories/principal-access-read-model.mutation.test.ts (4 tests) 3ms
+ ✓ src/repositories/dashboard-home-costs.test.ts (8 tests) 3ms
+ ✓ src/repositories/provider-finance-gaps.test.ts (1 test) 2ms
+ ✓ src/repositories/dashboard-home.test.ts (9 tests) 3ms
+ ✓ src/repositories/operating-bill-write-barrier.test.ts (1 test) 2ms
+ ✓ src/repositories/department-cost-evidence.test.ts (1 test) 2ms
+ ✓ src/cli/provider-finance-preflight-policy.test.ts (5 tests) 2ms
+ ✓ src/repositories/principal-access-config-repository.test.ts (5 tests) 2ms
+
+ Test Files  33 passed (33)
+      Tests  245 passed (245)
+   Start at  20:03:54
+   Duration  2.87s (transform 1.03s, setup 0ms, collect 4.13s, tests 501ms, environment 4ms, prepare 2.12s)
+
+EXIT_CODE=0

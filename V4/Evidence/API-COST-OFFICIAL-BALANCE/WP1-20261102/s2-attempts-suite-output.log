@@ -1,0 +1,11 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts (5 tests) 3316ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  23:05:26
+   Duration  5.76s (transform 1.01s, setup 0ms, collect 2.10s, tests 3.32s, environment 0ms, prepare 72ms)
+

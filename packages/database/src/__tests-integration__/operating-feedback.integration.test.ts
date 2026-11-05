@@ -7,7 +7,12 @@ import { createAnalysisFixture, seedAnalysisUsage } from "./fixtures/operating-a
 let pg: PostgresTestInstance;
 let db: ReturnType<typeof createKysely>;
 beforeAll(async () => { pg = await startPostgresContainer(); db = createKysely(pg.connectionString); await migrateToLatest(db); }, 120000);
-afterAll(async () => { await db?.destroy(); await pg?.stop(); });
+afterAll(async () => { await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1
+  // （R2-2 干净复跑 a2 批实测，见 r2-12 日志）。
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await pg?.stop(); });
 const now = new Date("2026-09-07T00:00:00Z");
 
 it("three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality", async () => {

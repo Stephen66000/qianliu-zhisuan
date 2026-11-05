@@ -1,0 +1,9 @@
+# git rev-parse HEAD
+62f12de58dff44065399e9cf8ac99faf217809f3
+62f12de58dff44065399e9cf8ac99faf217809f3
+
+# pnpm -C packages/database exec tsc -p tsconfig.json --noEmit
+EXIT=0
+
+# pnpm -C packages/database exec eslint src --max-warnings=0
+EXIT=0

@@ -1,0 +1,218 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+{"level":30,"time":1793726653201,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653239,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":37.65545800000018,"msg":"request completed"}
+{"level":30,"time":1793726653240,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653260,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":19.94537500000024,"msg":"request completed"}
+{"level":30,"time":1793726653260,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/auth/me","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653267,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":6.323582999999417,"msg":"request completed"}
+{"level":30,"time":1793726653267,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653267,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":401},"responseTime":0.3133749999997235,"msg":"request completed"}
+{"level":30,"time":1793726653268,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653269,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":401},"responseTime":1.0797499999998763,"msg":"request completed"}
+{"level":30,"time":1793726653269,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653275,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":200},"responseTime":6.441000000000713,"msg":"request completed"}
+{"level":30,"time":1793726653277,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653283,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":200},"responseTime":6.7681249999996,"msg":"request completed"}
+{"level":30,"time":1793726653284,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653294,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":201},"responseTime":9.804082999999991,"msg":"request completed"}
+{"level":30,"time":1793726653295,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653339,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":200},"responseTime":43.80933300000015,"msg":"request completed"}
+{"level":30,"time":1793726653339,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653343,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":200},"responseTime":4.462791999999354,"msg":"request completed"}
+{"level":30,"time":1793726653379,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653386,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":409},"responseTime":6.8840000000000146,"msg":"request completed"}
+{"level":30,"time":1793726653386,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653390,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":400},"responseTime":3.4757079999999405,"msg":"request completed"}
+{"level":30,"time":1793726653390,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653393,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":400},"responseTime":2.6762909999997646,"msg":"request completed"}
+{"level":30,"time":1793726653393,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653395,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":400},"responseTime":2.465291000000434,"msg":"request completed"}
+{"level":30,"time":1793726653395,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653399,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":400},"responseTime":3.2339169999995647,"msg":"request completed"}
+{"level":30,"time":1793726653399,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653402,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":400},"responseTime":3.2359999999998763,"msg":"request completed"}
+{"level":30,"time":1793726653402,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653405,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":400},"responseTime":3.0460000000002765,"msg":"request completed"}
+{"level":30,"time":1793726653406,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653409,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":400},"responseTime":3.146082999999635,"msg":"request completed"}
+{"level":30,"time":1793726653409,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653413,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":400},"responseTime":3.5843340000001263,"msg":"request completed"}
+{"level":30,"time":1793726653413,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653416,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":400},"responseTime":2.936208999999508,"msg":"request completed"}
+{"level":30,"time":1793726653417,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653418,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":403},"responseTime":1.4449580000000424,"msg":"request completed"}
+{"level":30,"time":1793726653418,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653424,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":201},"responseTime":5.746167000000241,"msg":"request completed"}
+{"level":30,"time":1793726653424,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-n","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653429,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-n","res":{"statusCode":409},"responseTime":4.9375,"msg":"request completed"}
+{"level":30,"time":1793726653430,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-o","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653434,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-o","res":{"statusCode":201},"responseTime":4.407708000000639,"msg":"request completed"}
+{"level":30,"time":1793726653434,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-p","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653468,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-p","res":{"statusCode":200},"responseTime":33.77412499999991,"msg":"request completed"}
+{"level":30,"time":1793726653497,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-q","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653500,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-q","res":{"statusCode":201},"responseTime":3.258875000000444,"msg":"request completed"}
+{"level":30,"time":1793726653502,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-r","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653507,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-r","res":{"statusCode":409},"responseTime":4.596833999999944,"msg":"request completed"}
+{"level":30,"time":1793726653537,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-s","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653541,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-s","res":{"statusCode":201},"responseTime":4.256583000000319,"msg":"request completed"}
+{"level":30,"time":1793726653542,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-t","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653568,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-t","res":{"statusCode":200},"responseTime":25.902415999999903,"msg":"request completed"}
+{"level":30,"time":1793726653568,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-u","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653570,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-u","res":{"statusCode":400},"responseTime":2.6091250000008586,"msg":"request completed"}
+{"level":30,"time":1793726653571,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-v","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653573,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-v","res":{"statusCode":400},"responseTime":1.9170420000000377,"msg":"request completed"}
+{"level":30,"time":1793726653573,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-w","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653615,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-w","res":{"statusCode":200},"responseTime":41.793249999999716,"msg":"request completed"}
+{"level":30,"time":1793726653615,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-x","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653618,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-x","res":{"statusCode":200},"responseTime":3.2135419999995065,"msg":"request completed"}
+{"level":30,"time":1793726653618,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-y","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653622,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-y","res":{"statusCode":409},"responseTime":3.983041999999841,"msg":"request completed"}
+{"level":30,"time":1793726653624,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-z","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653629,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-z","res":{"statusCode":200},"responseTime":4.381207999999788,"msg":"request completed"}
+{"level":30,"time":1793726653663,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-10","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653666,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-10","res":{"statusCode":201},"responseTime":3.8386669999999867,"msg":"request completed"}
+{"level":30,"time":1793726653667,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-11","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653694,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-11","res":{"statusCode":200},"responseTime":27.588542000000416,"msg":"request completed"}
+{"level":30,"time":1793726653694,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-12","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653734,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-12","res":{"statusCode":200},"responseTime":39.29783300000054,"msg":"request completed"}
+{"level":30,"time":1793726653734,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-13","req":{"method":"POST","url":"/provider-resources/919eda3d-ab2b-40f3-a49f-cca8bae24a98/finance/subscriptions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653737,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-13","res":{"statusCode":400},"responseTime":3.2530420000002778,"msg":"request completed"}
+{"level":30,"time":1793726653774,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-14","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653778,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-14","res":{"statusCode":409},"responseTime":4.145708999999442,"msg":"request completed"}
+{"level":30,"time":1793726653837,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-15","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653840,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-15","res":{"statusCode":201},"responseTime":3.4068749999996726,"msg":"request completed"}
+{"level":30,"time":1793726653840,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-16","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653863,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-16","res":{"statusCode":200},"responseTime":22.32666700000027,"msg":"request completed"}
+{"level":30,"time":1793726653863,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-17","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653867,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-17","res":{"statusCode":201},"responseTime":3.9121249999998327,"msg":"request completed"}
+{"level":30,"time":1793726653867,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-18","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653871,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-18","res":{"statusCode":404},"responseTime":3.8041250000005675,"msg":"request completed"}
+{"level":30,"time":1793726653871,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-19","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653876,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-19","res":{"statusCode":409},"responseTime":4.645416000000296,"msg":"request completed"}
+{"level":30,"time":1793726653876,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1a","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653879,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1a","res":{"statusCode":200},"responseTime":2.838332999999693,"msg":"request completed"}
+{"level":30,"time":1793726653908,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1b","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653912,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1b","res":{"statusCode":404},"responseTime":4.426166999999623,"msg":"request completed"}
+{"level":30,"time":1793726653913,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1c","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653917,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1c","res":{"statusCode":409},"responseTime":4.477125000000342,"msg":"request completed"}
+{"level":30,"time":1793726653946,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1d","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653950,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1d","res":{"statusCode":409},"responseTime":4.071333999999297,"msg":"request completed"}
+{"level":30,"time":1793726653977,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1e","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726653981,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1e","res":{"statusCode":201},"responseTime":3.312249999999949,"msg":"request completed"}
+{"level":30,"time":1793726653981,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1f","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654001,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1f","res":{"statusCode":200},"responseTime":20.20470899999964,"msg":"request completed"}
+{"level":30,"time":1793726654001,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1g","req":{"method":"POST","url":"/provider-finance/activation-quiescence/release","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654006,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1g","res":{"statusCode":200},"responseTime":4.148708999999144,"msg":"request completed"}
+{"level":30,"time":1793726654006,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1h","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654013,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1h","res":{"statusCode":409},"responseTime":7.607916999999361,"msg":"request completed"}
+{"level":30,"time":1793726654014,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1i","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654017,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1i","res":{"statusCode":201},"responseTime":2.553584000000228,"msg":"request completed"}
+{"level":30,"time":1793726654017,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1j","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654056,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1j","res":{"statusCode":200},"responseTime":38.664084,"msg":"request completed"}
+{"level":30,"time":1793726654086,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1k","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654090,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1k","res":{"statusCode":201},"responseTime":3.2093749999994543,"msg":"request completed"}
+{"level":30,"time":1793726654090,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1l","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654112,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1l","res":{"statusCode":200},"responseTime":22.408000000000357,"msg":"request completed"}
+{"level":30,"time":1793726654128,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1m","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654154,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1m","res":{"statusCode":409},"responseTime":25.87474999999995,"msg":"request completed"}
+{"level":30,"time":1793726654186,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1n","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654189,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1n","res":{"statusCode":201},"responseTime":3.035707999999431,"msg":"request completed"}
+{"level":30,"time":1793726654189,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1o","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654211,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1o","res":{"statusCode":200},"responseTime":22.112417000000278,"msg":"request completed"}
+{"level":30,"time":1793726654212,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1p","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654218,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1p","res":{"statusCode":409},"responseTime":5.896958000000268,"msg":"request completed"}
+{"level":30,"time":1793726654219,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1q","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654255,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1q","res":{"statusCode":200},"responseTime":35.901082999999744,"msg":"request completed"}
+{"level":30,"time":1793726654255,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1r","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654260,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1r","res":{"statusCode":409},"responseTime":4.974500000000262,"msg":"request completed"}
+{"level":30,"time":1793726654290,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1s","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654293,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1s","res":{"statusCode":201},"responseTime":2.9251249999997526,"msg":"request completed"}
+{"level":30,"time":1793726654293,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1t","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654314,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1t","res":{"statusCode":200},"responseTime":20.990749999999935,"msg":"request completed"}
+{"level":30,"time":1793726654316,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1u","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654352,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1u","res":{"statusCode":409},"responseTime":36.454499999999825,"msg":"request completed"}
+{"level":30,"time":1793726654356,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1v","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654392,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1v","res":{"statusCode":200},"responseTime":35.96583399999963,"msg":"request completed"}
+{"level":30,"time":1793726654420,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1w","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654423,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1w","res":{"statusCode":201},"responseTime":2.935290999999779,"msg":"request completed"}
+{"level":30,"time":1793726654423,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1x","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654425,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1x","res":{"statusCode":400},"responseTime":2.1480000000001382,"msg":"request completed"}
+{"level":30,"time":1793726654426,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1y","req":{"method":"GET","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654430,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1y","res":{"statusCode":200},"responseTime":4.186792000000423,"msg":"request completed"}
+{"level":30,"time":1793726654430,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1z","req":{"method":"POST","url":"/provider-finance/activation-quiescence/release","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654432,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1z","res":{"statusCode":400},"responseTime":1.6654170000001614,"msg":"request completed"}
+{"level":30,"time":1793726654432,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-20","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654433,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-20","res":{"statusCode":403},"responseTime":1.1354999999994106,"msg":"request completed"}
+{"level":30,"time":1793726654433,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-21","req":{"method":"POST","url":"/provider-finance/activation-quiescence/release","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654436,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-21","res":{"statusCode":200},"responseTime":2.95837500000016,"msg":"request completed"}
+{"level":30,"time":1793726654436,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-22","req":{"method":"GET","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654439,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-22","res":{"statusCode":200},"responseTime":2.6389170000002196,"msg":"request completed"}
+{"level":30,"time":1793726654487,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654494,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":7.5503749999998035,"msg":"request completed"}
+{"level":30,"time":1793726654495,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654498,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":2.985874999999396,"msg":"request completed"}
+{"level":30,"time":1793726654498,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"POST","url":"/provider-finance/activation-preview","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654501,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":409},"responseTime":3.036250000000109,"msg":"request completed"}
+{"level":30,"time":1793726654501,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"POST","url":"/provider-finance/activate","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654502,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":404},"responseTime":1.5577080000002752,"msg":"request completed"}
+{"level":30,"time":1793726654503,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654504,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":404},"responseTime":1.5211669999998776,"msg":"request completed"}
+{"level":30,"time":1793726654504,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"POST","url":"/provider-finance/activation-quiescence/release","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654506,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":404},"responseTime":1.5756250000004002,"msg":"request completed"}
+{"level":30,"time":1793726654552,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654553,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":403},"responseTime":0.2802499999997963,"msg":"request completed"}
+{"level":30,"time":1793726654553,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"POST","url":"/provider-finance/activation-quiescence","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654559,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":201},"responseTime":6.116167000000132,"msg":"request completed"}
+{"level":30,"time":1793726654559,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/provider-finance/activation-state","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793726654562,"pid":50658,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":3.058625000000575,"msg":"request completed"}
+ ❯ src/__tests-integration__/provider-finance-activation.http.test.ts (15 tests | 1 failed) 4744ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activation-state：未激活态返回模式与切换时点；预检后只暴露候选元数据并脱敏草稿载荷 193ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activation-preview：拒绝请求体身份与非法草稿、含 API 资金事实的退役草稿提交即 400；未建立静默租约或剩余不足时失败关闭 123ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activation-preview：未排空（在途请求）时拒绝并且不落候选 39ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：权威身份来自会话，成功激活并同键重放；随后同候选新键为 ALREADY_ACTIVATED 122ms
+   × PF-INIT WP04：Control API 激活与静默接口 > AT-AFR-03：纯套餐草稿 preview GO → activate 成功 → strict_writes 开启后 W5 订阅写入可用、W6 幂等取消回归（CP 独立初始化） 113ms
+     → {"error":"invalid_request","message":"业务时间不能晚于当前时间"}: expected 400 to be 201 // Object.is equality
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > WP2-S4/AFR-01 场景3：直插含 API 资金事实的持久化旧候选 → activate 409 candidate_contains_retired_api_facts 且零写入 37ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > 跨企业隔离：他企业候选不可激活、不可见，且失败关闭为 404 而不泄漏存在性 100ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：候选不存在 404；企业二次确认与会话不一致 409；两者都落非敏感失败审计 38ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：候选过期 409 CANDIDATE_EXPIRED；解除静默后 409 ACTIVATION_NOT_QUIESCENT 138ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：预检后事实漂移 409 CANDIDATE_STALE 且零写入 99ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：同键不同候选 409 IDEMPOTENCY_CONFLICT；锁被占用 409 ACTIVATION_IN_PROGRESS（retryable） 104ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > activate：提交边界序列化失败 409 ACTIVATION_RETRY_REQUIRED（retryable）且零自动重试、零事实 132ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > 静默租约：启动上限 60 分钟、查询暴露租约与排空、解除需理由且写审计 47ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > DARK 停写：只读与预检可用，不可逆激活与静默变更一律 404 68ms
+   ✓ PF-INIT WP04：Control API 激活与静默接口 > 跨站写门禁：配置 WEB_ORIGIN 后激活写接口沿用同一 origin 门禁，跨站写 403 55ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/provider-finance-activation.http.test.ts > PF-INIT WP04：Control API 激活与静默接口 > AT-AFR-03：纯套餐草稿 preview GO → activate 成功 → strict_writes 开启后 W5 订阅写入可用、W6 幂等取消回归（CP 独立初始化）
+AssertionError: {"error":"invalid_request","message":"业务时间不能晚于当前时间"}: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ src/__tests-integration__/provider-finance-activation.http.test.ts:559:56
+    557|         external_reference: "plan-renew-1", description: "套餐续订",
+    558|         evidence_ref: "renew-proof", idempotency_key: randomUUID() } }…
+    559|     expect(subscription.statusCode, subscription.body).toBe(201);
+       |                                                        ^
+    560|     expect(subscription.json().event).toMatchObject({ eventType: "CODI…
+    561|     expect(subscription.json().periodId).toEqual(expect.any(String));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  01:24:08
+   Duration  6.56s (transform 1.11s, setup 0ms, collect 1.62s, tests 4.74s, environment 0ms, prepare 40ms)
+
+undefined
+/Users/mac/Projects/仟流智算-api-decouple/apps/control-api:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/__tests-integration__/provider-finance-activation.http.test.ts

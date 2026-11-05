@@ -1,0 +1,46 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/api-cost-readers-alignment.integration.test.ts (4 tests) 21951ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 首页/用量总览/同期窗口/统一估算四读取方同范围同币种金额字面值相等  1089ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 没有任何资金表数据时各读取方照常产出同源估算（ACE-03/AT-ACE-05 服务层）  599ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 混币按币种分列、绝不混加（ACE-07）：首页为 null+分列，总览为明确币种不一致  430ms
+   ✓ 跨读取方同源核对（ACE-06 服务层） > 同期窗口保留 AFR-06：窗口内历史聚合覆盖 NOT_MIGRATED 行，窗口外仍标记缺口  482ms
+ ✓ src/__tests-integration__/api-cost-draft-model-alignment.integration.test.ts (6 tests) 22559ms
+   ✓ 用量总览模型行期间/处置口径与估算一致（合同 §1.2） > 同批已计价+明确零行：模型行 monthlyCost 与估算金额字面值相等  776ms
+   ✓ 用量总览模型行期间/处置口径与估算一致（合同 §1.2） > 期间归集按 settled_at 半开窗口：settled 出窗不计、settled 入窗即计（与估算一致）  317ms
+   ✓ 用量总览模型行期间/处置口径与估算一致（合同 §1.2） > 处置投影口径：UNKNOWN_COST 行置空模型行金额；合法处置排除后模型行与估算恢复同值  1313ms
+   ✓ 经营账单当前期 draft 主口径＝估算、桥接字段保留、关账版本不变（合同 §1.3） > draft apiCost/totalCost/apiSpends 采用估算字面值；opening/ending/recharge/桥接事实照常产出  539ms
+   ✓ 经营账单当前期 draft 主口径＝估算、桥接字段保留、关账版本不变（合同 §1.3） > 已关账版本快照逐字节不变（AFR-06）；reopen 后 draft 反映当前估算口径  1388ms
+ ✓ src/__tests-integration__/billing-rule-multi-window-migration.integration.test.ts (1 test) 32614ms
+   ✓ 0021 billing_rule 多时间窗迁移 > 旧单窗自动回填，且最近迁移可回滚/重建  24329ms
+ ✓ src/__tests-integration__/alert-event-dispatch-scale.integration.test.ts (1 test) 42105ms
+   ✓ 异常中心调度历史容量 > 65,535 条正常历史决策不会耗尽绑定参数或产生异常  42104ms
+ ✓ src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts (6 tests) 19318ms
+   ✓ loadApiCostEstimation 聚合语义：失败/重试/重复终态/历史处置/混币/零费用（WP1 S2） > §1.1 失败 Attempt 与重试都计入：0.01(失败已计价)+0.02(成功)=0.03、两行 attempt 事实各自保留（ACE-05 场景1/F03）  468ms
+   ✓ loadApiCostEstimation 聚合语义：失败/重试/重复终态/历史处置/混币/零费用（WP1 S2） > §1.2b 事务回滚后重放：故意失败的事务零残留，同一 Attempt 重放仍只计一次（AT-X03/G26）  373ms
+   ✓ loadApiCostEstimation 聚合语义：失败/重试/重复终态/历史处置/混币/零费用（WP1 S2） > §1.5 零费用与未知并存：零行不产生缺口、UNKNOWN 计 USAGE_UNKNOWN、金额仅已知部分（ACE-04 组合）  396ms
+ ✓ src/__tests-integration__/credential-probe-migration.test.ts (1 test) 27839ms
+   ✓ 0073 backfills only correlated historical Chat failures and preserves probe facts on rollback  27838ms
+ ✓ src/__tests-integration__/directory-repository.integration.test.ts (6 tests) 19366ms
+   ✓ DirectoryRepository > Excel 逐项导入可部分成功，重试不重复建人；导入只建 Person 不建 Principal（Scenario 1.1/1.2）  7471ms
+   ✓ DirectoryRepository > 稳定标识指向不同人时只标记冲突，其他 Item 继续  412ms
+   ✓ DirectoryRepository > 开通主体时继承当前已发布的 ALL 批量授权规则，导入阶段不建主体不配额（Scenario 2.1 monthly=false）  477ms
+   ✓ DirectoryRepository > 开通主体时继承当前已发布的 ALL 批量授权规则，导入阶段不建主体不配额（Scenario 2.1 monthly=true）  419ms
+   ✓ DirectoryRepository > 导入 10 人建 10 条 Person 0 条 Principal；activateMembers 精准开通并幂等（Scenario 1.1/2.1/2.2）  1191ms
+ ✓ src/__tests-integration__/admin-session-certification.integration.test.ts (4 tests) 16735ms
+ ✓ src/__tests-integration__/employee-monthly-quota.integration.test.ts (21 tests) 19893ms
+   ✓ employee monthly quota persisted accounting > concurrent duplicate reservations allocate once; old-month late settlement cannot consume next month  561ms
+   ✓ employee monthly quota persisted accounting > API raw and plan frozen estimate remain separate bases, SET preserves consumption  458ms
+ ✓ src/__tests-integration__/dispatch-pricing-readiness.test.ts (20 tests) 15071ms
+ ✓ src/__tests-integration__/dispatch-pricing-concurrency.test.ts (4 tests) 11239ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (14 tests) 23559ms
+   ✓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > a) 无资金表数据的企业：已计价行正常产出 amounts（ACE-03/AT-ACE-05）  389ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  8707ms
+
+ Test Files  12 passed (12)
+      Tests  88 passed (88)
+   Start at  16:46:43
+   Duration  79.07s (transform 1.99s, setup 0ms, collect 15.48s, tests 272.25s, environment 2ms, prepare 1.14s)
+
+EXIT_CODE=0

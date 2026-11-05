@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+ ✓ src/__tests-integration__/dashboard-finance-estimation.test.ts (2 tests) 5607ms
+ ✓ src/__tests-integration__/resource-insights-api-cost-evidence.test.ts (2 tests) 5969ms
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  13:15:29
+   Duration  8.64s (transform 1.20s, setup 0ms, collect 4.94s, tests 11.58s, environment 0ms, prepare 136ms)
+

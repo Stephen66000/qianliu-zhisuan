@@ -1,0 +1,49 @@
+2026-11-04T16:46:30Z X08-DRILL-START 候选=59f7367 旧栈=ae506fe 库=wp6_x08_drill@127.0.0.1:55434 mock=127.0.0.1:19191
+2026-11-04T16:46:30Z PORTS-OK 演练端口全空闲（5173/8788 走查遗留占用已避开，未触碰）
+2026-11-04T16:46:31Z PG-READY 容器=wp6-x08-pg 镜像=postgres:17-alpine(digest pinned) 端口=55434（保留待复核）
+2026-11-04T16:46:32Z T0-START 旧栈(ae506fe)@0092
+2026-11-04T16:46:33Z T0-MOCK-UP 模拟上游就绪 :19191（chat/balance/调用计数）
+2026-11-04T16:46:36Z T0-SEEDED legacy-migrator→0092 resourceA=d67938d6-4832-4b6f-8a54-4cb01c370124 resourceB=ec625c07-22b8-4e2e-84da-3a9ff9db4b0d resourceP=79bb1a3f-bde7-4b08-b0d5-3e914afde38f（全程零期初资金）
+2026-11-04T16:46:38Z T0-OLD-STACK-UP control-api=:18788 gateway=:18787 worker健康=:19190 PID wk=3592（调度循环首轮 tick 立即执行）
+2026-11-04T16:46:38Z T0-LOGIN 旧栈 control-api 会话就绪
+2026-11-04T16:46:38Z T0-SUBSCRIPTION 旧栈 HTTP 登记 CODING_PLAN 订阅（auto_renew=true，周期 2026-11-01~2026-12-31 未到期） HTTP=201
+2026-11-04T16:46:38Z T0-BASELINE-D 开关=true 周期数=1
+2026-11-04T16:46:40Z T0-C0-COUNTS 资金四表：finance_event=1（T0 订阅登记 1 行） period=1 activation_attempt=0 ledger_line=0
+2026-11-04T16:46:41Z T0-CONSUMPTION 正常消费完成 request=bb78c944-e3f1-4953-8f1a-52402c1bfb9e HTTP=200（期望金额 0.00100000）
+2026-11-04T16:46:41Z T0-READ 旧栈 /usage 可读金额=0.00100000（新栈可比对基线）
+2026-11-04T16:46:41Z T0-MOCK-STATS chat=1 balance=2（旧 worker 首轮已同步资源A/B 各一次）
+2026-11-04T16:46:42Z T0-INFLIGHT 在途请求已 admitted 未结算 request=f6604bcf-4621-4b6a-9ce4-e6c18bd9edea（mock 延迟 8s，切换窗口开始前挂起）
+2026-11-04T16:46:42Z T0-END 耗时=10679ms
+2026-11-04T16:46:43Z T1-START 停旧 API 写（静默租约）→在途消费收尾→停旧栈
+2026-11-04T16:46:43Z T1-LEASE-START 静默租约 ACTIVE duration=600s HTTP=201
+2026-11-04T16:46:43Z T1-GATE-503 租约内新请求被静默门禁拒绝（零上游零账本事实） code=enterprise_maintenance mock_chat=2
+2026-11-04T16:46:46Z T1-DRAIN 收尾报告 drained=true（IN_PROGRESS=0 openAttempts=0 pendingTx=0）：在途请求已在旧 gateway 完成结算；mock chat 计数 2→2（门禁请求未触达上游）
+2026-11-04T16:46:46Z T1-LEASE-RELEASE 租约 RELEASED HTTP=200
+2026-11-04T16:46:46Z T1-OLD-WORKER-STOPPED 旧 worker 停止（PID=3592）
+2026-11-04T16:46:47Z T1-OLD-GATEWAY-STOPPED 旧 gateway 停止（PID=3582）
+2026-11-04T16:46:47Z T1-OLD-CA-STOPPED 旧 control-api 停止（PID=3572）——旧后台全部下线，此后不可能再新增 API 资金写入
+2026-11-04T16:46:49Z T1-C1-COUNTS 切换窗口起点快照：ledger_line=2 finance_event=1 period=1 attempt=0 in_progress=0；T1-END 耗时=6023ms
+2026-11-04T16:46:49Z T2-START 候选 migrator up 0093-0096
+2026-11-04T16:46:50Z T2-MIGRATED executed=[0093_billing_rule_source_status,0094_retire_api_finance_pending_admission,0095_official_balance_sync_decouple,0096_official_balance_refresh_request] duration=264ms idempotent_replay_error=null
+2026-11-04T16:46:51Z T2-END 耗时=1604ms
+2026-11-04T16:46:51Z T3-START 候选栈(59f7367)@0096 就绪
+2026-11-04T16:46:53Z T3-NEW-STACK-UP control-api=:28788 gateway=:28787 worker健康=:29190 PID wk=4112（官方余额同步 tick＋套餐续订 tick 同进程共存）
+2026-11-04T16:46:53Z T3-LOGIN 候选栈 control-api 会话就绪
+2026-11-04T16:46:54Z T3-RESOURCE-C 切换窗口新登记 API 资源C=009866e7-2a6d-4723-acb5-33f1f5eab039（零同步尝试，T4 runner 路径目标；夹具直插，非业务端点）
+2026-11-04T16:46:54Z T3-END 耗时=3239ms
+2026-11-04T16:46:54Z T4-START 候选栈验证（断言 A-E）
+2026-11-04T16:46:55Z T4-A-410 七退役端点全部 410+api_funding_management_retired=true
+2026-11-04T16:46:56Z T4-NEW-CONSUMPTION 无期初资源A 新消费（候选栈 gateway）request=0c484bf6-c87e-40b7-85a1-8860ef91615f HTTP=200（期望金额 0.00060000）
+2026-11-04T16:46:56Z T4-READ-T0 新栈 /usage 读 T0 消费金额=0.00100000（旧栈基线=0.00100000）
+2026-11-04T16:46:56Z T4-C-WORKER-TICKS 旧worker续订tick={"event":"subscription_auto_renewal_tick","scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}
+2026-11-04T16:46:56Z T4-C-WORKER-TICKS 旧worker余额同步tick={"event":"provider_operating_sync_tick_completed","resourcesScanned":0,"snapshotsCreated":0,"failed":0,"notSupported":0,"skippedQuiescentResources":3}
+2026-11-04T16:46:56Z T4-C-WORKER-TICKS 新worker续订tick={"event":"subscription_auto_renewal_tick","scanned":0,"created":0,"failures":[],"skippedQuiescentEnterprises":[]}
+2026-11-04T16:46:56Z T4-C-WORKER-TICKS 新worker余额同步tick={"event":"provider_operating_sync_tick_completed","resourcesScanned":4,"snapshotsCreated":1,"failed":0,"notSupported":0,"skippedQuiescentResources":0}
+2026-11-04T16:46:56Z T4-C-MANUAL-REFRESH 手动官方余额刷新成功 outcome=SUCCEEDED balance=110.50 CNY（模拟上游返回）
+2026-11-04T16:46:57Z T4-D-COMPARE auto-renewal HTTP 新旧一致=true subscription-periods HTTP 新旧一致=true
+2026-11-04T16:46:57Z T4-E-MOCK-STATS chat=3 balance=3 other=0 total=11
+baseline assembled -> /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-20261104/logs/x08-baseline-t0.json
+2026-11-04T16:46:58Z T4-BASELINE 基线装配完成 logs/x08-baseline-t0.json
+2026-11-04T16:46:59Z T4-END 断言终判 allPass=true（logs/x08-result.json）；T4 耗时=4621ms
+2026-11-04T16:47:01Z SERVICES-STOPPED 演练服务进程全部停止；容器 wp6-x08-pg（:55434）保留待复核
+2026-11-04T16:47:01Z X08-DRILL-END 总耗时=31789ms allPass=true
