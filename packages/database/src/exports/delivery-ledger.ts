@@ -140,6 +140,7 @@ export { loadUsageCostDispositionProjections, loadExcludedUsageCostLineIds } fro
 
 export {
   loadApiCostEstimation,
+  loadApiCostEstimationByResource,
   type ApiCostEstimation,
   type ApiCostEstimationAmount,
   type ApiCostEstimationCompleteness,

@@ -268,8 +268,11 @@ describe("POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.
   it("AT-X02 skew 负向（R2 C1）：DB 时钟已过期的 RUNNING（expires_at = now()-2s）必须被 begin 收敛为 FAILED，不得按宿主时钟滞留 IN_PROGRESS", async () => {
     // 依据：R1 复审 C1——宿主-testcontainer 时钟偏移（R8a 实测 ~1.2s，宿主落后）曾使
     // 「DB 时钟已过期」的租约按宿主时钟判未过期而滞留 IN_PROGRESS。根治后判定基准为
-    // DB now()；本用例直插 DB 时钟过去 2s 的 RUNNING（2s 裕量 > 实测偏移 1.2s）：若实现
-    // 回退为宿主时钟判定且宿主落后 <2s（本环境常态），收敛不触发 → IN_PROGRESS → 必失败。
+    // DB now()；本用例在真实环境 skew 下对收敛行为做行为回归（begin 收敛 → ACCEPTED，
+    // 留痕 FAILED/REFRESH_LEASE_EXPIRED）。判别力说明：本用例不构成对旧实现（宿主钟
+    // 判定）的独立杀死——「2s 裕量必败」的论证依赖环境 skew 实测值（宿主落后 <2s 是
+    // 本环境常态而非保证），R2 终审条件 5 已纠正该说法；旧实现必失败的判别力证明见
+    // 下一用例（受控偏移判别）。
     const seed = await seedEnterprise("refresh-skew-expired");
     await sql`
       INSERT INTO provider_resource_balance_refresh
@@ -298,6 +301,139 @@ describe("POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.
     expect(converged.rows[0]!.finished_at.getTime())
       .toBeGreaterThanOrEqual(converged.rows[0]!.expires_at.getTime());
     expect(await refreshRowCount(seed.deepseekResourceId)).toBe(2);
+  });
+
+  it("AT-X02 skew 判别力（R2 终审条件 5）：受控偏移下宿主钟谓词漏/误收敛、DB 谓词均正确——旧实现（宿主钟判定）必失败，判别力不依赖环境 skew 实际值", async () => {
+    // 依据：R2 终审条件 5——上一用例的真实 skew 回归不具备独立杀死旧实现的判别力。
+    // 本用例在同一测试库会话内直插 RUNNING 租约，对同一行/对照行分别执行两种谓词，
+    // 偏移完全受控（±10s，量级远超毫秒级执行抖动，方向覆盖双向）：
+    // - 新实现谓词＝official-balance-refresh-repository.ts convergeExpiredLeases：
+    //   UPDATE ... WHERE status='RUNNING' AND expires_at <= now()（DB 钟），
+    //   判定与留痕（finished_at/updated_at）同用单条 UPDATE 内的 now()；
+    // - 旧实现谓词模拟＝修复前 .where("expires_at", "<=", now)（宿主 JS Date，
+    //   留痕亦打宿主钟），其中 $hostNow 人为注入 dbNow-10s（宿主落后）/ dbNow+10s
+    //   （宿主领先）两种受控值。
+    // 结论断言：宿主钟偏差（任意方向 ≥ 受控量）→ 旧判定漏收敛（落后，DB 钟已过期
+    // 的行不收敛）或误收敛（领先，DB 钟未过期的行被收敛）；DB 谓词两种情况下均正确
+    // → 判别力不依赖环境 skew 实际值。
+    const seed = await seedEnterprise("refresh-skew-controlled");
+    // DB 钟基准：受控偏移的原点。
+    const dbNowRows = await sql<{ db_now: Date }>`
+      SELECT now() AS db_now
+    `.execute(db);
+    const dbNow = dbNowRows.rows[0]!.db_now;
+    const hostBehind = new Date(dbNow.getTime() - 10_000); // 模拟宿主落后 10s
+    const hostAhead = new Date(dbNow.getTime() + 10_000); // 模拟宿主领先 10s
+
+    // 直插行 A：DB 钟已过期 1s 的 RUNNING 租约（expires_at = now() - 1s）。
+    const keyA = randomUUID();
+    await sql`
+      INSERT INTO provider_resource_balance_refresh
+        (enterprise_id, provider_resource_id, actor_admin_id, idempotency_key,
+         status, started_at, expires_at, updated_at)
+      SELECT ${seed.enterpriseId}::uuid, ${seed.deepseekResourceId}::uuid,
+             a.id::uuid, ${keyA}::uuid, 'RUNNING',
+             now() - interval '62 seconds', now() - interval '1 second', now()
+        FROM admin_user a WHERE a.enterprise_id = ${seed.enterpriseId}::uuid LIMIT 1
+    `.execute(db);
+
+    // 旧谓词 × 宿主落后 10s：行 A 满足 DB 钟「已过期」，但不满足 expires_at <= hostBehind
+    // → 漏收敛（0 行受影响，仍滞留 RUNNING）。
+    const behindMiss = await sql<{ id: string }>`
+      UPDATE provider_resource_balance_refresh
+         SET status = 'FAILED', error_code = 'REFRESH_LEASE_EXPIRED',
+             finished_at = ${hostBehind}, updated_at = ${hostBehind}
+       WHERE provider_resource_id = ${seed.deepseekResourceId}::uuid
+         AND status = 'RUNNING'
+         AND expires_at <= ${hostBehind}
+      RETURNING id::text AS id
+    `.execute(db);
+    expect(behindMiss.rows).toHaveLength(0);
+    const rowAAfterMiss = await sql<{ status: string }>`
+      SELECT status FROM provider_resource_balance_refresh
+       WHERE idempotency_key = ${keyA}::uuid
+    `.execute(db);
+    expect(rowAAfterMiss.rows).toHaveLength(1);
+    expect(rowAAfterMiss.rows[0]!.status).toBe("RUNNING");
+
+    // 新谓词（DB 钟）：同一行 A 满足 expires_at <= now() → 收敛（1 行，FAILED/
+    // REFRESH_LEASE_EXPIRED）。宿主落后 10s 不影响 DB 侧判定。
+    const dbClockHit = await sql<{ id: string }>`
+      UPDATE provider_resource_balance_refresh
+         SET status = 'FAILED', error_code = 'REFRESH_LEASE_EXPIRED',
+             finished_at = now(), updated_at = now()
+       WHERE provider_resource_id = ${seed.deepseekResourceId}::uuid
+         AND status = 'RUNNING'
+         AND expires_at <= now()
+      RETURNING id::text AS id
+    `.execute(db);
+    expect(dbClockHit.rows).toHaveLength(1);
+    const rowAConverged = await sql<{ status: string; error_code: string | null }>`
+      SELECT status, error_code FROM provider_resource_balance_refresh
+       WHERE idempotency_key = ${keyA}::uuid
+    `.execute(db);
+    expect(rowAConverged.rows).toHaveLength(1);
+    expect(rowAConverged.rows[0]).toMatchObject({ status: "FAILED",
+      error_code: "REFRESH_LEASE_EXPIRED" });
+
+    // 对照行 B：DB 钟尚未过期（expires_at = now() + 5s）的 RUNNING 租约。
+    // 行 A 已终态，满足 RUNNING 部分唯一索引（单资源同时仅一行 RUNNING）。
+    const keyB = randomUUID();
+    await sql`
+      INSERT INTO provider_resource_balance_refresh
+        (enterprise_id, provider_resource_id, actor_admin_id, idempotency_key,
+         status, started_at, expires_at, updated_at)
+      SELECT ${seed.enterpriseId}::uuid, ${seed.deepseekResourceId}::uuid,
+             a.id::uuid, ${keyB}::uuid, 'RUNNING',
+             now() - interval '1 second', now() + interval '5 seconds', now()
+        FROM admin_user a WHERE a.enterprise_id = ${seed.enterpriseId}::uuid LIMIT 1
+    `.execute(db);
+
+    // 旧谓词 × 宿主领先 10s：行 B 在 DB 钟上尚未过期（expires_at > dbNow），
+    // 却满足 expires_at <= hostAhead → 误收敛（1 行受影响）。
+    const aheadFalseHit = await sql<{ id: string }>`
+      UPDATE provider_resource_balance_refresh
+         SET status = 'FAILED', error_code = 'REFRESH_LEASE_EXPIRED',
+             finished_at = ${hostAhead}, updated_at = ${hostAhead}
+       WHERE provider_resource_id = ${seed.deepseekResourceId}::uuid
+         AND status = 'RUNNING'
+         AND expires_at <= ${hostAhead}
+      RETURNING id::text AS id
+    `.execute(db);
+    expect(aheadFalseHit.rows).toHaveLength(1);
+    const rowBAfterFalseHit = await sql<{ status: string; error_code: string | null; expires_at: Date }>`
+      SELECT status, error_code, expires_at FROM provider_resource_balance_refresh
+       WHERE idempotency_key = ${keyB}::uuid
+    `.execute(db);
+    expect(rowBAfterFalseHit.rows).toHaveLength(1);
+    // 被「误收敛」的行在 DB 钟上确实尚未过期（证明这是误杀而非漏网）。
+    expect(rowBAfterFalseHit.rows[0]!.expires_at.getTime()).toBeGreaterThan(dbNow.getTime());
+    expect(rowBAfterFalseHit.rows[0]!.status).toBe("FAILED");
+    expect(rowBAfterFalseHit.rows[0]!.error_code).toBe("REFRESH_LEASE_EXPIRED");
+
+    // 新谓词（DB 钟）：同一行 B 复位 RUNNING 后重放判定 → 正确不收敛（0 行，
+    // 仍 RUNNING）。宿主领先 10s 也不影响 DB 侧判定。
+    await sql`
+      UPDATE provider_resource_balance_refresh
+         SET status = 'RUNNING', error_code = NULL, finished_at = NULL, updated_at = now()
+       WHERE idempotency_key = ${keyB}::uuid
+    `.execute(db);
+    const dbClockSkip = await sql<{ id: string }>`
+      UPDATE provider_resource_balance_refresh
+         SET status = 'FAILED', error_code = 'REFRESH_LEASE_EXPIRED',
+             finished_at = now(), updated_at = now()
+       WHERE provider_resource_id = ${seed.deepseekResourceId}::uuid
+         AND status = 'RUNNING'
+         AND expires_at <= now()
+      RETURNING id::text AS id
+    `.execute(db);
+    expect(dbClockSkip.rows).toHaveLength(0);
+    const rowBFinal = await sql<{ status: string }>`
+      SELECT status FROM provider_resource_balance_refresh
+       WHERE idempotency_key = ${keyB}::uuid
+    `.execute(db);
+    expect(rowBFinal.rows).toHaveLength(1);
+    expect(rowBFinal.rows[0]!.status).toBe("RUNNING");
   });
 
   it("AT-OAB-06 view-only：POST 刷新 403，GET 列表余额可读；不支持厂商 422 零写入；缺凭证 409；未知资源 404", async () => {

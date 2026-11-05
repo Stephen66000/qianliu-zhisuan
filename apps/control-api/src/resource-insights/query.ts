@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import {
-  loadApiCostEstimation,
+  loadApiCostEstimationByResource,
   loadMonthlyOperatingCosts,
   operatingBillMonthRange,
   type Database,
@@ -328,24 +328,31 @@ export async function listResourceUtilization(
      ORDER BY p.name, pr.name, pr.id
   `.execute(db);
   const range = operatingBillMonthRange(month);
-  // S3a（ACE-06）：API 费用证据对齐同源估算——knownLedgerCosts 改由 loadApiCostEstimation
-  // 按该资源范围、与 loadMonthlyOperatingCosts 相同的期间（range）供给，不再取本查询 CTE
-  // 的 COALESCE(settled_at,created_at) 聚合。调查结论（回报详述）：该证据当前仅进入
+  // S3a（ACE-06）：API 费用证据对齐同源估算——knownLedgerCosts 改由同源估算按资源范围、
+  // 与 loadMonthlyOperatingCosts 相同的期间（range）供给，不再取本查询 CTE 的
+  // COALESCE(settled_at,created_at) 聚合。调查结论（回报详述）：该证据当前仅进入
   // loadMonthlyOperatingCosts 的 ledgerApiCost 字段，utilization 行输出链路并不消费。
+  // W20-10（R2 性能修复）：逐资源 loadApiCostEstimation（每资源 3 条聚合 SQL 的 N+1）
+  // 改一次 loadApiCostEstimationByResource 批量分组读取；每资源金额派生逻辑原样保留，
+  // 每资源估算语义与单资源调用逐字段一致（一致性回归见
+  // packages/database/src/__tests-integration__/api-cost-estimation-by-resource.integration.test.ts）。
   const apiRows = result.rows.filter((row) => row.mode === "API");
-  const ledgerCosts = new Map(await Promise.all(apiRows.map(async (row) => {
-    const estimation = await loadApiCostEstimation(db, enterpriseId, {
-      start: range.start,
-      end: range.end,
-      resourceIds: [row.resource_id],
-    });
-    const amount = estimation.amounts.length === 1
-      ? estimation.amounts[0]!.amount
-      : estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL"
-        ? "0.00000000"
-        : null;
+  const estimationsByResource = await loadApiCostEstimationByResource(db, enterpriseId, {
+    start: range.start,
+    end: range.end,
+    resourceIds: apiRows.map((row) => row.resource_id),
+  });
+  const ledgerCosts = new Map(apiRows.map((row) => {
+    const estimation = estimationsByResource.get(row.resource_id);
+    const amount = estimation === undefined
+      ? "0.00000000"
+      : estimation.amounts.length === 1
+        ? estimation.amounts[0]!.amount
+        : estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL"
+          ? "0.00000000"
+          : null;
     return [row.resource_id, amount] as const;
-  })));
+  }));
   const [windows, monthlyOperating] = await Promise.all([sql<{
     provider_resource_id: string; window_type: "FIVE_HOUR" | "WEEKLY";
     limit_value: string | null; used_value: string | null; remaining_value: string | null;

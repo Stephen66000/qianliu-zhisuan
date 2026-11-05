@@ -35,6 +35,11 @@
  *   - 期间过滤：settled_at >= start AND settled_at < end（与 dashboard-home-costs.ts
  *     loadWindowOperatingFinance 同口径）。
  *   - 金额一律 decimal.js（Money/money，八位小数字符串），禁止 float。
+ *
+ * W20-10（R2 性能修复）：新增 loadApiCostEstimationByResource 批量分组入口——与
+ * loadApiCostEstimation 完全同源（同 estimationLinesSql、同三条聚合 SQL 片段、
+ * 同 assembleApiCostEstimation 派生），仅追加 provider_resource_id 分组维度，
+ * 供 resource-insights/query.ts 一次读取取代逐资源 N+1 调用；单资源语义零改动。
  */
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
@@ -93,6 +98,14 @@ export interface ApiCostEstimationQuery {
   resourceIds?: string[];
 }
 
+export interface ApiCostEstimationBatchQuery {
+  start: Date;
+  /** 半开区间 [start, end)。 */
+  end: Date;
+  /** 资源清单；空数组＝空 Map（调用方无 API 资源时与逐资源循环空集同语义）。 */
+  resourceIds: string[];
+}
+
 interface EstimateAggregateRow {
   total_rows: number;
   priced_rows: number;
@@ -116,18 +129,27 @@ interface EstimatePriceBasisRow {
   source_status: string;
 }
 
-/** 期间内本企业 API 账本行的分类投影（与两条聚合查询共用，保证口径一致）。 */
+/**
+ * 期间内本企业 API 账本行的分类投影（与两条聚合查询共用，保证口径一致）。
+ * includeResourceId 仅供批量分组版（loadApiCostEstimationByResource）追加
+ * provider_resource_id 分组维度；单资源版缺省 false，生成 SQL 与原版逐字一致。
+ */
 function estimationLinesSql(
   enterpriseId: string,
   start: Date,
   end: Date,
   resourceIds: string[] | null,
+  includeResourceId = false,
 ) {
   const scopeFilter = resourceIds === null
     ? sql`TRUE`
     : sql`l.provider_resource_id = ANY(${resourceIds}::uuid[])`;
+  const resourceColumn = includeResourceId
+    ? sql`l.provider_resource_id,`
+    : sql``;
   return sql`
-    SELECT l.api_cost, l.api_cost_currency, l.api_cost_status, l.usage_quality,
+    SELECT ${resourceColumn}
+           l.api_cost, l.api_cost_currency, l.api_cost_status, l.usage_quality,
            l.billing_rule_id, l.rule_version,
            coalesce(l.billing_rule_snapshot->>'sourceStatus', 'UNVERIFIED')
              AS rule_source_status,
@@ -139,6 +161,101 @@ function estimationLinesSql(
        AND l.settled_at >= ${start} AND l.settled_at < ${end}
        AND ${scopeFilter}
   `;
+}
+
+/** 聚合一共用：分类计数投影（单资源版与批量分组版同源，W20-10 提取，逐字未改）。 */
+const ESTIMATE_COUNT_PROJECTION = sql`
+  count(*)::int AS total_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NOT NULL
+    AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM')::int AS priced_rows,
+  count(*) FILTER (WHERE lines.api_cost_status = 'CONFIRMED_ZERO_NO_UPSTREAM')::int AS confirmed_zero_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NULL AND lines.excluded)::int AS excluded_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NOT NULL
+    AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'
+    AND lines.api_cost_currency IS NULL)::int AS currency_missing_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
+    AND lines.api_cost_status = 'NOT_MIGRATED')::int AS not_migrated_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
+    AND coalesce(lines.api_cost_status,'') <> 'NOT_MIGRATED'
+    AND lines.usage_quality = 'UNKNOWN')::int AS usage_unknown_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
+    AND coalesce(lines.api_cost_status,'') <> 'NOT_MIGRATED'
+    AND lines.usage_quality <> 'UNKNOWN')::int AS price_missing_rows,
+  count(*) FILTER (WHERE lines.api_cost IS NOT NULL
+    AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'
+    AND lines.rule_source_status = 'UNVERIFIED')::int AS basis_unverified_rows
+`;
+
+/** 聚合二共用：已计价行按币种求和投影（单资源版与批量分组版同源，W20-10 提取，逐字未改）。 */
+const ESTIMATE_PRICED_SUM = sql`
+  coalesce(sum(lines.reported_cost) FILTER (WHERE lines.api_cost IS NOT NULL
+      AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'), 0
+  )::numeric(30,8)::text
+`;
+
+/** 期间零行的资源条目（批量版）＝单资源版空期间聚合（count(*) 空集恒 0）。 */
+const EMPTY_ESTIMATE_AGGREGATE: EstimateAggregateRow = {
+  total_rows: 0,
+  priced_rows: 0,
+  confirmed_zero_rows: 0,
+  excluded_rows: 0,
+  currency_missing_rows: 0,
+  not_migrated_rows: 0,
+  usage_unknown_rows: 0,
+  price_missing_rows: 0,
+  basis_unverified_rows: 0,
+};
+
+/**
+ * 聚合行 → Estimation 的派生（单资源版与批量分组版共用；W20-10 提取，逻辑逐字未改）。
+ * scope 由调用方给：单资源版透传查询 resourceIds（null＝全企业），批量版每资源 [id]。
+ */
+function assembleApiCostEstimation(
+  enterpriseId: string,
+  scopeResourceIds: string[] | null,
+  start: Date,
+  end: Date,
+  aggregate: EstimateAggregateRow,
+  amountRows: EstimateAmountRow[],
+  basisRows: EstimatePriceBasisRow[],
+): ApiCostEstimation {
+  const gapTotal = aggregate.not_migrated_rows + aggregate.usage_unknown_rows
+    + aggregate.price_missing_rows + aggregate.currency_missing_rows;
+  // 语义（S1 §3.3）：缺口>0 → KNOWN_PARTIAL；期间无任何 API 行 → KNOWN_COMPLETE（空 amounts）；
+  // 无缺口且无已计价金额行（只剩明确零/处置排除）→ ZERO_CONFIRMED；否则 KNOWN_COMPLETE。
+  const completeness: ApiCostEstimationCompleteness = gapTotal > 0
+    ? "KNOWN_PARTIAL"
+    : aggregate.total_rows === 0 || aggregate.priced_rows > 0
+      ? "KNOWN_COMPLETE"
+      : "ZERO_CONFIRMED";
+
+  const gaps: ApiCostEstimationGap[] = ([
+    ["NOT_MIGRATED", aggregate.not_migrated_rows],
+    ["USAGE_UNKNOWN", aggregate.usage_unknown_rows],
+    ["PRICE_MISSING", aggregate.price_missing_rows],
+    ["CURRENCY_MISSING", aggregate.currency_missing_rows],
+    // 信息项：依据待核实行数，不影响 completeness。
+    ["PRICE_BASIS_UNVERIFIED", aggregate.basis_unverified_rows],
+  ] as const)
+    .filter(([, count]) => count > 0)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return {
+    scope: { enterpriseId, resourceIds: scopeResourceIds },
+    period: { start, end },
+    amounts: amountRows.map((row) => ({
+      currency: row.currency,
+      amount: money(row.amount),
+    })),
+    completeness,
+    gaps,
+    priceBasis: basisRows.map((row) => ({
+      ruleId: row.rule_id,
+      ruleVersion: row.rule_version,
+      sourceStatus: row.source_status as BillingRuleSourceStatus,
+    })),
+    excludedNoRecordedCost: aggregate.excluded_rows,
+  };
 }
 
 /**
@@ -155,33 +272,13 @@ export async function loadApiCostEstimation(
   const [aggregates, amountRows, basisRows] = await Promise.all([
     sql<EstimateAggregateRow>`
       WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds)})
-      SELECT count(*)::int AS total_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NOT NULL
-          AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM')::int AS priced_rows,
-        count(*) FILTER (WHERE lines.api_cost_status = 'CONFIRMED_ZERO_NO_UPSTREAM')::int AS confirmed_zero_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NULL AND lines.excluded)::int AS excluded_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NOT NULL
-          AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'
-          AND lines.api_cost_currency IS NULL)::int AS currency_missing_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
-          AND lines.api_cost_status = 'NOT_MIGRATED')::int AS not_migrated_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
-          AND coalesce(lines.api_cost_status,'') <> 'NOT_MIGRATED'
-          AND lines.usage_quality = 'UNKNOWN')::int AS usage_unknown_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NULL AND NOT lines.excluded
-          AND coalesce(lines.api_cost_status,'') <> 'NOT_MIGRATED'
-          AND lines.usage_quality <> 'UNKNOWN')::int AS price_missing_rows,
-        count(*) FILTER (WHERE lines.api_cost IS NOT NULL
-          AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'
-          AND lines.rule_source_status = 'UNVERIFIED')::int AS basis_unverified_rows
+      SELECT ${ESTIMATE_COUNT_PROJECTION}
       FROM lines
     `.execute(db),
     sql<EstimateAmountRow>`
       WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds)})
       SELECT lines.api_cost_currency AS currency,
-        coalesce(sum(lines.reported_cost) FILTER (WHERE lines.api_cost IS NOT NULL
-            AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'), 0
-        )::numeric(30,8)::text AS amount
+        ${ESTIMATE_PRICED_SUM} AS amount
       FROM lines
       WHERE lines.api_cost_currency IS NOT NULL
       GROUP BY lines.api_cost_currency
@@ -200,41 +297,89 @@ export async function loadApiCostEstimation(
   // count(*) 聚合恒返回一行（空集为 0），缺行只能是驱动层异常。
   const a = aggregates.rows[0]
     ?? (() => { throw new Error("api_cost_estimation_aggregate_row_missing"); })();
-  const gapTotal = a.not_migrated_rows + a.usage_unknown_rows
-    + a.price_missing_rows + a.currency_missing_rows;
-  // 语义（S1 §3.3）：缺口>0 → KNOWN_PARTIAL；期间无任何 API 行 → KNOWN_COMPLETE（空 amounts）；
-  // 无缺口且无已计价金额行（只剩明确零/处置排除）→ ZERO_CONFIRMED；否则 KNOWN_COMPLETE。
-  const completeness: ApiCostEstimationCompleteness = gapTotal > 0
-    ? "KNOWN_PARTIAL"
-    : a.total_rows === 0 || a.priced_rows > 0
-      ? "KNOWN_COMPLETE"
-      : "ZERO_CONFIRMED";
+  return assembleApiCostEstimation(
+    enterpriseId, resourceIds, start, end, a, amountRows.rows, basisRows.rows,
+  );
+}
 
-  const gaps: ApiCostEstimationGap[] = ([
-    ["NOT_MIGRATED", a.not_migrated_rows],
-    ["USAGE_UNKNOWN", a.usage_unknown_rows],
-    ["PRICE_MISSING", a.price_missing_rows],
-    ["CURRENCY_MISSING", a.currency_missing_rows],
-    // 信息项：依据待核实行数，不影响 completeness。
-    ["PRICE_BASIS_UNVERIFIED", a.basis_unverified_rows],
-  ] as const)
-    .filter(([, count]) => count > 0)
-    .map(([reason, count]) => ({ reason, count }));
-
-  return {
-    scope: { enterpriseId, resourceIds },
-    period: { start, end },
-    amounts: amountRows.rows.map((row) => ({
-      currency: row.currency,
-      amount: money(row.amount),
-    })),
-    completeness,
-    gaps,
-    priceBasis: basisRows.rows.map((row) => ({
-      ruleId: row.rule_id,
-      ruleVersion: row.rule_version,
-      sourceStatus: row.source_status as BillingRuleSourceStatus,
-    })),
-    excludedNoRecordedCost: a.excluded_rows,
-  };
+/**
+ * 批量分组入口（W20-10 / R2 性能修复）：一次调用取代逐资源 loadApiCostEstimation
+ * （N+1：每资源 3 条聚合 SQL → 恒 3 条 GROUP BY provider_resource_id 的同口径聚合）。
+ *
+ * 与单资源版的一致性依据（同一 helper 生成，非复制粘贴）：
+ *   - lines CTE 复用同一 estimationLinesSql（同 WHERE/同投影/同快照键回退/同期间过滤）；
+ *   - 三条聚合分别嵌入与单资源版同一片段 ESTIMATE_COUNT_PROJECTION / ESTIMATE_PRICED_SUM
+ *     （priceBasis 查询投影逐字同源），仅追加 provider_resource_id 分组维度与排序前缀
+ *     （资源内 amounts 按币种 ASC、priceBasis 按 ruleId/ruleVersion 排序与单资源版一致）；
+ *   - completeness/gaps/amounts/priceBasis/excludedNoRecordedCost 派生共用
+ *     assembleApiCostEstimation；
+ *   - 每资源 scope.resourceIds=[id]、period 同查询——与逐资源调用
+ *     loadApiCostEstimation(db, ent, {start, end, resourceIds:[id]}) 返回值逐字段一致；
+ *   - 期间无任何账本行的资源同样有条目（EMPTY_ESTIMATE_AGGREGATE＝单资源版空期间语义）。
+ * 一致性回归：api-cost-estimation-by-resource.integration.test.ts（多资源逐字段对照）。
+ */
+export async function loadApiCostEstimationByResource(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  query: ApiCostEstimationBatchQuery,
+): Promise<Map<string, ApiCostEstimation>> {
+  const { start, end } = query;
+  // 清单去重（调用方来源为主键集合，正常无重复；防御性收敛，ANY 语义不变）。
+  const resourceIds = [...new Set(query.resourceIds)];
+  if (resourceIds.length === 0) return new Map();
+  const [aggregateRows, amountRows, basisRows] = await Promise.all([
+    sql<EstimateAggregateRow & { provider_resource_id: string }>`
+      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
+      SELECT lines.provider_resource_id,
+             ${ESTIMATE_COUNT_PROJECTION}
+      FROM lines
+      GROUP BY lines.provider_resource_id
+    `.execute(db),
+    sql<EstimateAmountRow & { provider_resource_id: string }>`
+      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
+      SELECT lines.provider_resource_id, lines.api_cost_currency AS currency,
+             ${ESTIMATE_PRICED_SUM} AS amount
+      FROM lines
+      WHERE lines.api_cost_currency IS NOT NULL
+      GROUP BY lines.provider_resource_id, lines.api_cost_currency
+      ORDER BY lines.provider_resource_id ASC, lines.api_cost_currency ASC
+    `.execute(db),
+    sql<EstimatePriceBasisRow & { provider_resource_id: string }>`
+      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
+      SELECT DISTINCT lines.provider_resource_id, lines.billing_rule_id AS rule_id,
+             lines.rule_version, lines.rule_source_status AS source_status
+      FROM lines
+      WHERE lines.api_cost IS NOT NULL AND lines.billing_rule_id IS NOT NULL
+      ORDER BY lines.provider_resource_id ASC, lines.billing_rule_id ASC,
+               lines.rule_version ASC NULLS LAST
+    `.execute(db),
+  ]);
+  const aggregateByResource = new Map(
+    aggregateRows.rows.map((row) => [row.provider_resource_id, row]),
+  );
+  const amountsByResource = new Map<string, EstimateAmountRow[]>();
+  for (const row of amountRows.rows) {
+    const list = amountsByResource.get(row.provider_resource_id) ?? [];
+    list.push({ currency: row.currency, amount: row.amount });
+    amountsByResource.set(row.provider_resource_id, list);
+  }
+  const basisByResource = new Map<string, EstimatePriceBasisRow[]>();
+  for (const row of basisRows.rows) {
+    const list = basisByResource.get(row.provider_resource_id) ?? [];
+    list.push({ rule_id: row.rule_id, rule_version: row.rule_version, source_status: row.source_status });
+    basisByResource.set(row.provider_resource_id, list);
+  }
+  const result = new Map<string, ApiCostEstimation>();
+  for (const resourceId of resourceIds) {
+    result.set(resourceId, assembleApiCostEstimation(
+      enterpriseId,
+      [resourceId],
+      start,
+      end,
+      aggregateByResource.get(resourceId) ?? EMPTY_ESTIMATE_AGGREGATE,
+      amountsByResource.get(resourceId) ?? [],
+      basisByResource.get(resourceId) ?? [],
+    ));
+  }
+  return result;
 }
