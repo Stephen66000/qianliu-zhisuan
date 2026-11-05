@@ -102,6 +102,30 @@ describe("WP3/OAB-07 预测来源合格＋时效有效（task 3.4）", () => {
     expect(freshRow!.remaining_quota).toBe("55.00000000");
   });
 
+  // F1 返修（R2）负向回归 b-2：预测链免疫——写旁路时代的冒充行
+  // （source='PROVIDER_SYNC' 而 balance_source=NULL）不得被供给预测消费，
+  // 余额 123 不得进入预测（按无官方快照处理 → official_source_missing）。
+  it("e) F1 冒充行免疫：source=PROVIDER_SYNC 且 balance_source=NULL 的行不作为预测官方来源", async () => {
+    const seed = await seedApiResource("impersonated-forecast");
+    const now = new Date("2026-08-18T01:00:00Z");
+    // 直插冒充行：source='PROVIDER_SYNC' 而 balance_source=NULL（写旁路时代形态）。
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: seed.enterpriseId, provider_resource_id: seed.resourceId,
+      version: 1, source: "PROVIDER_SYNC",
+      collected_at: new Date(now.getTime() - 60_000), currency: "CNY",
+      current_balance: "123", balance_source: null,
+      usage_calculation: "MANUAL_SNAPSHOT",
+    }).execute();
+    const result = await seed.repo.runTick(now, 60_000, P2_MS);
+    expect(result.snapshotsCreated).toBeGreaterThanOrEqual(1);
+    const row = await readLatestForecast(seed);
+    expect(row).toMatchObject({
+      not_calculable_reason: "official_source_missing",
+      forecast_exhaust_at: null, remaining_quota: null, confidence: "NOT_CALCULABLE",
+    });
+    expect(row!.remaining_quota).not.toBe("123.00000000");
+  });
+
   it("c) 来源优先级：官方快照新鲜而更新的 ADMIN 快照存在 → 预测仍用官方值", async () => {
     const seed = await seedApiResource("precedence");
     const now = new Date("2026-08-18T01:00:00Z");

@@ -47,7 +47,16 @@ const ADMIN_MONEY_FIELDS = [
   "package_cost",
 ] as const;
 
-export const OperatingSnapshotSchema = z.object({
+/**
+ * F1 返修（R2，2026-11-05）：内外合同拆分。
+ * - 基础对象保留全枚举 source（服务端路径专用）：O1a 账单手填导入
+ *   （POST /operating-bill-snapshot-imports，operating-bills/routes.ts:131 服务端
+ *   硬编码 BILL_RECONCILIATION）行为不变。
+ * - 客户端合同 `ClientOperatingSnapshotSchema`：source 收紧为字面 "ADMIN"——
+ *   资源创建/编辑/onboarding 三个 HTTP 入口提交 PROVIDER_SYNC/BILL_RECONCILIATION
+ *   直接校验失败返回 400（拒绝且零落库，development-summary §6 意见 1）。
+ */
+const OperatingSnapshotObjectSchema = z.object({
   source: z.enum(["ADMIN", "PROVIDER_SYNC", "BILL_RECONCILIATION"]).default("ADMIN"),
   collected_at: z.string().datetime(),
   currency: z.string().min(3).max(8).nullable().optional(),
@@ -69,7 +78,15 @@ export const OperatingSnapshotSchema = z.object({
   reset_cycle: z.string().max(32).nullable().optional(),
   reset_anchor_at: z.string().datetime().nullable().optional(),
   next_reset_at: z.string().datetime().nullable().optional(),
-}).superRefine((value, ctx) => {
+});
+
+/**
+ * 内外两份 schema 共用的跨字段校验（ADMIN 两位小数守卫/生效失效序/额度守恒）。
+ */
+function checkOperatingSnapshot(
+  value: z.output<typeof OperatingSnapshotObjectSchema>,
+  ctx: z.RefinementCtx,
+): void {
   if (value.source === "ADMIN") {
     for (const field of ADMIN_MONEY_FIELDS) {
       const amount = value[field];
@@ -88,7 +105,17 @@ export const OperatingSnapshotSchema = z.object({
       && !new Decimal(value.total_quota).equals(new Decimal(value.used_quota).plus(value.remaining_quota))) {
     ctx.addIssue({ code: "custom", path: ["remaining_quota"], message: "总额度必须等于已用额度加剩余额度" });
   }
-});
+}
+
+/** 服务端/内部合同（全枚举 source）：仅 O1a 导入注入路径使用，行为不变。 */
+export const OperatingSnapshotSchema = OperatingSnapshotObjectSchema.superRefine(
+  checkOperatingSnapshot,
+);
+
+/** 客户端合同（F1 收紧）：source 只接受字面 "ADMIN"。 */
+export const ClientOperatingSnapshotSchema = OperatingSnapshotObjectSchema.extend({
+  source: z.literal("ADMIN").default("ADMIN"),
+}).superRefine(checkOperatingSnapshot);
 
 const API_ONLY_OPERATING_FIELDS = [
   "recharge_amount", "current_balance", "cumulative_cost", "current_period_cost",
@@ -173,7 +200,8 @@ export const CreateResourceSchema = z.object({
   credential_plaintext: z.string().min(1),
   upstream_models: z.array(z.string()).optional(),
   concurrency_limit: z.number().int().positive().optional(),
-  operating_snapshot: OperatingSnapshotSchema.optional(),
+  // F1：客户端入口（创建/onboard 继承）只接受 source="ADMIN"。
+  operating_snapshot: ClientOperatingSnapshotSchema.optional(),
 });
 
 export const ModelDiscoverySchema = z.object({

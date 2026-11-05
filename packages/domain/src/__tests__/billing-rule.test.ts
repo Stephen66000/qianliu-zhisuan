@@ -351,6 +351,25 @@ describe("computeApiCostFromRule API 计价（TRD §10.1）", () => {
     // 123456789*1e-7 + 98765432*3e-7 = 12.3456789 + 29.6296296 = 41.9753085
     expect(cost).toBe("41.97530850");
   });
+
+  // F2/ACE-04（返修轮 R4）：验收复现场景（R1 阻断 C）——(600×1 + 400×0.1 + 200×2)/1e6
+  // = 0.00104（F01 规范公式，价格按每 token 字面值 /1e6）。三项价齐金额不变；缺
+  // 「适用分项」价（cache=600>0 需 hitPrice）→ null，不再静默按 0 计出 0.00044000
+  // 完整金额（0.00044 = 40+400 补零产物，验收指认的反例）。
+  it("F2 验收场景：三项价齐 → 0.00104000；缺 hitPrice（cache>0）→ null 不补零", () => {
+    const prices = { cacheHitPrice: "0.000001", cacheMissPrice: "0.0000001", outputPrice: "0.000002" };
+    expect(computeApiCostFromRule(prices, 1000, 200, 600)).toBe("0.00104000");
+    expect(computeApiCostFromRule({ ...prices, cacheHitPrice: null }, 1000, 200, 600)).toBeNull();
+  });
+
+  // F2 适用分项判定：miss=input-cache>0 需 missPrice、output>0 需 outputPrice，
+  // 任一适用分项缺价 → null；全适用价齐 → decimal 计算不变（上面两用例承载）。
+  it("F2 适用分项：缺 missPrice（miss>0）或 outputPrice（output>0）→ null", () => {
+    const prices = { cacheHitPrice: "0.000001", cacheMissPrice: "0.0000001", outputPrice: "0.000002" };
+    // input=1000, cache=600 → miss=400>0。
+    expect(computeApiCostFromRule({ ...prices, cacheMissPrice: null }, 1000, 200, 600)).toBeNull();
+    expect(computeApiCostFromRule({ ...prices, outputPrice: null }, 1000, 200, 600)).toBeNull();
+  });
 });
 
 describe("matchPriceRule 价格规则", () => {

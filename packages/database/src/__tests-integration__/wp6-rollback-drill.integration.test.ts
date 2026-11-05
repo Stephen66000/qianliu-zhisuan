@@ -227,6 +227,8 @@ async function seedDrill(db: ReturnType<typeof createKysely>): Promise<DrillFixt
     resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 200n,
     raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
     api_cost: SETTLED_CNY, api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE",
+    // F3：生产已计价行自 9bf1560 起冻结快照（含 sourceStatus）；夹具补齐生产形态。
+    billing_rule_snapshot: { sourceStatus: "VERIFIED" },
     usage_quality: "PROVIDER_REPORTED", settled_at: new Date("2026-11-04T08:00:01.000Z"),
     created_at: new Date("2026-11-04T08:00:01.000Z"),
   }).execute();

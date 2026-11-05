@@ -73,7 +73,8 @@ async function seedEnterprise() {
       raw_reasoning_tokens: 0n, deducted_quota: null, usage_quality: "PROVIDER_REPORTED",
       api_cost: cost, api_cost_status: cost === null ? "UNKNOWN_COST" : "PRICED_USAGE",
       api_cost_currency: cost === null ? null : "CNY",
-      billing_rule_snapshot: cost === null ? null : { currency: "CNY" },
+      // F3：生产已计价行快照含冻结 sourceStatus（9bf1560 起）；夹具补齐，保持缺口断言聚焦。
+      billing_rule_snapshot: cost === null ? null : { currency: "CNY", sourceStatus: "VERIFIED" },
       settled_at: occurredAt, created_at: occurredAt }).execute();
     await db.insertInto("ledger_transaction").values({ ai_request_id: requestId,
       enterprise_id: enterpriseId, principal_id: employeeId, total_input_tokens: 100n,

@@ -101,6 +101,11 @@ export function computeBillingFromRule(
     };
   }
 
+  // F2/ACE-04：规则缺「适用分项」价（对应用量>0）时 apiCost=null（费用部分未知）。
+  // 结算链（attempt-usage-settlement.ts :78-79 pricedApi 判定）据此落 UNKNOWN_COST＋
+  // api_cost/currency NULL；ruleId/ruleVersion/快照仍冻结（快照含缺失的分项价原始 null，
+  // 聚合层按 PRICE_MISSING 归口）。反事实链 calculateDispatchSaving 对 null 成本自动
+  // 判 baseline_not_comparable → NOT_CALCULABLE（保守化，不生成虚假节省）。
   const apiCost = rule
     ? computeApiCostFromRule(rule, usage.input, usage.output, usage.cache)
     : null;

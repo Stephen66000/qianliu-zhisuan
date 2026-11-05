@@ -161,6 +161,9 @@ async function settleAttemptFacts(
       deducted_quota: null,
       api_cost: spec.cost, api_cost_currency: spec.currency,
       api_cost_status: "PRICED_USAGE",
+      // F3：生产结算链自 9bf1560 起在 ledger_line.billing_rule_snapshot 冻结
+      // 含 sourceStatus 的规则快照；夹具按生产形态补齐。
+      billing_rule_snapshot: { sourceStatus: "VERIFIED" },
       settled_at: spec.at,
       usage_quality: "PROVIDER_REPORTED",
     },
@@ -207,6 +210,10 @@ async function seedLine(f: Fixture, input: SeedLineInput): Promise<{ id: string;
     api_cost_currency: (input.cost === null || input.currency === null)
       ? null : input.currency ?? "CNY",
     api_cost_status: input.status,
+    // F3：生产已计价行自 9bf1560 起冻结含 sourceStatus 的快照；夹具按生产形态补齐。
+    // CONFIRMED_ZERO 行生产恒 billing_rule_snapshot=null（rejectedAttemptEvidence），保持原样。
+    billing_rule_snapshot: input.status === "PRICED_USAGE"
+      ? { sourceStatus: "VERIFIED" } : null,
     usage_quality: input.usageQuality ?? "PROVIDER_REPORTED",
     settled_at: at, created_at: at,
   }).returning("id").executeTakeFirstOrThrow();
@@ -490,7 +497,10 @@ describe("loadApiCostEstimation 聚合语义：失败/重试/重复终态/历史
     const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
     expect(result.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
     expect(result.completeness).toBe("KNOWN_PARTIAL");
-    // 唯一缺口是用量未知行；零费用行不产生缺口，也不把缺失数据视为零补进金额。
+    // 唯一实质缺口是用量未知行；零费用行不产生实质缺口，也不把缺失数据视为零补进金额。
+    // R3 曾预期附加 PRICE_BASIS_UNVERIFIED:1；返修轮 R4 总指挥采纳裁定 (b)：
+    // basis_unverified_rows 补 CONFIRMED_ZERO_NO_UPSTREAM 排除（零确认行恒快照 NULL、
+    // 无价格依据语义）→ 信息项不再计入明确零行，仅剩 USAGE_UNKNOWN。
     expect(result.gaps).toEqual([{ reason: "USAGE_UNKNOWN", count: 1 }]);
     expect(gapOf(result.gaps, "PRICE_MISSING")).toBe(0);
     expect(result.excludedNoRecordedCost).toBe(0);

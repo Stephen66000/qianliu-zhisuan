@@ -1,7 +1,10 @@
 /**
  * WP3 task 3.3 / C2 合同：官方余额状态读取（逐资源行，OAB-05 无任何合计）。
  *
- * 与既有读取的区别：快照侧显式筛 `source='PROVIDER_SYNC'`（官方来源）——
+ * 与既有读取的区别：快照侧显式按 design D2 双滤
+ * `source='PROVIDER_SYNC' AND balance_source='PROVIDER_API'`（官方来源且确为
+ * 余额 API 采集）——F1 返修（R2）补 balance_source 滤：HTTP 写旁路时代遗留的
+ * `source='PROVIDER_SYNC'` 而 `balance_source=NULL` 的冒充行不再进入官方余额域。
  * `listLatestOperatingSnapshots` 不筛 source（ADMIN 手工会混入），其语义与
  * dashboard 等旧消费方不动；本函数是官方余额域的独立读取入口。
  *
@@ -69,13 +72,36 @@ interface LatestAttemptRow {
  * | # | 条件                                          | status       |
  * |---|-----------------------------------------------|--------------|
  * | 1 | canonical provider ≠ deepseek 或 mode ≠ API    | UNSUPPORTED  |
- * | 2 | 存在 RUNNING refresh 行（0096）                | SYNCING      |
+ * | 2 | 存在未过期 RUNNING 刷新租约（0096；F4 返修：expires_at 已过的 RUNNING 不再 SYNCING） | SYNCING |
  * | 3 | 无成功快照 ∧ 最新 attempt balance_status=FAILED | FAILED（余额 null，不显 0） |
  * | 4 | 无成功快照（含从未同步或仅 NOT_SUPPORTED 痕迹） | NEVER_SYNCED |
  * | 5 | 有成功快照 ∧ 最新 attempt FAILED               | FAILED（expired 可叠加 true） |
  * | 6 | 有成功快照 ∧ 最新 attempt 非 FAILED ∧ 超 P2     | EXPIRED      |
  * | 7 | 其余                                           | OK           |
  */
+
+/**
+ * status 主判定（判定序见上方矩阵）。F4 返修（R2）：租约过期的 RUNNING 刷新
+ * 不再视为 SYNCING——回落快照/失败/NEVER_SYNCED 正常判定链；
+ * next_refresh_at 的 now 过滤独立存在，不受影响。
+ */
+function deriveOfficialBalanceStatus(input: {
+  supported: boolean;
+  snapshot: LatestOfficialSnapshotRow | undefined;
+  lastAttemptFailed: boolean;
+  expired: boolean;
+  refreshExpiresAt: Date | null;
+  now: Date;
+}): OfficialBalanceStatus {
+  if (!input.supported) return "UNSUPPORTED";
+  if (input.refreshExpiresAt !== null
+      && input.refreshExpiresAt.getTime() > input.now.getTime()) return "SYNCING";
+  if (!input.snapshot) return input.lastAttemptFailed ? "FAILED" : "NEVER_SYNCED";
+  if (input.lastAttemptFailed) return "FAILED";
+  if (input.expired) return "EXPIRED";
+  return "OK";
+}
+
 export async function listOfficialBalanceStates(
   db: Kysely<Database>,
   enterpriseId: string,
@@ -96,6 +122,7 @@ export async function listOfficialBalanceStates(
         topped_up_balance, provider_balance_available, collected_at
       FROM provider_resource_operating_snapshot
       WHERE enterprise_id = ${enterpriseId}::uuid AND source = 'PROVIDER_SYNC'
+        AND balance_source = 'PROVIDER_API'
       ORDER BY provider_resource_id, collected_at DESC, version DESC
     `.execute(db),
     sql<LatestAttemptRow>`
@@ -132,13 +159,9 @@ export async function listOfficialBalanceStates(
     const expired = supported && snapshot !== undefined
       && now.getTime() - snapshot.collected_at.getTime() > expireMs;
 
-    let status: OfficialBalanceStatus;
-    if (!supported) status = "UNSUPPORTED";
-    else if (refreshExpiresAt !== null) status = "SYNCING";
-    else if (!snapshot) status = lastAttemptFailed ? "FAILED" : "NEVER_SYNCED";
-    else if (lastAttemptFailed) status = "FAILED";
-    else if (expired) status = "EXPIRED";
-    else status = "OK";
+    const status = deriveOfficialBalanceStatus({
+      supported, snapshot, lastAttemptFailed, expired, refreshExpiresAt, now,
+    });
 
     // next_refresh_at：max(最近 attempt started_at + P3, RUNNING 租约 expires_at)；
     // 已过去的候选不输出（立即可刷 → null）。

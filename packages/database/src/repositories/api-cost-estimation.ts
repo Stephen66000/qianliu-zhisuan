@@ -9,7 +9,9 @@
  *
  * 语义合同（S1 §3.3，照做不另行发明）：
  *   - 只查 ledger_line 且 resource_mode='API'；禁止 JOIN 资金表/快照表/候选表；
- *     JOIN billing_rule 仅为读取规则现值 source_status（允许）。
+ *     不 JOIN billing_rule：价格依据读请求时冻结的 ledger_line.billing_rule_snapshot
+ *     ->>'sourceStatus'（F3/ACE-02：事后修改规则不得改变历史请求的价格依据；
+ *     快照缺失该键的旧行回退 UNVERIFIED——缺证据即待核实，不把现值冒充当时值）。
  *   - 行分类（互斥）：
  *     1) 明确零：api_cost_status='CONFIRMED_ZERO_NO_UPSTREAM'（0 贡献、不算缺口；
  *        0085 shape 约束保证该状态行 api_cost=0 非空，天然不落入缺口判定）；
@@ -24,10 +26,12 @@
  *   - completeness：存在任一缺口行 → KNOWN_PARTIAL；期间无任何 API 行 → KNOWN_COMPLETE +
  *     空 amounts；无缺口且无已计价金额行（只剩明确零/处置排除）→ ZERO_CONFIRMED；
  *     否则 KNOWN_COMPLETE。
- *   - gaps 另含信息项 PRICE_BASIS_UNVERIFIED（由 source_status='UNVERIFIED' 规则计价的
- *     行数；不影响 completeness）。
+ *   - gaps 另含信息项 PRICE_BASIS_UNVERIFIED（按快照冻结 sourceStatus='UNVERIFIED'
+ *     计价的行数；旧行快照无键按 UNVERIFIED 计；不影响 completeness；
+ *     CONFIRMED_ZERO_NO_UPSTREAM 行不计——零确认行无价格依据语义，恒快照 NULL，
+ *     不排除会误报依据待核实，与 priced_rows 口径对齐，R4 总指挥裁定项）。
  *   - priceBasis：期间内计价行（api_cost IS NOT NULL）涉及的 billing_rule_id/rule_version
- *     及该规则现值 source_status。
+ *     及请求时冻结的快照 sourceStatus（同一规则不同行可能冻结不同状态，各自成行）。
  *   - 期间过滤：settled_at >= start AND settled_at < end（与 dashboard-home-costs.ts
  *     loadWindowOperatingFinance 同口径）。
  *   - 金额一律 decimal.js（Money/money，八位小数字符串），禁止 float。
@@ -67,7 +71,7 @@ export interface ApiCostEstimationPriceBasis {
   ruleId: string;
   /** ledger_line 冻结的版本；历史行可能为 null。 */
   ruleVersion: string | null;
-  /** billing_rule 现值（非冻结值）。 */
+  /** ledger_line.billing_rule_snapshot 冻结的请求时值；旧行快照无该键为 UNVERIFIED（F3）。 */
   sourceStatus: BillingRuleSourceStatus;
 }
 
@@ -125,11 +129,11 @@ function estimationLinesSql(
   return sql`
     SELECT l.api_cost, l.api_cost_currency, l.api_cost_status, l.usage_quality,
            l.billing_rule_id, l.rule_version,
-           rule.source_status AS rule_source_status,
+           coalesce(l.billing_rule_snapshot->>'sourceStatus', 'UNVERIFIED')
+             AS rule_source_status,
            ${effectiveUsageCostDispositionSql("l")} AS excluded,
            ${effectiveReportedApiCostSql("l")} AS reported_cost
       FROM ledger_line l
-      LEFT JOIN billing_rule rule ON rule.id = l.billing_rule_id
      WHERE l.enterprise_id = ${enterpriseId}::uuid
        AND l.resource_mode = 'API'
        AND l.settled_at >= ${start} AND l.settled_at < ${end}
@@ -168,6 +172,7 @@ export async function loadApiCostEstimation(
           AND coalesce(lines.api_cost_status,'') <> 'NOT_MIGRATED'
           AND lines.usage_quality <> 'UNKNOWN')::int AS price_missing_rows,
         count(*) FILTER (WHERE lines.api_cost IS NOT NULL
+          AND coalesce(lines.api_cost_status,'') <> 'CONFIRMED_ZERO_NO_UPSTREAM'
           AND lines.rule_source_status = 'UNVERIFIED')::int AS basis_unverified_rows
       FROM lines
     `.execute(db),

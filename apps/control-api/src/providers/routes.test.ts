@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ClientOperatingSnapshotSchema,
   financeManagedOperatingSnapshotError,
   OperatingSnapshotSchema,
 } from "./contracts.js";
@@ -46,5 +47,32 @@ describe("OperatingSnapshotSchema", () => {
     expect(financeManagedOperatingSnapshotError("CODING_PLAN", {
       ...plan, package_cost: null,
     })).toBeNull();
+  });
+});
+
+
+describe("ClientOperatingSnapshotSchema（F1 返修：客户端合同收紧为字面 ADMIN）", () => {
+  it("拒绝客户端自报官方来源（PROVIDER_SYNC/BILL_RECONCILIATION），ADMIN 与缺省放行", () => {
+    const base = { collected_at: "2026-08-03T03:49:00.000Z" };
+    expect(ClientOperatingSnapshotSchema.safeParse({
+      ...base, source: "PROVIDER_SYNC", current_balance: "123",
+    }).success).toBe(false);
+    expect(ClientOperatingSnapshotSchema.safeParse({
+      ...base, source: "BILL_RECONCILIATION", current_balance: "123",
+    }).success).toBe(false);
+    expect(ClientOperatingSnapshotSchema.safeParse({
+      ...base, source: "ADMIN", current_balance: "109.411",
+    }).success).toBe(false); // ADMIN 两位小数守卫仍生效
+    expect(ClientOperatingSnapshotSchema.safeParse({
+      ...base, source: "ADMIN", current_balance: "123.00",
+    }).success).toBe(true);
+    const defaulted = ClientOperatingSnapshotSchema.parse(base);
+    expect(defaulted.source).toBe("ADMIN"); // 缺省仍默认 ADMIN（web 恒发 ADMIN 不受影响）
+  });
+
+  it("服务端内部合同（OperatingSnapshotSchema）保留全枚举，O1a 注入路径行为不变", () => {
+    const base = { collected_at: "2026-08-03T03:49:00.000Z", current_balance: "109.41123456" };
+    expect(OperatingSnapshotSchema.safeParse({ ...base, source: "PROVIDER_SYNC" }).success).toBe(true);
+    expect(OperatingSnapshotSchema.safeParse({ ...base, source: "BILL_RECONCILIATION" }).success).toBe(true);
   });
 });

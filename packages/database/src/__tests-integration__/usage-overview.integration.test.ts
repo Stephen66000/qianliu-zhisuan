@@ -700,6 +700,9 @@ async function seedPricedApiLineFixture(input: {
     usage_quality: "PROVIDER_REPORTED",
     billing_rule_id: rule.id,
     rule_version: input.ruleVersion,
+    // F3：生产结算链自 9bf1560 起在快照冻结 sourceStatus；夹具补齐生产形态
+    //（估算依据改读该冻结键，不再 JOIN billing_rule 现值）。
+    billing_rule_snapshot: { sourceStatus: input.sourceStatus },
     created_at: input.at,
     settled_at: input.at,
   }).execute();

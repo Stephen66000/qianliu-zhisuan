@@ -7,6 +7,9 @@
  *   b) 1 CNY + 2 USD 分列，两桶分别正确，绝不混币相加（ACE-07）；
  *   c) 已计价 1+2 元 + 用量已知缺价格行 → amounts=[3 CNY] + KNOWN_PARTIAL + PRICE_MISSING=1
  *      （F02 / ACE-04 场景 1）；
+ *   c2) F2/ACE-04（返修轮 R4）：缺「适用分项」价行（结算 UNKNOWN_COST＋快照冻结缺失
+ *      分项价）→ PRICE_MISSING、已知部分金额不含该行（不再补零 0.00044000）、
+ *      api_cost NULL 行不进 priceBasis；
  *   d) 仅 CONFIRMED_ZERO_NO_UPSTREAM → ZERO_CONFIRMED、无缺口（ACE-04 场景 2）；
  *   e) 处置排除行 → excludedNoRecordedCost=1、无该缺口、金额不变（ACE-05 场景 2 前提）；
  *   f) price_basis 含 ruleId/ruleVersion/sourceStatus；UNVERIFIED 计价行触发
@@ -16,6 +19,9 @@
  *   h) G3/AT-ACE-03（F11 雏形）：同企业价格版本 A/B 以 effective_from 为明确生效点，
  *      生效点前后各一笔消费按各自生效时点版本计价；不改动任何数据重读（模拟刷新页面）
  *      金额逐字不变；旧调用行保留版本 A、计价依据仍含版本 A（不重算）。
+ *   i) F3/ACE-02 回归（R3）：价格依据读请求时冻结的快照 sourceStatus——事后改
+ *      billing_rule.source_status 不改变历史请求的依据与金额；旧行快照缺
+ *      sourceStatus 键回退 UNVERIFIED（不读当前规则现值）。
  * 另记录合同语义：期间无任何 API 行 → KNOWN_COMPLETE + 空 amounts（S1 §3.3）。
  */
 import { createHash, randomUUID } from "node:crypto";
@@ -121,6 +127,9 @@ interface SeedLineInput {
   status: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_MIGRATED";
   usageQuality?: string;
   rule?: { id: string; rule_version: string } | null;
+  /** 生产结算链自 9bf1560 起在 ledger_line.billing_rule_snapshot 冻结含 sourceStatus 的
+   *  规则快照；夹具按生产形态补齐（F3：估算依据读该冻结键）。 */
+  snapshot?: Record<string, unknown> | null;
   resourceOverride?: string;
   /** G3/AT-ACE-03 专用：显式 token 用量（缺省保持既有 1000/100，不影响既有用例）。 */
   inputTokens?: bigint;
@@ -163,6 +172,7 @@ async function seedLine(f: Fixture, input: SeedLineInput): Promise<{ id: string;
     settled_at: at, created_at: at,
     billing_rule_id: input.rule?.id ?? null,
     rule_version: input.rule?.rule_version ?? null,
+    billing_rule_snapshot: input.snapshot ?? null,
   }).returning("id").executeTakeFirstOrThrow();
   return { id: line.id, requestId };
 }
@@ -197,6 +207,7 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     await seedLine(f, {
       at: new Date("2026-09-10T12:00:00+08:00"), cost: "0.00104000",
       currency: "CNY", status: "PRICED_USAGE", rule,
+      snapshot: { sourceStatus: "VERIFIED" },
     });
     // ACE-02 场景：输入含缓存命中的分项计价字面值（600×1 + 400×0.1 + 200×2)/1e6 = 0.00104。
     const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
@@ -226,7 +237,9 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     ]);
     expect(result.amounts).toHaveLength(2); // 不存在混币总额桶
     expect(result.completeness).toBe("KNOWN_COMPLETE");
-    expect(result.gaps).toEqual([]);
+    // F3 新语义：夹具两行未冻结快照（等价 9bf1560 前旧行）→ 依据归 UNVERIFIED，
+    // 逐行计入信息项 PRICE_BASIS_UNVERIFIED（金额/completeness 不受影响）。
+    expect(result.gaps).toEqual([{ reason: "PRICE_BASIS_UNVERIFIED", count: 2 }]);
   });
 
   it("b2) resourceIds 过滤：scope 原样回显且只聚合所选资源", async () => {
@@ -264,6 +277,35 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     expect(result.excludedNoRecordedCost).toBe(0);
   });
 
+  // c2/F2 验收复现（返修轮 R4，ACE-04）：gateway 结算链对缺「适用分项」价（cache>0
+  // 缺 hitPrice）行落 UNKNOWN_COST＋api_cost/currency NULL，快照仍冻结缺失分项价
+  // （attempt-usage-settlement :78-79/:105-108）。聚合按 PRICE_MISSING 归口、已知
+  // 部分金额不含该行（不再产出补零 0.00044000 完整金额）；该行不进 priceBasis。
+  it("c2/F2 缺适用分项价行（UNKNOWN_COST＋快照冻结缺失价）→ PRICE_MISSING、金额不含该行、不进 priceBasis", async () => {
+    const f = await fixture();
+    const rule = await seedRule(f, "VERIFIED");
+    await seedLine(f, { at: new Date("2026-09-10T12:00:00+08:00"),
+      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule,
+      snapshot: { sourceStatus: "VERIFIED" } });
+    await seedLine(f, {
+      at: new Date("2026-09-11T12:00:00+08:00"),
+      cost: null, status: "UNKNOWN_COST", usageQuality: "PROVIDER_REPORTED", rule,
+      snapshot: { pricingMode: "ABSOLUTE", ruleType: "API_PRICE", currency: "CNY",
+        cacheHitPrice: null, cacheMissPrice: "0.0000001", outputPrice: "0.000002",
+        sourceStatus: "VERIFIED" },
+    });
+    const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    // 已知部分不计缺价行金额（F2 前该行曾被补零计入完整金额）。
+    expect(result.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
+    expect(result.completeness).toBe("KNOWN_PARTIAL");
+    expect(gapOf(result.gaps, "PRICE_MISSING")).toBe(1);
+    expect(result.excludedNoRecordedCost).toBe(0);
+    // 缺价行 api_cost NULL → 不进 priceBasis（尽管 billing_rule_id/快照存在）。
+    expect(result.priceBasis).toEqual([
+      { ruleId: rule.id, ruleVersion: rule.rule_version, sourceStatus: "VERIFIED" },
+    ]);
+  });
+
   it("d) 仅 CONFIRMED_ZERO_NO_UPSTREAM → ZERO_CONFIRMED、无缺口（ACE-04 场景 2）", async () => {
     const f = await fixture();
     await seedLine(f, { at: new Date("2026-09-10T12:00:00+08:00"),
@@ -271,6 +313,10 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
     expect(result.amounts).toEqual([]);
     expect(result.completeness).toBe("ZERO_CONFIRMED");
+    // R3 曾按「快照缺键即计入」的字面语义预期 PRICE_BASIS_UNVERIFIED:1；返修轮 R4
+    // 总指挥采纳裁定 (b)：basis_unverified_rows 补 CONFIRMED_ZERO_NO_UPSTREAM 排除
+    // （零确认行恒快照 NULL、无价格依据语义，排除后与 priced_rows 口径对齐）→
+    // 明确零行不产生任何缺口（ACE-04 场景 2 原语义维持）。
     expect(result.gaps).toEqual([]);
     expect(result.excludedNoRecordedCost).toBe(0);
   });
@@ -286,7 +332,9 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     expect(result.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
     expect(result.excludedNoRecordedCost).toBe(1);
     expect(result.completeness).toBe("KNOWN_COMPLETE");
-    expect(result.gaps).toEqual([]);
+    // F3 新语义：已计价行未冻结快照（等价旧行）→ 依据归 UNVERIFIED 计入信息项；
+    // 处置排除与金额口径不变。
+    expect(result.gaps).toEqual([{ reason: "PRICE_BASIS_UNVERIFIED", count: 1 }]);
   });
 
   it("f) priceBasis 含 ruleId/ruleVersion/sourceStatus；UNVERIFIED 计价行触发 PRICE_BASIS_UNVERIFIED 且不影响 completeness", async () => {
@@ -294,9 +342,11 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     const unverified = await seedRule(f, "UNVERIFIED");
     const verified = await seedRule(f, "VERIFIED");
     await seedLine(f, { at: new Date("2026-09-10T12:00:00+08:00"),
-      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule: unverified });
+      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule: unverified,
+      snapshot: { sourceStatus: "UNVERIFIED" } });
     await seedLine(f, { at: new Date("2026-09-11T12:00:00+08:00"),
-      cost: "2.00000000", currency: "CNY", status: "PRICED_USAGE", rule: verified });
+      cost: "2.00000000", currency: "CNY", status: "PRICED_USAGE", rule: verified,
+      snapshot: { sourceStatus: "VERIFIED" } });
     const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
     expect(result.priceBasis).toEqual([
       { ruleId: verified.id, ruleVersion: verified.rule_version, sourceStatus: "VERIFIED" },
@@ -306,6 +356,64 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     // 信息性缺口不改变完整性（两行均已计价，无其他缺口）。
     expect(result.completeness).toBe("KNOWN_COMPLETE");
     expect(result.amounts).toEqual([{ currency: "CNY", amount: "3.00000000" }]);
+  });
+
+  // F3/ACE-02 回归 a+c：价格依据＝请求时冻结的快照 sourceStatus。
+  // 事后把 billing_rule.source_status 改为 UNVERIFIED 后重查：priceBasis 仍为快照
+  // VERIFIED、PRICE_BASIS_UNVERIFIED 不出现、金额与整个估算对象逐字不变——
+  // 修改规则不得改变历史请求的价格依据（R1 验收阻断 D 的反向回归）。
+  it("i-a/F3 历史追溯：改 billing_rule.source_status 后重查，依据仍按快照 VERIFIED、金额逐字不变", async () => {
+    const f = await fixture();
+    const rule = await seedRule(f, "VERIFIED");
+    await seedLine(f, {
+      at: new Date("2026-09-10T12:00:00+08:00"),
+      cost: "0.00104000", currency: "CNY", status: "PRICED_USAGE", rule,
+      snapshot: { pricingMode: "ABSOLUTE", ruleType: "API_PRICE", currency: "CNY",
+        cacheHitPrice: "0.000001", cacheMissPrice: "0.000002", outputPrice: "0.000004",
+        sourceStatus: "VERIFIED" },
+    });
+    const before = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(before.amounts).toEqual([{ currency: "CNY", amount: "0.00104000" }]);
+    expect(before.priceBasis).toEqual([
+      { ruleId: rule.id, ruleVersion: rule.rule_version, sourceStatus: "VERIFIED" },
+    ]);
+    expect(before.gaps).toEqual([]);
+
+    // 事后修改当前规则状态（模拟管理端把规则标记为 UNVERIFIED）。
+    await db.updateTable("billing_rule")
+      .set({ source_status: "UNVERIFIED" })
+      .where("id", "=", rule.id).execute();
+
+    const after = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    // 依据仍为请求时冻结值 VERIFIED（不随规则现值翻转）——ACE-02 核心断言。
+    expect(after.priceBasis).toEqual(before.priceBasis);
+    expect(gapOf(after.gaps, "PRICE_BASIS_UNVERIFIED")).toBe(0);
+    // source_status 只影响依据状态不影响金额：整个估算对象与改前逐字一致。
+    expect(after).toEqual(before);
+    // 自证：规则现值确实已被改掉（排除夹具未生效的假阳性）。
+    const current = await db.selectFrom("billing_rule")
+      .select("source_status").where("id", "=", rule.id).executeTakeFirstOrThrow();
+    expect(current.source_status).toBe("UNVERIFIED");
+  });
+
+  // F3/ACE-02 回归 b：9bf1560 前旧行快照无 sourceStatus 键 → 依据归 UNVERIFIED，
+  // 不读当前规则值（当前规则 VERIFIED 也不影响该行归为待核实）。
+  it("i-b/F3 旧行回退：快照无 sourceStatus 键 → 依据归 UNVERIFIED（不读当前规则 VERIFIED 值）", async () => {
+    const f = await fixture();
+    const rule = await seedRule(f, "VERIFIED");
+    await seedLine(f, {
+      at: new Date("2026-09-10T12:00:00+08:00"),
+      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule,
+      snapshot: { pricingMode: "ABSOLUTE", currency: "CNY" },
+    });
+    const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(result.amounts).toEqual([{ currency: "CNY", amount: "1.00000000" }]);
+    expect(result.priceBasis).toEqual([
+      { ruleId: rule.id, ruleVersion: rule.rule_version, sourceStatus: "UNVERIFIED" },
+    ]);
+    expect(gapOf(result.gaps, "PRICE_BASIS_UNVERIFIED")).toBe(1);
+    // 信息项缺口不影响完整性。
+    expect(result.completeness).toBe("KNOWN_COMPLETE");
   });
 
   it("s1§3.3 语义记录：期间无任何 API 行 → KNOWN_COMPLETE + 空 amounts", async () => {
@@ -354,9 +462,11 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     //   B 版价格 (600000×0.5 + 200000×1)/1e6 = 0.50000000。
     const usage = { inputTokens: 600000n, outputTokens: 200000n };
     const lineA = await seedLine(f, { at: new Date("2026-09-10T12:00:00+08:00"),
-      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleA, ...usage });
+      cost: "1.00000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleA, ...usage,
+      snapshot: { sourceStatus: "VERIFIED" } });
     await seedLine(f, { at: new Date("2026-09-20T12:00:00+08:00"),
-      cost: "0.50000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleB, ...usage });
+      cost: "0.50000000", currency: "CNY", status: "PRICED_USAGE", rule: ruleB, ...usage,
+      snapshot: { sourceStatus: "VERIFIED" } });
 
     const first = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
     expect(first.amounts).toEqual([{ currency: "CNY", amount: "1.50000000" }]);

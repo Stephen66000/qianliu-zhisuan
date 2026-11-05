@@ -189,6 +189,52 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
     }
   });
 
+  // F1 返修（R2）负向回归 b-3：恢复链免疫——写旁路时代的冒充行
+  // （source='PROVIDER_SYNC' 而 balance_source=NULL）不得作为恢复证据解除
+  // EXHAUSTED 隔离（runner 候选查询 D2 双滤后不再命中该行）。
+  it("F1 冒充行免疫：balance_source=NULL 的 PROVIDER_SYNC 冒充行不触发耗尽资源恢复", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const { enterpriseId, resourceId } = await seedApiResource(db, "F1 冒充行恢复测试", 11);
+      const kekBase64 = Buffer.alloc(32, 11).toString("base64");
+      // 冒充行：collected_at 晚于隔离时刻、余额 123、available=true——若没有
+      // balance_source 双滤，该行满足旧候选查询的全部条件。
+      const isolatedAt = new Date("2026-08-21T01:00:00Z");
+      await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
+        updated_at: isolatedAt }).where("id", "=", resourceId).execute();
+      await db.insertInto("provider_resource_operating_snapshot").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 1,
+        source: "PROVIDER_SYNC", collected_at: new Date("2026-08-21T01:30:00Z"),
+        currency: "CNY", current_balance: "123",
+        provider_balance_available: true, balance_source: null,
+        usage_calculation: "MANUAL_SNAPSHOT",
+      }).execute();
+      // 上游不可用：本轮只留 FAILED attempt，不写任何真实官方快照。
+      const failedFetch = vi.fn(async () => { throw new Error("offline"); }) as unknown as ProviderOperatingFetch;
+      await expect(runProviderOperatingSyncTick({ db, kekBase64, fetch: failedFetch,
+        now: new Date("2026-08-21T02:00:00Z") }))
+        .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 0, failed: 1,
+          notSupported: 0, skippedQuiescentResources: 0 });
+      // 冒充行未触发恢复：资源保持 EXHAUSTED，无 BALANCE_SYNC_RECOVERED 事件。
+      expect(await db.selectFrom("provider_resource").select("status")
+        .where("id", "=", resourceId).executeTakeFirstOrThrow())
+        .toEqual({ status: "EXHAUSTED" });
+      const recoveryEvents = await db.selectFrom("resource_status_event")
+        .select("id").where("provider_resource_id", "=", resourceId)
+        .where("reason", "=", "BALANCE_SYNC_RECOVERED").execute();
+      expect(recoveryEvents).toHaveLength(0);
+      // 快照仍只有冒充行 1 行；本轮 FAILED attempt 各留一行。
+      const snapshots = await db.selectFrom("provider_resource_operating_snapshot")
+        .select(({ fn }) => fn.countAll<string>().as("count"))
+        .where("provider_resource_id", "=", resourceId).executeTakeFirstOrThrow();
+      expect(Number(snapshots.count)).toBe(1);
+      await retireResource(db, resourceId);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it("恢复链回归：新隔离被更新官方证据解除；证据不足不恢复；失败保鲜最后成功值与 last_success_data_at", async () => {
     const db = createKysely(pg.connectionString);
     try {

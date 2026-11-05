@@ -64,11 +64,15 @@ async function recoverFromFreshPositiveBalance(
   db: Kysely<Database>, poolRepo: ResourcePoolRepository, resource: SyncResource,
 ): Promise<void> {
   if (resource.mode !== "API" || resource.status !== "EXHAUSTED") return;
+  // F1 返修（R2）：证据候选按 design D2 双滤（source＋balance_source）——与
+  // recordBalanceSyncRecovery 的证据复核条件一致，写旁路时代的
+  // `source='PROVIDER_SYNC'`/`balance_source=NULL` 冒充行不再触发耗尽恢复。
   const snapshot = await db.selectFrom("provider_resource_operating_snapshot")
     .select("id")
     .where("enterprise_id", "=", resource.enterprise_id)
     .where("provider_resource_id", "=", resource.id)
     .where("source", "=", "PROVIDER_SYNC")
+    .where("balance_source", "=", "PROVIDER_API")
     .orderBy("collected_at", "desc").orderBy("version", "desc")
     .executeTakeFirst();
   if (snapshot) await poolRepo.recordBalanceSyncRecovery(resource.id, snapshot.id);

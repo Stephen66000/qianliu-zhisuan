@@ -60,6 +60,8 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     errorCode?: string | null;
     billingRuleId?: string;
     ruleVersion?: string;
+    /** F3：生产结算链自 9bf1560 起冻结含 sourceStatus 的规则快照；S2B 用例按生产形态补齐。 */
+    billingRuleSnapshot?: Record<string, unknown>;
   }) {
     const requestId = randomUUID();
     await db.insertInto("ai_request").values({
@@ -91,6 +93,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       api_cost: input.cost,
       billing_rule_id: input.billingRuleId ?? null,
       rule_version: input.ruleVersion ?? null,
+      billing_rule_snapshot: input.billingRuleSnapshot ?? null,
       usage_quality: input.quality, created_at: input.at,
       // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
       // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
@@ -586,6 +589,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       cost: "0.1", quality: "PROVIDER_REPORTED",
       at: new Date(now.getTime() - 30 * 60 * 1000),
       billingRuleId: unverifiedRule.id, ruleVersion: "pb-unverified-v1",
+      billingRuleSnapshot: { sourceStatus: "UNVERIFIED" },
     });
 
     const verifiedResource = await createApiResource("pb-verified", "10");
@@ -598,6 +602,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       cost: "0.1", quality: "PROVIDER_REPORTED",
       at: new Date(now.getTime() - 30 * 60 * 1000),
       billingRuleId: verifiedRule.id, ruleVersion: "pb-verified-v1",
+      billingRuleSnapshot: { sourceStatus: "VERIFIED" },
     });
 
     const planProvider = await db.insertInto("provider").values({

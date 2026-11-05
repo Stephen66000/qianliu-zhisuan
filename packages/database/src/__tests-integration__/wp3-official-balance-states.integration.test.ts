@@ -220,6 +220,73 @@ describe("listOfficialBalanceStates（C2 官方余额状态读取，task 3.3）"
     expect(state.next_refresh_at?.toISOString()).toBe(leaseEnd.toISOString());
   });
 
+  // F1 返修（R2）负向回归 b-1：存量冒充行免疫——写旁路时代可能存在
+  // source='PROVIDER_SYNC' 而 balance_source=NULL 的行；D2 双滤后该行不得成为
+  // "官方余额"（按无快照处理，不显示 123）。
+  it("F1 冒充行免疫：source=PROVIDER_SYNC 且 balance_source=NULL 的行不进入官方余额域", async () => {
+    const seed = await seedResource("impersonated-row");
+    // 直插冒充行（insertSnapshot 助手的 ?? 会把显式 null 归一成 PROVIDER_API，
+    // 无法构造 balance_source=NULL 形态）：source='PROVIDER_SYNC' 而
+    // balance_source=NULL、余额 123——写旁路时代的冒充行形态。
+    await db.insertInto("provider_resource_operating_snapshot").values({
+      enterprise_id: seed.enterpriseId, provider_resource_id: seed.resourceId,
+      version: 1, source: "PROVIDER_SYNC", collected_at: T0,
+      currency: "CNY", current_balance: "123", balance_source: null,
+      usage_calculation: "MANUAL_SNAPSHOT",
+    }).execute();
+    const state = await read(seed, new Date(T0.getTime() + 60_000));
+    expect(state).toMatchObject({ supported: true, status: "NEVER_SYNCED",
+      total_balance: null, currency: null, composition: null, available: null,
+      last_success_at: null });
+    expect(state.total_balance).not.toBe("123.00000000");
+    // 对照：同一来源补一条真实官方行（balance_source=PROVIDER_API）→ 照常进入官方域。
+    await insertSnapshot(seed, { version: 2, collectedAt: new Date(T0.getTime() + 120_000),
+      totalBalance: "77", source: "PROVIDER_SYNC", balanceSource: "PROVIDER_API" });
+    const recovered = await read(seed, new Date(T0.getTime() + 180_000));
+    expect(recovered).toMatchObject({ status: "OK", total_balance: "77.00000000" });
+  });
+
+  // F4 返修（R2）回归：租约过期收敛——过期的 RUNNING 刷新不再 SYNCING，回落
+  // 快照/失败/NEVER_SYNCED 正常判定；未过期租约仍 SYNCING；过期后
+  // next_refresh_at 输出 null（立即可刷）。
+  it("F4 租约过期：expires_at 已过的 RUNNING 刷新收敛为非 SYNCING；未过期仍 SYNCING", async () => {
+    const seed = await seedResource("lease-expiry");
+    await insertSnapshot(seed, { version: 1, collectedAt: T0, totalBalance: "70", available: true });
+    await insertAttempt(seed, { startedAt: T0, balanceStatus: "SUCCESS" });
+    const now = new Date(T0.getTime() + 10_000);
+    const leaseEnd = new Date(now.getTime() + 45_000);
+    await db.insertInto("provider_resource_balance_refresh").values({
+      enterprise_id: seed.enterpriseId, provider_resource_id: seed.resourceId,
+      actor_admin_id: seed.adminId, idempotency_key: randomUUID(), status: "RUNNING",
+      started_at: now, finished_at: null, expires_at: leaseEnd, updated_at: now,
+    }).execute();
+    const syncing = await read(seed, now);
+    expect(syncing).toMatchObject({ status: "SYNCING", total_balance: "70.00000000" });
+    expect(syncing.next_refresh_at?.toISOString()).toBe(leaseEnd.toISOString());
+
+    // 租约过期（时钟越过 expires_at）：不再 SYNCING，回落 OK（有成功快照）。
+    const afterExpiry = new Date(leaseEnd.getTime() + 5_000);
+    const converged = await read(seed, afterExpiry);
+    expect(converged.status).not.toBe("SYNCING");
+    expect(converged).toMatchObject({ status: "OK", total_balance: "70.00000000" });
+    expect(converged.next_refresh_at).toBeNull(); // 过期租约不构成未来刷新时点
+
+    // 无成功快照的资源：租约过期后回落 NEVER_SYNCED（而非永久 SYNCING）。
+    const neverSeed = await seedResource("lease-expiry-never");
+    const neverNow = new Date(T0.getTime() + 10_000);
+    await db.insertInto("provider_resource_balance_refresh").values({
+      enterprise_id: neverSeed.enterpriseId, provider_resource_id: neverSeed.resourceId,
+      actor_admin_id: neverSeed.adminId, idempotency_key: randomUUID(), status: "RUNNING",
+      started_at: neverNow, finished_at: null,
+      expires_at: new Date(neverNow.getTime() + 45_000), updated_at: neverNow,
+    }).execute();
+    const neverDuring = await read(neverSeed, neverNow);
+    expect(neverDuring.status).toBe("SYNCING");
+    const neverAfter = await read(neverSeed, new Date(neverNow.getTime() + 50_000));
+    expect(neverAfter.status).not.toBe("SYNCING");
+    expect(neverAfter.status).toBe("NEVER_SYNCED");
+  });
+
   it("P2 可配置：同一数据在不同 expireMs 下 EXPIRED 判定不同", async () => {
     const seed = await seedResource("p2-config");
     await insertSnapshot(seed, { version: 1, collectedAt: T0, totalBalance: "40", available: true });

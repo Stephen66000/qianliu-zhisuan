@@ -117,6 +117,8 @@ async function seedLine(f: Fixture, input: SeedLineInput): Promise<string> {
       || status === "CONFIRMED_ZERO_NO_UPSTREAM")
       ? null : input.currency ?? "CNY",
     api_cost_status: status,
+    // F3：生产已计价行自 9bf1560 起冻结快照（含 sourceStatus）；夹具按生产形态补齐。
+    billing_rule_snapshot: status === "PRICED_USAGE" ? { sourceStatus: "VERIFIED" } : null,
     usage_quality: "PROVIDER_REPORTED",
     settled_at: input.settledAt ?? at, created_at: at,
   }).execute();
