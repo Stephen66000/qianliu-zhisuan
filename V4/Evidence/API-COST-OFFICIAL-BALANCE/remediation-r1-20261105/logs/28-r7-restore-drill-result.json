@@ -1,0 +1,214 @@
+{
+  "drill": "R7 整库备份恢复实际演练（F7，验收意见 6）",
+  "date": "2026-11-05T15:21:18+0800",
+  "isolation": {
+    "container": "wp6-r7-restore",
+    "port": 55436,
+    "database": "wp6_r7_drill",
+    "image": "postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+    "retained": true
+  },
+  "routeA_rollback_sh_sql_gz": {
+    "restore": "dropdb --force + createdb; gunzip | psql -v ON_ERROR_STOP=1",
+    "result": "PASS",
+    "checks": [
+      {
+        "check": "migration_head_rollback_sh_timestamp_desc",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "migration_head_by_name_desc",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "migration_head_is_0096",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:requests",
+        "expected": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+        "actual": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:attempts",
+        "expected": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+        "actual": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:usage_events",
+        "expected": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+        "actual": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:ledger_lines",
+        "expected": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+        "actual": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:ledger_transactions",
+        "expected": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+        "actual": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:quota_periods",
+        "expected": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+        "actual": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:quota_usages",
+        "expected": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+        "actual": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:finance_states",
+        "expected": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+        "actual": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+        "pass": true
+      },
+      {
+        "check": "post_backup_provider_resource_absent",
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "check": "post_backup_ai_request_absent",
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "check": "kysely_migration_log_verbatim",
+        "expected": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+        "actual": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+        "pass": true
+      }
+    ]
+  },
+  "routeB_pg_dump_fc": {
+    "restore": "dropdb --force + createdb; pg_restore --exit-on-error",
+    "result": "PASS",
+    "checks": [
+      {
+        "check": "migration_head_rollback_sh_timestamp_desc",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "migration_head_by_name_desc",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "migration_head_is_0096",
+        "expected": "0096_official_balance_refresh_request",
+        "actual": "0096_official_balance_refresh_request",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:requests",
+        "expected": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+        "actual": "f09619e7745f1c358ee01a838aae5461c7b1e0f28d4b63a7044f1d325950b8f2",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:attempts",
+        "expected": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+        "actual": "06455de5c8a5b28f7dbbc8c9539027151d930943dbae0ce64a52764f485b0c1a",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:usage_events",
+        "expected": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+        "actual": "4ce4e1433f9a7ca7826ec8f26327382e55bf23aab4bd35706a43fe803539f94b",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:ledger_lines",
+        "expected": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+        "actual": "6a30b4d2cdb47d4eadd084d13a3c169927cbdf03b8d30cff5e0d6ecc0752cd3e",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:ledger_transactions",
+        "expected": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+        "actual": "ea9b6bc77c10b8662e1b97a1d6cc79686dad0d057fa318e9c1c8dd888a795a93",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:quota_periods",
+        "expected": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+        "actual": "fa62cc3312d78e369fe36b8b2e1a32e460cf36de6a933a06af8f5961d58f74e0",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:quota_usages",
+        "expected": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+        "actual": "94101042fa99bbb946203523c544a924d74ae7243468bc7bfd9f43c2c59ceb98",
+        "pass": true
+      },
+      {
+        "check": "protected_set_verbatim:finance_states",
+        "expected": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+        "actual": "b6063c3c525ecc7d71e92b4c3c27d7c48060185d29db0d70a02a216aeec251c5",
+        "pass": true
+      },
+      {
+        "check": "post_backup_provider_resource_absent",
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "check": "post_backup_ai_request_absent",
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "check": "kysely_migration_log_verbatim",
+        "expected": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+        "actual": "1924ac1913b6b5fc1b4b79607bc0d4d4ac4191348cc36e63da3ade5630a09ac3",
+        "pass": true
+      }
+    ]
+  },
+  "destructiveMutation": {
+    "providerResourceId": "98a8b020-fc8d-414c-8930-8a9d814a609e",
+    "aiRequestId": "e2dde9a4-6ebf-4395-a30e-66a5c8cd0e79",
+    "absentAfterRouteA": true,
+    "baseline": "/var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/baseline.json",
+    "mutation": "/var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T//r7-restore-drill.6yJ7rA/mutation.json"
+  },
+  "artifacts": {
+    "fc": {
+      "path": "/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/backups/r7-drill-fc.dump",
+      "bytes": 627714,
+      "sha256": "a0c87a943630a935f82160576f0a724dec5f697d15cc9a0f2b36945d157293b3"
+    },
+    "sqlGz": {
+      "path": "/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/backups/r7-drill-full.sql.gz",
+      "bytes": 53463,
+      "sha256": "93a08aaa4f6524ac03f4c33b0740a12d089df4a3dba63aa91b5f5c1f7143f319"
+    }
+  },
+  "finalState": {
+    "migrationHead": "0096_official_balance_refresh_request",
+    "expectedHead": "0096_official_balance_refresh_request"
+  }
+}

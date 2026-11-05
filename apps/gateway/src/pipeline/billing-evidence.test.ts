@@ -58,10 +58,22 @@ it("旧反事实调用未传冻结规则时仍正确读取倍率并计算节省"
   expect(dispatchSavingFields(result.saving)).toMatchObject({ dispatchSaving: "4.40000000", savingCalculable: true });
 });
 
+// F2/ACE-04（返修轮 R4）：反事实基线规则缺「适用分项」价（miss=800000>0 缺
+// cacheMissPrice，ABSOLUTE）→ counterfactualCost=null → 保守 NOT_CALCULABLE
+// （baseline_not_comparable），不生成虚假节省数值。
+const unpricedBaselineRule: BillingRule = {
+  id: "price", ruleType: "API_PRICE", ruleVersion: "v1", providerResourceId: "baseline",
+  upstreamModel: "model", effectiveFrom: 0, effectiveTo: null, timezone: null, daysOfWeek: null,
+  startTime: null, endTime: null, timeWindows: null, multiplier: null,
+  pricingMode: "ABSOLUTE", cacheHitPrice: "0.000001", cacheMissPrice: null, outputPrice: "0.000004",
+  currency: "CNY", priority: 1,
+};
+
 it.each([
   ["package_cost_not_comparable", { baselineCandidate: { ...candidate, mode: "CODING_PLAN" as const } }],
   ["usage_evidence_missing", { transactionUsage: null }],
   ["baseline_price_rule_missing", { baselineRule: null }],
+  ["baseline_not_comparable", { baselineRule: unpricedBaselineRule }],
   ["actual_price_rule_missing", { actualPricingEvidenceComplete: false }],
 ])("反事实缺口 %s 不生成虚假节省", async (reason, patch) => {
   const { ledger } = repository([row()]);

@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "date": "2026-11-05",
+    "purpose": "R1-F5 W20-10 归因纠正：同机 ae506fe 旧基线 vs 候选（remediation-r1-f1-f4 工作区）A/B 实测",
+    "machine": "Stephen-macbook.local（colima VM，macOS Virtualization.framework，aarch64）",
+    "candidate": {
+      "worktree": "/Users/mac/Projects/仟流智算-api-decouple",
+      "branch": "remediation-r1-f1-f4",
+      "head": "686100f9bcaecf6800b2dd1cf486c56671b67548",
+      "note": "含 WP1-WP6 业务改动＋R1 返修 F1-F4 未提交改动（R2-R4）；resource-insights/query.ts 本变更新增逐资源 loadApiCostEstimation（:331-343，每资源 1 次调用×3 条聚合 SQL，api-cost-estimation.ts:148/:158/:189/:197）"
+    },
+    "legacy": {
+      "worktree": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+      "head": "ae506fed47d21865420afa91137e8b244072933e",
+      "note": "git status 零改动零提交；resource-insights/query.ts 无 loadApiCostEstimation 引用（grep=0）"
+    },
+    "test": "packages/database/src/__tests-integration__/w20-standard-capacity.integration.test.ts（两 worktree 文件 diff 为空，逐字节一致）",
+    "command": "cd <worktree>/packages/database && DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true W20_CAPACITY_EVIDENCE=true pnpm vitest run --config ../../vitest.config.ts src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+    "envNote": "colima 不支持 ryuk socket 挂载，RYUK 禁用与 WP5 S2B 回执/r4-f2-receipt 同款；每样本独立 postgres:17-alpine 容器（digest 742f40ea…），afterAll pg.stop() 清理",
+    "ambient": "运行全程另有 4 个 19h 前遗留 postgres 容器（未清理，作为两侧共同底噪保持恒定）；交替执行顺序 cand-s1→legacy-s1→cand-s2→legacy-s2 以减少时间漂移",
+    "samplePolicy": "合同固定四样本即止，不因结果多跑刷数"
+  },
+  "thresholds": { "commonAdminP95": 500, "subjectUsageP95": 800, "resourceUtilizationP95": 1000, "departmentBillP95": 1000 },
+  "samples": [
+    { "id": "cand-s1", "log": "23-ab-candidate-s1.log", "commonAdminP95Ms": 2.977, "subjectUsageP95Ms": 443.842, "resourceUtilizationP95Ms": 1133.066, "departmentBillP95Ms": 1465.279, "pass": false, "failItems": ["resourceUtilizationP95", "departmentBillP95"] },
+    { "id": "legacy-s1", "log": "24-ab-legacy-s1.log", "commonAdminP95Ms": 5.376, "subjectUsageP95Ms": 20.004, "resourceUtilizationP95Ms": 877.201, "departmentBillP95Ms": 1800.782, "pass": false, "failItems": ["departmentBillP95"] },
+    { "id": "cand-s2", "log": "25-ab-candidate-s2.log", "commonAdminP95Ms": 4.896, "subjectUsageP95Ms": 457.322, "resourceUtilizationP95Ms": 1185.735, "departmentBillP95Ms": 913.72, "pass": false, "failItems": ["resourceUtilizationP95"] },
+    { "id": "legacy-s2", "log": "26-ab-legacy-s2.log", "commonAdminP95Ms": 5.041, "subjectUsageP95Ms": 17.184, "resourceUtilizationP95Ms": 747.113, "departmentBillP95Ms": 970.84, "pass": true, "failItems": [] }
+  ],
+  "means": {
+    "commonAdminP95Ms": { "candidate": 3.94, "legacy": 5.21 },
+    "subjectUsageP95Ms": { "candidate": 450.58, "legacy": 18.59, "candidateOverLegacy": "约 24.2 倍，两样本无重叠" },
+    "resourceUtilizationP95Ms": { "candidate": 1159.4, "legacy": 812.16, "candidateOverLegacyPct": 42.8, "note": "候选 2/2 FAIL（1133.1/1185.7>1000），legacy 2/2 PASS（877.2/747.1≤1000），区间无重叠" },
+    "departmentBillP95Ms": { "candidate": 1189.5, "legacy": 1385.81, "note": "混合：legacy-s1 1800.78 为全场最差，s2 两侧接近（913.7 vs 970.8），该指标不可归因" }
+  },
+  "attribution": {
+    "resourceUtilization": "按合同判据（候选均值超旧基线 20%+ 且样本稳定）：A/B 证实本变更为贡献因素——候选侧新增的逐资源 loadApiCostEstimation（每资源 3 条对 100 万行 ledger_line 的聚合 SQL，每样本 20 次采样即 60 条）与旧基线同机同时段 2/2 PASS 形成对照；同时环境底噪仍在（legacy-s1 departmentBill 1800.78 FAIL），最终归因仍待 CI/标定环境复验闭合",
+    "subjectUsage": "候选稳定 +430ms 级（450.58 vs 18.59），对应本变更 getOverview 新增企业级 loadPriceBasisEstimation（usage-overview-repository.ts，S2B R7）＋列存在性检查；该指标在两侧均未超自身阈值（≤800），不构成 FAIL 归因，但结构差为真实回归成本",
+    "departmentBill": "同机 A/B 未能区分（混合且 legacy 出现全场最差样本 1800.78），环境噪声主导，不可归因",
+    "commonAdmin": "两侧同量级（3-5ms），无差异"
+  },
+  "conclusion": "resourceUtilizationP95：A/B 证实本变更为贡献因素（+42.8%，区间无重叠，候选 2/2 FAIL vs 旧基线 2/2 PASS）；departmentBillP95 环境噪声主导不可归因；整体归因尚未闭合——发布阻断维持，解除条件＝CI/标定环境四项 P95 全过。'路径零触碰'定性撤销：diff 证实 query.ts 逐资源估算调用为本变更新增，WP1 期对照基线 9bf1560 本身即 WP1 业务提交（feat(cost-estimation) WP1 tasks 2.1-2.3），'干净基线复现'证明力不成立。",
+  "caveats": [
+    "每侧 n=2（合同固定四样本），无更多重复；统计强度有限但方向一致且区间无重叠",
+    "候选侧含 R1 返修 F1-F4 未提交改动（api-cost-estimation.ts 有 F2/F3 语义调整），A/B 测得的是'ae506fe vs 候选工作区整体'的差，其中本变更新增的逐资源估算调用是 resourceUtilization 路径上已证实的结构性增量（R2-R4 未触碰 query.ts 本路径）",
+    "legacy-s2 全文件四项 PASS，证明同机同窗口旧基线可全绿——'纯本机容量不足'解释被削弱",
+    "遗留 4 个 postgres 容器为共同底噪，四样本间未改变环境"
+  ]
+}

@@ -208,9 +208,11 @@
 
 - A 组"资金四表零增量"的口径：**T0 订阅登记 1 行为计划内基线增量**（切换前置动作），切换窗口（T1 起）内零新增（x08-result.json A1 detail："资金事件全程仅 T0 旧栈订阅登记 1 行，切换窗口内零新增"；A4 同口径区分 T1 在途收尾 +1）。该口径为 WP6 总指挥裁定（WP6/plan.md §3 裁定 3 时序断言集），不是"全程零写入"。
 
-### 7.3 W20-10 P95 复验结果：**FAIL（3 样本全部超线，环境定性维持，不放宽阈值）**
+### 7.3 W20-10 P95 复验结果：**FAIL（3 样本全部超线；原"环境定性/路径零触碰"已撤回，归因尚未闭合；阈值不放宽）**
 
-- 用例＝packages/database/src/__tests-integration__/w20-standard-capacity.integration.test.ts:209,:281-282；阈值未动（commonAdmin≤500 / subjectUsage≤800 / resourceUtilization≤1000 / departmentBill≤1000）。
+**[R1 返修更正 2026-11-05]** 本节原"本机环境容量 flake、路径零触碰"定性经验收复核（development-summary.md §6 验收意见 5）撤销，改为**归因未闭合**。以下先保留原始 3 样本数据与阈值记录，后附撤回理由与同机 A/B 实测。
+
+- 用例＝packages/database/src/__tests-integration__/w20-standard-capacity.integration.test.ts:209,:281-282；阈值未动（commonAdmin≤500 / subjectUsage≤800 / resourceUtilization≤1000 / departmentBill≤1000），未删用例。
 - 候选 HEAD `59f7367` 隔离复跑 3 样本（S5 两样本＋总指挥对照样本 1）：
 
 | 指标（阈值） | 样本1 | 样本2 | 样本3（总指挥，清理演练容器后） |
@@ -220,8 +222,29 @@
 | **resourceUtilizationP95（≤1000）** | **1437.27 FAIL** | **1425.91 FAIL** | **1468.11 FAIL** |
 | **departmentBillP95（≤1000）** | **1249.75 FAIL** | **1151.98 FAIL** | **1175.65 FAIL** |
 
-- 对照说明：WP5 四点 986/1018/1094/1187（1 过 3 超贴线震荡）→ 本轮 3 样本 1426-1468（全部超线且劣于 WP5 全部四点），departmentBill 由绿转红。样本 3 已清理 WP6 演练容器（wp6-x07-drill/wp6-x08-pg）后由总指挥执行，数值无改善——**排除本轮演练容器负载归因，本机（colima VM）当前负载状态即该量级**。日志：`Evidence/WP6-20261104/logs/w20-capacity-rerun-sample{1,2,3-commander}.log`。
-- 定性：与 WP5 §5-① 一致——本机环境容量 flake、路径零触碰（WP6 业务改动仅 D-1~D-4 走查修复：web 前端＋control-api gateway-requests 字段透出，均不触及该查询路径）。**复验结论如实记 FAIL**；CI/发布环境标定复验为发布前置事项（本清单不冒充通过）。
+- 对照说明：WP5 四点 986/1018/1094/1187（1 过 3 超贴线震荡）→ 本轮 3 样本 1426-1468（全部超线且劣于 WP5 全部四点），departmentBill 由绿转红。样本 3 已清理 WP6 演练容器（wp6-x07-drill/wp6-x08-pg）后由总指挥执行，数值无改善——排除本轮演练容器负载归因。日志：`Evidence/WP6-20261104/logs/w20-capacity-rerun-sample{1,2,3-commander}.log`。
+
+**撤回"路径零触碰"的 diff 事实**（验收意见 5 指认，R1 逐条核实属实）：
+
+- `apps/control-api/src/resource-insights/query.ts` 本变更新增逐资源 `loadApiCostEstimation` 调用（:331-343，S3a/ACE-06 注释自证）：对每个 API 资源单独调用一次，每次内部执行**三条聚合 SQL**（packages/database/src/repositories/api-cost-estimation.ts:148，:158/:189/:197 三条并行聚合）。w20 场景 1 个 API 资源×100 万行 ledger_line，每次 `/provider-resources/utilization` 请求即新增 3 条全量聚合，P95 每样本采样 20 次。该查询路径并非"零触碰"。
+- WP1 期"干净基线 `9bf1560` 克隆复现同值失败"的对照不成立：`9bf1560` 本身即 WP1 业务提交（`feat(cost-estimation): add same-source API cost estimation reading (WP1 tasks 2.1-2.3)`），含估算读取链路与 w20-resource-insights 断言改动，不是变更前基线。
+
+**同机 A/B 实测（R1-F5，2026-11-05）**：旧基线 worktree `仟流智算-wp6-legacy-ae506fe`（ae506fe，零改动零提交）vs 候选工作区（`remediation-r1-f1-f4` @686100f＋F1-F4 未提交改动），同一 colima VM、同底噪（4 个遗留 postgres 容器恒定），交替执行 cand-s1→legacy-s1→cand-s2→legacy-s2，四样本即止：
+
+| 指标（阈值） | 候选 s1 | 旧基线 s1 | 候选 s2 | 旧基线 s2 |
+|---|---|---|---|---|
+| commonAdminP95（≤500） | 2.98 | 5.38 | 4.90 | 5.04 |
+| subjectUsageP95（≤800） | 443.84 | 20.00 | 457.32 | 17.18 |
+| **resourceUtilizationP95（≤1000）** | **1133.07 FAIL** | 877.20 过 | **1185.74 FAIL** | 747.11 过 |
+| **departmentBillP95（≤1000）** | **1465.28 FAIL** | **1800.78 FAIL** | 913.72 过 | 970.84 过 |
+
+- resourceUtilizationP95：候选均值 1159.40ms vs 旧基线 812.16ms（**+42.8%**，样本区间无重叠，候选 2/2 FAIL vs 旧基线 2/2 PASS；旧基线样本 2 全文件四项全过）——按既定判据（均值超 20%+ 且样本稳定），**A/B 证实本变更为该指标的贡献因素**；"纯本机容量不足"解释被同机全绿样本削弱。
+- subjectUsageP95：候选稳定 +430ms 量级（450.58 vs 18.59 均值，约 24 倍，两侧均未超自身阈值 800）——对应本变更 getOverview 新增企业级 `loadPriceBasisEstimation`（usage-overview-repository.ts，S2B R7）＋列存在性检查，为真实结构成本，不构成 FAIL 归因。
+- departmentBillP95：混合（旧基线 s1 1800.78 为全场最差，s2 两侧接近），同机 A/B **未能区分**，环境噪声对该指标主导。
+- 汇总与日志：`V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/logs/23~26-ab-*.log`＋`27-ab-summary.json`。
+- 每侧 n=2（合同固定四样本）；候选侧含 R1 F1-F4 未提交改动（api-cost-estimation.ts 有 F2/F3 语义调整），A/B 测得 ae506fe 与候选工作区整体的差，其中逐资源估算调用为该路径已证实的结构性增量（R1 返修未触碰 query.ts 该路径）。
+
+**当前归因结论：尚未闭合。** 本变更对 resourceUtilizationP95 的贡献已经 A/B 证实（非纯环境），但环境底噪对 departmentBillP95 的影响同机未能排除，四项的完整归因以 CI/标定环境复验为准。**发布阻断维持，解除条件＝最终发布 SHA 在 CI/标定环境四项 P95 全部通过**；阈值与用例不放宽、不删除。
 
 ---
 
