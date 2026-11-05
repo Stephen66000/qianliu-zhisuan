@@ -125,7 +125,7 @@
 ### T2 迁移 up 0093→0096（演练实测 1,604ms；迁移本体 264ms）
 
 - 演练：候选 migrator `migrateToLatest`，executed=[0093,0094,0095,0096]，idempotent_replay_error=null（drill log T2-MIGRATED 行；x08-migration.json）。
-- 生产映射要点：compose 栈内由 migrate 一次性服务承担（deploy/compose.yaml:48-62），与业务服务 `service_completed_successfully` 依赖联动（§2.2）；执行前后各查一次迁移水位（§8 命令 b）。
+- 生产映射要点：compose 栈内由 migrate 一次性服务承担（deploy/compose.yaml:48-62），与业务服务 `service_completed_successfully` 依赖联动（§2.2）；执行前后各查一次迁移水位（§8 命令 b）。**生产水位提示（§8.1 回执）**：生产现水位＝0091，发布时实际执行 **0092→0096 共五个**（0092 员工月度额度随主线携带，非本 change 产物，属发布知情项）；演练库从 0092 起 up 四个系演练前设已含 0092，与生产起点差异如实标注。
 
 ### T3 新栈起（演练实测 3,239ms）
 
@@ -155,7 +155,7 @@
 
 - **适用场景**：切换后功能性回退（新栈缺陷/行为不符预期）；0095 多行态库；任何涉及数据面回退的场景。
 - **前置条件**：存在切换前（T2 迁移执行前）的备份制品且已过非空校验（§4.1:46 同款）；运维 Owner 独立授权（rollback.sh:6 定级）；已通知用户停止操作（rollback.sh:12 回退前告知义务）。
-- **步骤要点**：停新栈业务服务（保留 postgres）→dropdb/createdb 重建目标库→灌全量快照→校验恢复后迁移头＝备份点水位（0092_employee_monthly_quota）→重建**旧版本**镜像并以旧栈起服务（rollback.sh:13"回退后需重新构建旧版本镜像"）→按 §5 T0 同款做回退后基线快照。
+- **步骤要点**：停新栈业务服务（保留 postgres）→dropdb/createdb 重建目标库→灌全量快照→校验恢复后迁移头＝**备份点实际水位**（§8.1 回执：当前生产基线＝`0091_recorded_cost_accounting_policy`——注意 rollback.sh:117 硬编码的期望头 0045 须按备份点定制，见 §4.2 复用注意）→重建**旧版本**镜像并以旧栈起服务（rollback.sh:13"回退后需重新构建旧版本镜像"）→按 §5 T0 同款做回退后基线快照。
 - **切换后新消费的处理说明（两难，如实写明）**：整库恢复会把库回滚到备份点——切换窗口后的新消费行（如 X08 的 T4 新消费 0.00060000）会随整库恢复**从库中消失**（回到备份点即备份点之后的一切皆不在）。这既是数据回退也是消费记录回退：账面不丢的是"备份点之前的全部事实"，备份点之后的消费需从新栈服务日志/上游侧核对后人工评估是否补录，而**任何补录都不得伪造金额或期初**（红线见 6.4）。本清单不对"切换后新消费是否补录"替用户裁定——发布窗口应尽量缩短（T1 停旧写后到回退决定间的写入量即暴露窗口），并在回退决定时冻结写入。
 - **备份数据完整性的演练佐证**：X07 断言 2/3 的 8 组受保护行集摘要机制（wp6-rollback-drill.integration.test.ts:100-109,:122-124）可直接用于"恢复后行集摘要 vs 备份点摘要"核对（该测试用 sha256 摘要证明 down 链零丢失；整库恢复同理可核对）。
 
@@ -261,6 +261,23 @@ ls -lh /root/docker/qianliu-zhisuan/deploy/backups/ 2>/dev/null || echo "目录�
 
 回执回填目标：本清单新增"生产状态"节，逐项记录实测值；任一项无法获取则如实记"未核实"，不估算。
 
+### 8.1 生产状态（2026-11-05 用户主机回执，全只读实测）
+
+| 项 | 实测值 | 解读 |
+|---|---|---|
+| control-api / gateway / web | 镜像 `cancelled-cost-4691a9a847cf`，revision `4691a9a847cfa690da8f7bdb2688945dc11bd234`（Up 3 days） | ＝`fix(finance): preserve cancelled stream usage and expose provisional balances`（2026-10-19）；已核实为 **ae506fe（main）祖先**、非 7a3204f 祖先（7a3204f 之后进入主线） |
+| worker | 镜像 `monthly-spacing-f27cb50`，revision `f27cb50d63a2387018c62b93a0d8d74426ed816a`（Up 2 days） | ＝PR #7 保留的员工额度 Worker 修正；**已上线证实**（此前仅凭用户/PR 交付说明）；与 4691a 分属两支、同为 ae506fe 祖先 |
+| postgres / redis | `postgres:17-alpine` / `redis:8-alpine` | 与 deploy/compose.yaml:14-15 镜像一致 |
+| **迁移水位** | **最新＝`0091_recorded_cost_accounting_policy`**（近五条 0087-0091） | **0092 未在生产执行**（证实用户此前声明）；worker 虽跑 f27cb50（迁移头 0092 的代码）但 0092 未应用——发布本候选时 migrate 实际将执行 **0092→0096 共五个**（0092 系员工月度额度迁移，随主线携带、非本 change 产物，发布知情项） |
+| PROVIDER_FINANCE_MODE | 环境未显式设置 | 实际生效＝代码默认 **ACTIVE**（生产版本 4691a 的 readProviderFinanceMode `?? "ACTIVE"` 已核实） |
+| FEATURE_* 五开关 | 环境未显式设置 | 实际生效＝**全部 false**（4691a 的 readFeatureFlags：非 test 环境缺省 false，NODE_ENV=production 已实测）——生产功能开关现状全关，是否随发布启用属用户配置决策，本清单不代定 |
+| NODE_ENV / CONTENT_RETENTION_MODE / RUNTIME_ASSURANCE_MODE / RUNTIME_ASSURANCE_WECOM_NOTIFY | production / METADATA_ONLY / OBSERVE / false | 显式设置 |
+| worker 投递开关 | `WECOM_REPORT_DELIVERY_ENABLED_AT=2026-10-20T00:00:00+08:00`、`WECOM_REPORT_DELIVERY_PAUSED=0` | 报告投递启用中 |
+| PROVIDER_OPERATING_* 三参数 | 无输出 | 生产 worker（f27cb50）无此配置项（WP3 新增），属预期 |
+| 备份目录 | `deploy/backups/` **不存在** | 生产无历史备份制品——**发布前必须先执行 §4.1 备份并建立该目录**（rollback.sh 恢复约定依赖它） |
+
+**结论**：生产源码整体落后远端 main（ae506fe）但**同在一条主线**（候选 `8e4c993` ⊃ ae506fe ⊃ 4691a ＋ f27cb50），发布为纯前进关系、无分叉合并风险；WP0 遗留三项（镜像 tag/水位/开关）全部闭合。
+
 ---
 
 ## 9. 状态声明
@@ -268,6 +285,6 @@ ls -lh /root/docker/qianliu-zhisuan/deploy/backups/ 2>/dev/null || echo "目录�
 1. **本清单性质**：发布候选标识、迁移/备份说明与切换/回退操作单，附隔离环境演练记录（X07 7/7、X08 23/23）。**本清单与全部演练不构成生产部署授权**；生产部署、迁移执行（0093-0096 up）、正式发布均须用户另行明确授权（WP6/task.md §七"WP6 的计划与演练不等于生产部署授权"）。
 2. **实现完成**：候选 HEAD `59f7367` 含 WP1-WP5 全部业务提交＋走查修复 D-1~D-4（715e5d0/da36ac4/68d2227）；WP5 50 条矩阵 PASS 48＋X07/X08 半段 2（原 BLOCKED-WP6，本轮补齐）。
 3. **测试通过（隔离环境）**：X07 回退演练 7/7（Evidence/WP6-20261104/logs/wp6-rollback-drill.log）；X08 切换时序演练 23 断言 allPass=true（logs/x08-result.json）；旧代码（ae506fe）读回退库三行式结论 PASS（logs/legacy-ae506fe-read-check.output.md）。以上全部为隔离环境（Testcontainers/独立容器＋模拟上游），**无任何生产环境验证**。
-4. **发布未执行**：本 change 的生产部署、迁移与发布动作均未发生（WP6/task.md §"已合并不等于已上线"口径延续；生产版本/迁移水位截至本文成文仍为未核实，见 §8 待补核）。
+4. **发布未执行**：本 change 的生产部署、迁移与发布动作均未发生（WP6/task.md §"已合并不等于已上线"口径延续；生产版本/迁移水位/开关已于 2026-11-05 经用户主机只读回执核实——实测见 §8.1：三服务 4691a、worker f27cb50、水位 0091、资金模式默认 ACTIVE、FEATURE 全关、无备份目录）。
 5. **业务签收**：WP5 §7 六步走查用户已 PASS 并驱动 D-1~D-4 修复（WP5/report.md §6 走查更新）；**发布签收另议**——本清单成文后如候选变化（新提交），受影响场景按指令§六.8 重验后方可进入发布流程。
-6. **待办挂账**：§7.3 W20-10 复验（待 S5 回填）；§8 生产只读补核（待 S6 回执）；§4.2 备份制品格式统一（-Fc vs .sql.gz，发布前置检查项）。
+6. **待办挂账**：§7.3 W20-10 CI/标定环境复验（本机 3 样本 FAIL 已如实记录，发布前置）；~~§8 生产只读补核~~（**2026-11-05 已回执闭合**，§8.1）；§4.2 备份制品格式统一（-Fc vs .sql.gz）＋生产 backups 目录需建立（发布前置检查项）。
