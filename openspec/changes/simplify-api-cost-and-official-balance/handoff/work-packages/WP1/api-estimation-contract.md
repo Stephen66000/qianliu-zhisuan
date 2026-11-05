@@ -1,6 +1,6 @@
 # API 费用估算读取合同（WP1 / C1 落地口径）
 
-版本：v1.1（WP1 S3b 收口＋S3c 年度对齐）；日期：2026-11-03；分支 `codex/simplify-api-cost-and-official-balance`。
+版本：v1.2（R1-F3 历史依据改读冻结快照，R2 终审同步）；日期：2026-11-05；分支 `codex/simplify-api-cost-and-official-balance`。
 供 WP2（资金退役）、WP3（官方余额 C2）、WP4（Web/导出文案）、WP5（总验收）消费。
 权威实现：`packages/database/src/repositories/api-cost-estimation.ts`（S1/S2 产物，本包未改其语义）。
 
@@ -18,7 +18,7 @@ loadApiCostEstimation(
   `dashboard-home-costs.loadWindowOperatingFinance` 一致）；`settled_at IS NULL` 的行不落入任何窗口
   （生产结算链必写 settled_at，见 `V4/Evidence/.../s1-settled-at-null-investigation.md`）。
 - 范围：`resourceIds` 缺省/null＝全企业；空数组＝空结果（不展开为全量）。
-- 只读 `ledger_line`（`resource_mode='API'`）＋LEFT JOIN `billing_rule`（仅为现值 `source_status`）；
+- 只读 `ledger_line`（`resource_mode='API'`），价格依据取 `billing_rule_snapshot->>'sourceStatus'`，缺键归 `UNVERIFIED`；不再 JOIN 当前 `billing_rule` 读取现值。
   禁止依赖资金账户、期初、充值、官方余额、企业资金激活状态（ACE-03）。
 - 行分类（互斥，见实现头注）：明确零（`CONFIRMED_ZERO_NO_UPSTREAM`）、处置排除
   （`effectiveUsageCostDispositionSql`，计 `excludedNoRecordedCost`）、已计价（金额取

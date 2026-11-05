@@ -10,8 +10,8 @@ R1 复审三类条件全部闭合，交回验收人复审。原四阻断 PASS �
 
 | 条件 | 动作 | 证据 |
 |---|---|---|
-| C1 AT-X02 三连失败不可环境豁免 | **根治**：convergeExpiredLeases 判定与留痕改 DB 侧 now()（单条 UPDATE 同钟基准；租约时长/冷却/幂等/状态机合同不变，diff 单点）；探针入档实测 skew +1.2~1.3s 并捕获宿主时钟阶跃；skew 负向用例（2s 裕量反证宿主钟回退必败）；三连复跑 8/8×2＋批量上下文 44/44＋db 批 12/12 | remediation-r2/logs r2-01/02/03 |
-| C2 数字与干净复跑 | database 单测 245＋集成 610/610 全批 exit 0（4 文件 teardown 排空加固）；全库集成 612/613（W20-10 红如实：本轮 resourceUtilization 1540.44；usage-aggregate-capacity 单跑 368.96s 过＝边界状态）；gateway 全量一次 250/250 exit 0；根 build exit 0 | r2-10~18、r2-20、r2-23 |
+| C1 AT-X02 三连失败不可环境豁免 | **根治**：convergeExpiredLeases 判定与留痕改 DB 侧 now()（单条 UPDATE 同钟基准；租约时长/冷却/幂等/状态机合同不变，diff 单点）；探针入档实测 skew +1.2~1.3s 并捕获宿主时钟阶跃；三连复跑 8/8×2＋批量上下文 44/44＋db 批 12/12。**R2 终审更正**：新增 2s 用例在当前约 1.27s 偏移下不能独立杀死旧实现，不得宣称“2s 裕量反证必败”；X02 功能 PASS 依据为代码同钟修复、原 1s 场景、探针及独立复跑，受控偏移负向回归修正列为发布前条件 | remediation-r2/logs r2-01/02/03 |
+| C2 数字与干净复跑 | database 单测 245＋集成 610/610 全批 exit 0（4 文件 teardown 排空加固）；全库集成 612/613（W20-10 红如实：本轮 resourceUtilization 1540.44；usage-aggregate-capacity 在同一容量批以 368.96s 通过＝边界状态）；gateway 全量一次 250/250 exit 0；根 build exit 0 | r2-10~18、r2-20、r2-23 |
 | C3 证据绑定 SHA | .gitignore 例外 `!V4/Evidence/**/*.log`（业务日志仍忽略，check-ignore 验证）；R1 31 份＋R2 全部日志入库；提交链更正（7ceb97e 系 amend 替换，实际祖先链 `686100f→ea45c4f→0899f04→b56c31a→本轮`）；过时表述清理（usage-overview 两处"规则现值"注释、WP1 合同 §1 priceBasis v1.2） | git；本文档 |
 
 ## 3. 同类点清单（R2-1 调查，只修根因一处其余记录）

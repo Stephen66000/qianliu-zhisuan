@@ -1,8 +1,8 @@
 # R1 返修矩阵（matrix-r1）：四阻断与负向修复回归终态候选
 
-- 日期：2026-11-05；装配：glm-flash 子 Agent（R6/F6 合同）；审定：验收人 R1 复审已完成——原五条 PASS，整体因 X02 与终态证据问题退回。
-- 基线：worktree `/Users/mac/Projects/仟流智算-api-decouple`（分支 `remediation-r1-f1-f4`，HEAD `686100f`＋R2-R4 未提交工作树改动）。输入＝development-summary.md §6 验收意见 1-6＋remediation-r1/plan.md §2（F1-F7）＋inv-r1.md。
-- **状态口径**：主表 A-G 的 PASS 指对应负向／修复回归已执行；原五项验收条目 ACE-02、ACE-04、OAB-01、OAB-04、AFR-01 已由验收人终判 **PASS**。X02 因 AT-X02 连续三次失败重开为 **FAIL**，最新总矩阵为 **49 PASS／1 FAIL**；整体 R1 复审结论与 R2 条件见 development-summary.md §6.1。R2/R3 两阶段无独立回执文件，其证据以 logs/01-14 与测试文件内 F1/F3/F4 注释用例名为准（R4 有 r4-f2-receipt.md，R5 有 logs/27-ab-summary.json 汇总）。
+- 日期：2026-11-05；装配：glm-flash 子 Agent（R6/F6 合同）；审定：验收人 R2 终审已完成——50 条功能矩阵全部 PASS，整体有条件通过。
+- 基线：worktree `/Users/mac/Projects/仟流智算-api-decouple`（R1 装配时 HEAD `686100f`＋未提交改动；R2 终审候选 `b511ad9`）。输入＝development-summary.md §6 验收意见 1-6＋remediation-r1/plan.md §2（F1-F7）＋inv-r1.md。
+- **状态口径**：主表 A-G 的 PASS 指对应负向／修复回归已执行；原五项验收条目 ACE-02、ACE-04、OAB-01、OAB-04、AFR-01 在 R1 复审终判 **PASS**；X02 在 R2 终审判 **PASS**，最新总矩阵为 **50 PASS／0 FAIL**。整体为**有条件通过**，发布条件见 development-summary.md §6.2；R1 的 49/1 与整体退回为历史结论。R2/R3 两阶段无独立回执文件，其证据以 logs/01-14 与测试文件内 F1/F3/F4 注释用例名为准（R4 有 r4-f2-receipt.md，R5 有 logs/27-ab-summary.json 汇总）。
 - 图例：`logs/NN`＝本目录 `logs/`；`WP5 matrix.md`＝`../WP5-20261104/matrix.md`；X06 基准＝`../WP5-20261104/x06-amount-reconciliation.md`，复跑＝本目录 `x06-amount-reconciliation-f2-rerun.md`。
 
 ## 1. 主矩阵（行＝阻断/缺陷）
@@ -29,11 +29,11 @@
 
 | 条件 | 闭合证据 |
 |---|---|
-| C1 AT-X02 | 根治＝convergeExpiredLeases 判定改 DB 侧 now()（official-balance-refresh-repository.ts，租约/冷却/幂等合同不变）；时钟探针入档（remediation-r2-20261105/logs/r2-01，实测 skew +1.2~1.3s 且捕获宿主时钟阶跃）；skew 负向用例（DB 钟 expires_at=now()-2s 立即收敛 ACCEPTED）；目标文件三连 8/8＋全量上下文批 44/44＋db 批 12/12（logs/r2-02-{1,2,3}、r2-03）。**matrix.md X02 行终判权属验收人** |
-| C2 干净复跑 | database 单测 245/245＋集成 a1-a7 610/610 全批 exit 0（4 文件 afterAll 排空加固，WP5 先例；a1/a2 首跑 57P01 记录于复跑日志头）；容量 2 文件：W20-10 红（resourceUtilization 1540.44>1000，指标轮换震荡如实）、usage-aggregate-capacity 单跑 368.96s 过（边界状态）；gateway 31 文件全量一次 250/250 exit 0（r2-20，拼接证据替换）；根 build exit 0（r2-23，Node 引擎警告归档） |
+| C1 AT-X02 | **R2 终审 PASS**：根治＝convergeExpiredLeases 判定与留痕改单条 UPDATE 内 DB `now()`；探针实测 skew +1.2~1.3s 且捕获宿主时钟阶跃；目标文件三连 8/8＋全量上下文批 44/44＋db 批 12/12，验收人另独立复跑 AT-X02 4/4、HTTP 8/8、DB 7/7。新增 2 秒用例在当前约 1.27s 偏移下旧实现也会通过，不能称为独立负向证据；发布前须改为受控偏移、可证明旧实现失败的回归（development-summary.md §6.2）。 |
+| C2 干净复跑 | database 单测 245/245＋集成 a1-a7 610/610 全批 exit 0（4 文件 afterAll 排空加固，WP5 先例；a1/a2 首跑 57P01 记录于复跑日志头）；容量 2 文件：W20-10 红（resourceUtilization 1540.44>1000，指标轮换震荡如实）、usage-aggregate-capacity 同一容量批 368.96s 通过（边界状态）；gateway 31 文件全量一次 250/250 exit 0（r2-20，拼接证据替换）；根 build exit 0（r2-23，Node 引擎警告归档） |
 | C3 证据绑定 | .gitignore 加 `!V4/Evidence/**/*.log` 例外；R1 全部 31 份＋R2 全部日志随候选 SHA 入库；R1 report 提交链更正（7ceb97e 系 amend 被替换，实际链 686100f→ea45c4f→0899f04→b56c31a→R2 提交）；过时表述清理＝usage-overview-repository 两处"规则现值"注释按 F3 语义更正、WP1 合同 §1 priceBasis 行更新 |
 
-数字对照（验收人 611/613、1029.86ms）：R2-2 实测全库集成 612/613（usage-aggregate-capacity 本轮单跑通过故 +1）；W20-10 R1 轮 subjectUsage 1029.86、R2 轮 resourceUtilization 1540.44——同用例不同指标轮换触发，两轮数值均如实入档。
+数字对照（验收人 611/613、1029.86ms）：R2-2 实测全库集成 612/613（usage-aggregate-capacity 本轮通过故较 R1 +1）；W20-10 R1 轮 subjectUsage 1029.86、R2 轮 resourceUtilization 1540.44——同用例不同指标轮换触发，两轮数值均如实入档。
 
 ## 3. 附注一：受影响验收条目处置表（四阻断映射）
 
