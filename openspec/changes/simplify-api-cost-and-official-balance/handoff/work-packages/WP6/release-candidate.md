@@ -149,15 +149,30 @@
 
 ### 6.0 路线裁定（WP6/plan.md §3 总指挥裁定 1）
 
-- **主路线＝整库备份恢复**（rollback.sh 模式，§4.2）；**辅路线＝down 迁移链**（X07 演练验证过）。两者边界：任何"down 链不可行"的库状态（0095 多行）只能走主路线。
+- **主路线＝整库备份恢复＋增量回放（v2，R3 裁定；见 6.1）**；**辅路线＝down 迁移链**（X07 演练验证过）。两者边界：任何"down 链不可行"的库状态（0095 多行）只能走主路线。
 
-### 6.1 主路线：整库备份恢复
+### 6.1 主路线 v2：整库备份恢复＋增量回放（[R3 2026-11-06 重开返修改写]）
 
+- **v2 变更说明**：验收人 R3 退回——原主路线（纯整库恢复）会把切换决定时点之后的新消费随整库恢复从库中消失，违反 AT-X07「新消费仍可读/结算且受原额度约束，不要求补虚构期初、不丢数据」。v2 在恢复段前后增加两段：**增量导出（先于任何破坏动作）**与**增量回放**——消费事实保全，暴露窗口收窄为「导出与恢复之间的秒级」。
 - **适用场景**：切换后功能性回退（新栈缺陷/行为不符预期）；0095 多行态库；任何涉及数据面回退的场景。
-- **前置条件**：存在切换前（T2 迁移执行前）的备份制品且已过非空校验（§4.1:46 同款）；运维 Owner 独立授权（rollback.sh:6 定级）；已通知用户停止操作（rollback.sh:12 回退前告知义务）。
-- **步骤要点**：停新栈业务服务（保留 postgres）→dropdb/createdb 重建目标库→灌全量快照→校验恢复后迁移头＝**备份点实际水位**（§8.1 回执：当前生产基线＝`0091_recorded_cost_accounting_policy`——注意 rollback.sh:117 硬编码的期望头 0045 须按备份点定制，见 §4.2 复用注意）→重建**旧版本**镜像并以旧栈起服务（rollback.sh:13"回退后需重新构建旧版本镜像"）→按 §5 T0 同款做回退后基线快照。
-- **切换后新消费的处理说明（两难，如实写明）**：整库恢复会把库回滚到备份点——切换窗口后的新消费行（如 X08 的 T4 新消费 0.00060000）会随整库恢复**从库中消失**（回到备份点即备份点之后的一切皆不在）。这既是数据回退也是消费记录回退：账面不丢的是"备份点之前的全部事实"，备份点之后的消费需从新栈服务日志/上游侧核对后人工评估是否补录，而**任何补录都不得伪造金额或期初**（红线见 6.4）。本清单不对"切换后新消费是否补录"替用户裁定——发布窗口应尽量缩短（T1 停旧写后到回退决定间的写入量即暴露窗口），并在回退决定时冻结写入。
-- **备份数据完整性的演练佐证**：X07 断言 2/3 的 8 组受保护行集摘要机制（wp6-rollback-drill.integration.test.ts:100-109,:122-124）可直接用于"恢复后行集摘要 vs 备份点摘要"核对（该测试用 sha256 摘要证明 down 链零丢失；整库恢复同理可核对）。
+- **前置条件**：存在切换前（T2 迁移执行前）的备份制品且已过非空校验（§4.1:46 同款）；运维 Owner 独立授权（rollback.sh:6 定级）；已通知用户停止操作（rollback.sh:12 回退前告知义务）；增量导出制品完整（manifest_done sha 闭环，见步骤 2——无完整制品不得进入破坏段）。
+- **步骤**（独立能力脚本＝`deploy/scripts/rollback-delta-20261106.sh`，子命令 export/restore/replay/check-contract；PG 工具全部容器内执行，rollback.sh 既有段零触碰）：
+  1. 停写收尾（§5 T1 同款：静默租约→收尾报告→停新栈业务服务，保留 postgres）。
+  2. **增量导出**：`rollback-delta-20261106.sh export`——备份点快照载入 ref 草稿库（只写 ref）→逐白名单表导出「live 库有、备份点快照没有」的行（**主键反连接，不做时间戳切割，避免时钟依赖**；产物＝COPY text＋逐表清单/行数/sha256）。**导出或校验失败＝中止回退，exit 非 0，库不动**（fail-closed，红线 4）。此步全程对 live 零写入。
+  3. **恢复**：`rollback.sh` 既有段（.sql.gz 路线）**或**同脚本 `restore` 子命令（-Fc 路线，须环境 `ROLLBACK_DELTA_CONFIRM=YES`，安全等级同 rollback.sh:5 DESTRUCTIVE）——dropdb --force＋createdb 重建目标库灌全量快照到备份点（当前生产基线＝0091）。两者二选一，随 §4.1 备份制品格式选定（§4.2 复用注意 a/b）；期望迁移头按备份点实际水位校验（勿照抄 rollback.sh:117 硬编码 0045）。
+  4. **重放 0092 up**（幂等，§6.2 步骤 3 先例；**up 重放不是 down**，rollback.sh:113「禁止叠加 down」语义不受影响）——使员工月度额度 schema（principal_quota_period/usage 等）在位；由旧栈 migrator 承担（compose migrate 同款）。
+  5. **增量回放**：`rollback-delta-20261106.sh replay`——按 FK 依赖序把增量行导回恢复库：staging temp 表（live 全列，类型取自清单）＋全部 `INSERT ... ON CONFLICT (id) DO NOTHING`（**二次执行幂等**，重放两遍结果不变）；回放期间**事务内禁用 0081 种入触发器**（0091＋0092 重放下该触发器在位——不禁用会给回放资源种入 PENDING、旧代码将拒绝服务，违反 AT-X07；事务内禁用、失败自动随事务回滚），提交后校验触发器恢复 ENABLED（恢复后新建资源仍被种入＝§6.4b 旧栈既定行为，非缺陷）；schema drift 列（0093 billing_rule.source_status）按列交集投影丢弃（SQL WARNING 回显，见下「已知边界」）。
+  6. 以旧版本（ae506fe）栈起服务（rollback.sh:13 旧镜像重建）；按 §5 T0 同款做回退后基线快照。
+- **白名单终表（FK 闭包，15 表）**——实测依据＝`V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/logs/fk-closure-dump.log`（0096 水位 343 条 FK 边全量 dump＋闭包计算）：
+  - 消费事实（5）：ai_request、upstream_attempt、**usage_event**（FK 强制纳入：ledger_line.usage_event_id NOT NULL→usage_event，0009:26；X07 受保护行集原有成员——合同种子表漏列，闭包推导补入）、ledger_line、ledger_transaction；
+  - 员工月度额度域（0092，3）：principal_quota_period、principal_quota_usage、**principal_grant**（0092:6 加列＋principal_quota_usage.grant_id NOT NULL FK，0092:31——0092 域表，闭包强制）；
+  - 切换后可能新建的维度（7）：provider、provider_resource、principal、principal_key、unified_model、model_route、billing_rule；**resource_pool 不是独立表**（仅 provider_resource.resource_pool_id varchar 列，0010:23），合同「如存在」分支落空；
+  - 白名单回放序（FK 父先于子）：provider→unified_model→principal→principal_key→provider_resource→billing_rule→model_route→ai_request→upstream_attempt→usage_event→ledger_line→ledger_transaction→principal_grant→principal_quota_period→principal_quota_usage（`check-contract` 子命令对 live 库做只读拓扑实测）。
+  - **白名单外表（FK 父，不导出——证明先于备份点存在**：0000-0091 已应用且切换窗口的 gateway 消费/结算路径不新建这些表）：enterprise、person、admin_user、historical_import_run（ai_request.import_run_id 可空）、employee_model_rule_version（principal_grant.authorization_rule_version_id 可空）、provider_finance_legacy_cost_resolution（ledger_line.legacy_cost_resolution_id 可空）、provider_subscription_period（ledger_line.subscription_period_id 可空；**已知边界**：CODING_PLAN 若在备份后新建周期且窗口内消费引用它，回放将 FK 失败＝fail-closed 中止，不产生半途状态）。
+  - **白名单反向引用表**（restore 后随整库回退、不在回放面＝回退语义的可接受丢失，均为派生/监测/瞬态，worker 重同步重建）：provider_resource_operating_snapshot／_sync_attempt、usage_bucket_aggregate、quota_counter、dispatch_decision、route_candidate、concurrency_lease、request_attribution_snapshot 等——fk-closure-dump.log reverse-only 清单全量可查；其中 provider_resource_finance_state 回放后行集与备份点逐字（演练断言 F）。
+- **切换后新消费的处理说明（v2 改写，替代原两难说明）**：**消费事实保全**——切换决定时点的白名单新行先于任何破坏动作导出为增量制品，恢复后逐字回库（演练断言 D：白名单 15 表「备份点摘要＋增量摘要＝回放后摘要」，即 live 导出时摘要＝回放后摘要；不丢数据、不补录、**任何补录都不得伪造金额或期初**红线不变）。两难收窄为**「增量导出与整库恢复之间的秒级窗口」**：导出前已停写（步骤 1），窗口仅剩停写确认到导出完成之间的在途收尾写入（秒级），且导出失败即中止、不会带缺口进入恢复。
+- **已知边界（v2 实测）**：0093 为 billing_rule 加的 source_status 列（新栈元数据，非消费事实）随 schema 回退不保留——回放按列交集投影丢弃并 WARNING 回显；若日后重升 0093，该列按 DEFAULT 'UNVERIFIED' 重建。
+- **演练证据**：`packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts` 7/7 passed（`V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/logs/wp6-rollback-replay-drill.log`，复跑 `wp6-rollback-replay-drill.rerun.log` 7/7；命令/输出/exit 留痕 `wp6-rollback-replay-drill-commands.json`；断言汇总 `x07-r3-result-summary.json`）。断言组：A 导出清单闭环（check-contract 库内实测＋15 表行数/sha256/ref_present/0092 域全量逐表核对）／B 负向（导出失败 exit 非 0、live 水位与 15 表摘要逐字不动、既有清单未污染；restore 无确认门拒绝）／C 恢复段（备份点 0091 摘要与 T0 逐字、0092 域表不存在、finance 期初/充值＝0、种入触发器在位）／D 重放 0092＋回放（「备份点摘要＋增量＝回放后摘要」逐字在库——billing_rule 剔除 drift 列后逐字；inserted 与清单一致；finance 事件增量＝0；候选读侧窗口估算 0.00204000 KNOWN_COMPLETE）／E 幂等重放（inserted 全 0、摘要不变）／F 员工额度在位受约束（limit 1000000/used 1900/RAW_TOKEN、同键第二 period 拒绝）＋种入触发器边界（回放资源无 PENDING、恢复后新建才 PENDING、触发器恢复 ENABLED）／G 旧栈（ae506fe）读/结算（子进程 ae506fe worktree 源码，口径同 legacy-ae506fe-read-check 三行式：准入——无 finance 行的回放资源可服务、READY 资源可服务、PENDING 排除；逐行读 0.00104000/0.00060000/0.00040000 逐字；旧结算写路径落库 0.00052000 created=true 随即可读；窗口聚合可读 0.00204000；额度读 limit/used 逐字；finance 事件全程 0）。既有 down 链演练（X07 断言 3/4/5/6）文件零改动仍 7/7 绿（`wp6-rollback-drill-x07-regression.log`）。
 
 ### 6.2 辅路线：down 迁移链（演练验证过）
 
@@ -194,6 +209,7 @@
 1. **不删除新用量**：无论主/辅路线，不以回退为名删除、合并或改写任何 ledger_line/usage_event/ai_request 消费事实（辅路线 X07 断言 3 的 8 组摘要逐字不变即此红线的数据层表述；主路线恢复到备份点属整库语义，见 6.1 的两难说明，不属"删除"操作）。
 2. **不补造资金**：不 INSERT 任何期初/充值/更正类 finance 事件，不虚构余额（X07 断言 3d＋legacy 实证 finance_events=0）。
 3. **不改 0092-0096 迁移文件**：回退全程零触碰迁移文件本体（WP5/report.md §3 红线证伪同口径延续）；0095 多行被拒时改走主路线而不是改守卫。
+4. **增量导出失败必须中止（R3 新增，主路线 v2）**：export 任一步非 0 即退出（fail-closed，exit 非 0，live 库零写入），无完整清单（manifest_done sha256 闭环）时 restore/replay 拒绝执行——**不得在无增量制品的情况下进入 dropdb 等破坏段**。演练断言 B 实证：制品缺失 export exit 非 0、live 水位与白名单 15 表摘要逐字不动、既有清单 sha 闭环未污染；replay 对无 manifest_done／sha 不符的清单一律拒绝（wp6-rollback-replay-drill.integration.test.ts 断言 B）。
 
 ---
 

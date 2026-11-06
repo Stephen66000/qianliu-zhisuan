@@ -1,0 +1,16 @@
+== bash -n（语法自检）==
+$ bash -n deploy/scripts/rollback-delta-20261106.sh; echo EXIT=$?
+EXIT=0
+
+== check-contract 静态回显（无库）==
+$ bash deploy/scripts/rollback-delta-20261106.sh check-contract; echo EXIT=$?
+== 静态契约 ==
+whitelist+replay_order: provider unified_model principal principal_key provider_resource billing_rule model_route ai_request upstream_attempt usage_event ledger_line ledger_transaction principal_grant principal_quota_period principal_quota_usage
+only_0092_tables(ref 必无): principal_quota_period principal_quota_usage
+external_parents(先于备份点): enterprise person admin_user historical_import_run employee_model_rule_version provider_finance_legacy_cost_resolution provider_subscription_period
+seed_trigger(disable during replay): provider_resource_finance_state_seed_trigger
+conflict_clause: ON CONFLICT (id) DO NOTHING（幂等）
+fail_closed: export/校验失败 exit 非 0，live 零写入；无 manifest_done 拒绝 replay
+finance_redline: provider_finance_event 不在白名单（增量面恒空）——零补造资金
+check-contract: 静态回显完成（未做库内实测）
+EXIT=0
