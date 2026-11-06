@@ -1,0 +1,54 @@
+{
+  "package": "simplify-api-cost-and-official-balance",
+  "task": "X07 R5 定向返修：quota_counter 累计额度状态保全（白名单 16→17 表）",
+  "date": "2026-11-06",
+  "baseline_head": "3bc0d671756c8f293637d1a0a5c2fd6af98500cb（工作树干净；R4 实现 292f48a 保留；本任务零 commit）",
+  "final_artifact_shas": {
+    "script": "4b936de660f882ab27f699008d25e2ac5d43ea06896dd7fc7c6c4f86678d9e20",
+    "drill_test": "d8a402ffc451881ab9881563f238334a7e0f57b49c5b836af7dc4aae5b842189",
+    "legacy_check": "52ae361809f310d1d4ac06044f15bc53963f34c5a3791bb88d8049a8ac75879c"
+  },
+  "gap": "quota_counter（累计额度计数行，0004:41，grant_id 唯一约束 quota_counter_grant_idx）遗漏于白名单；累计额度准入 reserveQuota（quota-gate-repository.ts:197/208）直接读其 used_value（非展示缓存）；回退恢复旧计数＝错误释放额度；新增授权缺失计数行使真实准入抛 executeTakeFirstOrThrow 错误",
+  "fix": "REPLAY_ORDER 补入 quota_counter（principal_grant 之后、principal_quota_period 之前）；导出/回放/幂等/摘要验证全复用 R4 全行比对机制——已有计数行 used_value 更新天然覆盖，新增授权计数行按 inserted 回放",
+  "red_evidence": {
+    "log": "logs/r5-red-suite-run.log（exit=1，7 failed | 4 passed (11)）",
+    "probe_json": "logs/r5-red-probe-run.log＋r5-red-probe.json（RED=6 PASS=3 exit=1）",
+    "snapshot": "red-evidence/rollback-delta-20261106.r4-snapshot.sh（R4 字节级快照 SHA 2604f65d…）",
+    "diff": "red-evidence/script-r4-to-r5.diff（44 行）＋test-r4-to-r5.diff（417 行）",
+    "core_failures": [
+      "A：清单缺表 quota_counter（expected undefined to be defined）",
+      "I（核心）：R4 现状回退计数 900 → 真实 reserveQuota 预占 1 → ALLOW（expected false to be true——错误释放 100 额度，指令原文场景）",
+      "K：回放后计数 '900'≠'1000'＋verify 摘要表数 16≠17（篡改不可检出）"
+    ]
+  },
+  "green_evidence": {
+    "suite": "logs/wp6-rollback-replay-drill.log 11/11 passed（A-K 全绿）＋rerun 11/11",
+    "x07_regression": "logs/wp6-rollback-drill-x07-regression.log 7/7 零改动",
+    "probe": "logs/r4-green-probe-run.log（R4 范围探针 10/10，写入 R4 目录）",
+    "legacy_result": "logs/wp6-r5-legacy-read-check.result.json（真实累计路径 JSON）",
+    "subagent_vs_commander": "子 Agent 两次全绿（本日志＋rerun）；总指挥复跑未执行（待验收人复判）"
+  },
+  "real_path_results": {
+    "r5a": {
+      "used_after_rollback": "1000",
+      "reserve_estimate_1_decision": "REJECT_EXHAUSTED",
+      "counter_unchanged": true,
+      "usedMatchesLive": true
+    },
+    "r5b": {
+      "grant_plus_counter_replayed": true,
+      "reserve_100_decision": "ALLOW",
+      "settle_actual_80_used": "280",
+      "grant_id_unique": true,
+      "over_limit_reject": "REJECT_EXHAUSTED",
+      "counter_unchanged": true,
+      "no_missing_exception": true
+    }
+  },
+  "counts": {
+    "whitelist": 17,
+    "suite_tests": "11/11＋rerun 11/11",
+    "x07_regression": "7/7",
+    "rationale_17": "quota_counter＝累计额度计数行（0004:41，grant_id 唯一约束），reserveQuota 热路径直接读 used_value——非机械保留 16 表"
+  }
+}

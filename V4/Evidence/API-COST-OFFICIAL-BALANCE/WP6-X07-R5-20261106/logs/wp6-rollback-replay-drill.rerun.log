@@ -1,0 +1,18 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts (11 tests) 50025ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 A：check-contract＋全行比对增量导出——inserted/updated/rows/sha256 与期望逐表一致（缺口①）  9940ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 C：影子恢复——live 物理未动（缺口②），影子＝备份点逐字，0092 域不存在  1335ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 D：重放 0092＋增量回放（DO UPDATE）——17 表影子摘要＝live 摘要（含 in-flight 更新逐字）  2075ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 E：幂等回放——二次回放 applied＝清单行数、17 表摘要不变（DO UPDATE 结果不变）  1879ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②）  3433ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 I：旧栈（ae506fe）真实路径——准入可服务、消费逐字、窗口聚合、额度门 REJECT_EXHAUSTED、结算累计 used（缺口③④）  676ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好  12539ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 K（R5-C）：影子计数摘要篡改→verify fail-closed＝删影子、live 水位/消费/计数不变；回放重复执行计数不重复累计  13928ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  20:34:26
+   Duration  53.10s (transform 1.26s, setup 0ms, collect 2.63s, tests 50.02s, environment 0ms, prepare 68ms)
+

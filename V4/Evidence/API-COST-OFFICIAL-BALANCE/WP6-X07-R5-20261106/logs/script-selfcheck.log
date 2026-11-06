@@ -1,0 +1,18 @@
+== bash -n（语法自检）==
+$ bash -n deploy/scripts/rollback-delta-20261106.sh; echo EXIT=$?
+EXIT=0
+
+== check-contract 静态回显 ==
+== 静态契约 ==
+whitelist+replay_order: enterprise provider unified_model principal principal_key provider_resource billing_rule model_route ai_request upstream_attempt usage_event ledger_line ledger_transaction principal_grant quota_counter principal_quota_period principal_quota_usage
+only_0092_tables(ref 必无): principal_quota_period principal_quota_usage
+external_parents(先于备份点): person admin_user historical_import_run employee_model_rule_version provider_finance_legacy_cost_resolution provider_subscription_period
+seed_trigger(retire in shadow): provider_resource_finance_state_seed_trigger + provider_resource_finance_state_seed
+conflict_clause: ON CONFLICT (id) DO UPDATE SET <列交集全列>（二次执行幂等）
+delta_semantics: 全行比对（PK 全连接，任一列变更或新增行均入增量；清单含 inserted/updated）
+shadow_pipeline: restore/replay/retire/verify 只写影子；全过才 swap；任一步失败＝删影子、live 未动
+swap_policy: 单事务 ALTER DATABASE live→keep、影子→live；keep＝切换后状态留档（回退验证完成后由运维清理，期间不得写入）
+fail_closed: export/校验失败 exit 非 0，live 零写入；无 manifest_done 拒绝 replay
+finance_redline: provider_finance_event 不在白名单（增量面恒空）＋verify 以 ref 全表摘要证明零补造
+check-contract: 静态回显完成（未做库内实测）
+EXIT=0
