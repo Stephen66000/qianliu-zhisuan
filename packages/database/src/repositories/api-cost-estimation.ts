@@ -37,9 +37,11 @@
  *   - 金额一律 decimal.js（Money/money，八位小数字符串），禁止 float。
  *
  * W20-10（R2 性能修复）：新增 loadApiCostEstimationByResource 批量分组入口——与
- * loadApiCostEstimation 完全同源（同 estimationLinesSql、同三条聚合 SQL 片段、
- * 同 assembleApiCostEstimation 派生），仅追加 provider_resource_id 分组维度，
- * 供 resource-insights/query.ts 一次读取取代逐资源 N+1 调用；单资源语义零改动。
+ * loadApiCostEstimation 完全同源（同 estimationLinesSql、同聚合计数/币种求和投影与
+ * priceBasis DISTINCT 三元组片段、同 assembleApiCostEstimation 派生），仅追加
+ * provider_resource_id 分组维度，供 resource-insights/query.ts 一次读取取代逐资源
+ * N+1 调用；批量版三条聚合折入单条语句（ledger_line 基表只扫一遍，见其注释），
+ * 单资源语义零改动。
  */
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../kysely.js";
@@ -130,6 +132,28 @@ interface EstimatePriceBasisRow {
 }
 
 /**
+ * 批量折单语句的 jsonb 载荷行（node-postgres 默认解析 jsonb → JS 对象数组，
+ * 键名与 EstimateAmountRow / EstimatePriceBasisRow 字段一一对应，无需二次转换）。
+ */
+interface EstimateBatchAmountJson {
+  currency: string;
+  amount: string;
+}
+
+interface EstimateBatchPriceBasisJson {
+  rule_id: string;
+  rule_version: string | null;
+  source_status: string;
+}
+
+/** 批量折单语句结果行：每请求资源恰好一行（聚合计数＋jsonb 金额分桶＋jsonb 价格依据）。 */
+interface EstimateBatchResourceRow extends EstimateAggregateRow {
+  provider_resource_id: string;
+  amounts: EstimateBatchAmountJson[];
+  basis: EstimateBatchPriceBasisJson[];
+}
+
+/**
  * 期间内本企业 API 账本行的分类投影（与两条聚合查询共用，保证口径一致）。
  * includeResourceId 仅供批量分组版（loadApiCostEstimationByResource）追加
  * provider_resource_id 分组维度；单资源版缺省 false，生成 SQL 与原版逐字一致。
@@ -193,7 +217,11 @@ const ESTIMATE_PRICED_SUM = sql`
   )::numeric(30,8)::text
 `;
 
-/** 期间零行的资源条目（批量版）＝单资源版空期间聚合（count(*) 空集恒 0）。 */
+/**
+ * 期间零行的资源条目（批量版）＝单资源版空期间聚合（count(*) 空集恒 0）。
+ * 折单语句已由 unnest 驱动＋coalesce 直接为期间零行资源物化同值行；此处仅作
+ * TS 侧缺行纯防御回退（与折单前 `?? EMPTY_ESTIMATE_AGGREGATE` 行为一致）。
+ */
 const EMPTY_ESTIMATE_AGGREGATE: EstimateAggregateRow = {
   total_rows: 0,
   priced_rows: 0,
@@ -303,20 +331,40 @@ export async function loadApiCostEstimation(
 }
 
 /**
- * 批量分组入口（W20-10 / R2 性能修复）：一次调用取代逐资源 loadApiCostEstimation
- * （N+1：每资源 3 条聚合 SQL → 恒 3 条 GROUP BY provider_resource_id 的同口径聚合）。
+ * 批量分组入口（W20-10）：一次调用取代逐资源 loadApiCostEstimation（N+1 已由 R2 消除，
+ * 每资源 3 条 → 恒 3 条；残余瓶颈是三条独立语句各自 `WITH lines AS (estimationLinesSql)`
+ * ——ledger_line 基表（百万行）与处置判定函数被完整扫描/执行三遍，W20-10
+ * resourceUtilizationP95 稳定超标）。本版把三条折成**单条语句**：
  *
- * 与单资源版的一致性依据（同一 helper 生成，非复制粘贴）：
- *   - lines CTE 复用同一 estimationLinesSql（同 WHERE/同投影/同快照键回退/同期间过滤）；
- *   - 三条聚合分别嵌入与单资源版同一片段 ESTIMATE_COUNT_PROJECTION / ESTIMATE_PRICED_SUM
- *     （priceBasis 查询投影逐字同源），仅追加 provider_resource_id 分组维度与排序前缀
- *     （资源内 amounts 按币种 ASC、priceBasis 按 ruleId/ruleVersion 排序与单资源版一致）；
- *   - completeness/gaps/amounts/priceBasis/excludedNoRecordedCost 派生共用
- *     assembleApiCostEstimation；
- *   - 每资源 scope.resourceIds=[id]、period 同查询——与逐资源调用
- *     loadApiCostEstimation(db, ent, {start, end, resourceIds:[id]}) 返回值逐字段一致；
- *   - 期间无任何账本行的资源同样有条目（EMPTY_ESTIMATE_AGGREGATE＝单资源版空期间语义）。
- * 一致性回归：api-cost-estimation-by-resource.integration.test.ts（多资源逐字段对照）。
+ * 单次基表扫描的实现：
+ *   - `lines` CTE（同一 estimationLinesSql，含 provider_resource_id 分组列）被下方
+ *     counts/amounts/basis 三个子聚合多处引用——PG 对多引用 CTE 物化一次（显式
+ *     MATERIALIZED 锁定该语义），基表扫描与处置判定只执行一遍；
+ *   - 主查询以 unnest(去重资源清单) WITH ORDINALITY 为驱动 LEFT JOIN 三子聚合，
+ *     按 provider_resource_id 汇成单结果集，ORDER BY ids.ordinality 保持请求清单同序。
+ *
+ * 与三条语句版（及单资源版）的逐字段等价性依据：
+ *   - counts：ESTIMATE_COUNT_PROJECTION 逐字嵌入，GROUP BY provider_resource_id
+ *     （＝折单前聚合一）；
+ *   - amounts：内层子查询与折单前聚合二逐字同源（GROUP BY 资源+币种、
+ *     ESTIMATE_PRICED_SUM、WHERE api_cost_currency IS NOT NULL），外层
+ *     jsonb_agg ORDER BY currency ASC 还原「资源内按币种 ASC」数组顺序，
+ *     jsonb_build_object 键名与 EstimateAmountRow 字段一致（currency/amount 均非 NULL）；
+ *   - basis：内层子查询与折单前聚合三逐字同源（DISTINCT 资源+rule_id+rule_version+
+ *     source_status 四元组），外层 jsonb_agg ORDER BY rule_id ASC, rule_version ASC
+ *     NULLS LAST 还原原排序（同一 rule_id+version 不同 source_status 的并列顺序
+ *     两个版本同为未指定，天然一致）；
+ *   - 期间零行资源：counts/amounts/basis 均无该资源行 → LEFT JOIN 置 NULL →
+ *     coalesce 计数列 0（＝EMPTY_ESTIMATE_AGGREGATE）、amounts/basis '[]'::jsonb
+ *     （＝折单前 TS 侧 `?? []`），与逐资源调用空期间语义逐字段一致；
+ *   - jsonb 载荷由 node-postgres 默认解析为 JS 对象数组，键名即 TS 行字段，
+ *     assembleApiCostEstimation 派生零改动。
+ *
+ * 输出合同不变：Map<resourceId, ApiCostEstimation>，每资源与逐资源调用
+ * loadApiCostEstimation(db, ent, {start, end, resourceIds:[id]}) 返回值逐字段一致
+ * （scope.resourceIds=[id]、period 同查询）。请求清单外的资源行不进入任何所请求资源
+ * （scopeFilter 同前）。一致性回归：api-cost-estimation-by-resource.integration.test.ts
+ * （多资源逐字段对照）。
  */
 export async function loadApiCostEstimationByResource(
   db: Kysely<Database>,
@@ -324,61 +372,79 @@ export async function loadApiCostEstimationByResource(
   query: ApiCostEstimationBatchQuery,
 ): Promise<Map<string, ApiCostEstimation>> {
   const { start, end } = query;
-  // 清单去重（调用方来源为主键集合，正常无重复；防御性收敛，ANY 语义不变）。
+  // 清单去重（调用方来源为主键集合，正常无重复；防御性收敛，ANY/unnest 语义不变）。
   const resourceIds = [...new Set(query.resourceIds)];
   if (resourceIds.length === 0) return new Map();
-  const [aggregateRows, amountRows, basisRows] = await Promise.all([
-    sql<EstimateAggregateRow & { provider_resource_id: string }>`
-      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
+  const batchRows = await sql<EstimateBatchResourceRow>`
+    WITH lines AS MATERIALIZED (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)}),
+    counts AS (
       SELECT lines.provider_resource_id,
              ${ESTIMATE_COUNT_PROJECTION}
-      FROM lines
-      GROUP BY lines.provider_resource_id
-    `.execute(db),
-    sql<EstimateAmountRow & { provider_resource_id: string }>`
-      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
-      SELECT lines.provider_resource_id, lines.api_cost_currency AS currency,
-             ${ESTIMATE_PRICED_SUM} AS amount
-      FROM lines
-      WHERE lines.api_cost_currency IS NOT NULL
-      GROUP BY lines.provider_resource_id, lines.api_cost_currency
-      ORDER BY lines.provider_resource_id ASC, lines.api_cost_currency ASC
-    `.execute(db),
-    sql<EstimatePriceBasisRow & { provider_resource_id: string }>`
-      WITH lines AS (${estimationLinesSql(enterpriseId, start, end, resourceIds, true)})
-      SELECT DISTINCT lines.provider_resource_id, lines.billing_rule_id AS rule_id,
-             lines.rule_version, lines.rule_source_status AS source_status
-      FROM lines
-      WHERE lines.api_cost IS NOT NULL AND lines.billing_rule_id IS NOT NULL
-      ORDER BY lines.provider_resource_id ASC, lines.billing_rule_id ASC,
-               lines.rule_version ASC NULLS LAST
-    `.execute(db),
-  ]);
-  const aggregateByResource = new Map(
-    aggregateRows.rows.map((row) => [row.provider_resource_id, row]),
+        FROM lines
+       GROUP BY lines.provider_resource_id
+    ),
+    amounts AS (
+      SELECT per_currency.provider_resource_id,
+             jsonb_agg(jsonb_build_object(
+               'currency', per_currency.currency, 'amount', per_currency.amount
+             ) ORDER BY per_currency.currency ASC) AS amounts
+        FROM (
+          SELECT lines.provider_resource_id, lines.api_cost_currency AS currency,
+                 ${ESTIMATE_PRICED_SUM} AS amount
+            FROM lines
+           WHERE lines.api_cost_currency IS NOT NULL
+           GROUP BY lines.provider_resource_id, lines.api_cost_currency
+        ) AS per_currency
+       GROUP BY per_currency.provider_resource_id
+    ),
+    basis AS (
+      SELECT distinct_basis.provider_resource_id,
+             jsonb_agg(jsonb_build_object(
+               'rule_id', distinct_basis.rule_id, 'rule_version', distinct_basis.rule_version,
+               'source_status', distinct_basis.source_status
+             ) ORDER BY distinct_basis.rule_id ASC,
+               distinct_basis.rule_version ASC NULLS LAST) AS basis
+        FROM (
+          SELECT DISTINCT lines.provider_resource_id, lines.billing_rule_id AS rule_id,
+                 lines.rule_version, lines.rule_source_status AS source_status
+            FROM lines
+           WHERE lines.api_cost IS NOT NULL AND lines.billing_rule_id IS NOT NULL
+        ) AS distinct_basis
+       GROUP BY distinct_basis.provider_resource_id
+    )
+    SELECT ids.provider_resource_id,
+           coalesce(counts.total_rows, 0) AS total_rows,
+           coalesce(counts.priced_rows, 0) AS priced_rows,
+           coalesce(counts.confirmed_zero_rows, 0) AS confirmed_zero_rows,
+           coalesce(counts.excluded_rows, 0) AS excluded_rows,
+           coalesce(counts.currency_missing_rows, 0) AS currency_missing_rows,
+           coalesce(counts.not_migrated_rows, 0) AS not_migrated_rows,
+           coalesce(counts.usage_unknown_rows, 0) AS usage_unknown_rows,
+           coalesce(counts.price_missing_rows, 0) AS price_missing_rows,
+           coalesce(counts.basis_unverified_rows, 0) AS basis_unverified_rows,
+           coalesce(amounts.amounts, '[]'::jsonb) AS amounts,
+           coalesce(basis.basis, '[]'::jsonb) AS basis
+    FROM unnest(${resourceIds}::uuid[]) WITH ORDINALITY AS ids(provider_resource_id, ordinality)
+    LEFT JOIN counts ON counts.provider_resource_id = ids.provider_resource_id
+    LEFT JOIN amounts ON amounts.provider_resource_id = ids.provider_resource_id
+    LEFT JOIN basis ON basis.provider_resource_id = ids.provider_resource_id
+    ORDER BY ids.ordinality ASC
+  `.execute(db);
+  const rowsByResource = new Map(
+    batchRows.rows.map((row) => [row.provider_resource_id, row]),
   );
-  const amountsByResource = new Map<string, EstimateAmountRow[]>();
-  for (const row of amountRows.rows) {
-    const list = amountsByResource.get(row.provider_resource_id) ?? [];
-    list.push({ currency: row.currency, amount: row.amount });
-    amountsByResource.set(row.provider_resource_id, list);
-  }
-  const basisByResource = new Map<string, EstimatePriceBasisRow[]>();
-  for (const row of basisRows.rows) {
-    const list = basisByResource.get(row.provider_resource_id) ?? [];
-    list.push({ rule_id: row.rule_id, rule_version: row.rule_version, source_status: row.source_status });
-    basisByResource.set(row.provider_resource_id, list);
-  }
   const result = new Map<string, ApiCostEstimation>();
   for (const resourceId of resourceIds) {
+    const row = rowsByResource.get(resourceId);
     result.set(resourceId, assembleApiCostEstimation(
       enterpriseId,
       [resourceId],
       start,
       end,
-      aggregateByResource.get(resourceId) ?? EMPTY_ESTIMATE_AGGREGATE,
-      amountsByResource.get(resourceId) ?? [],
-      basisByResource.get(resourceId) ?? [],
+      // unnest 驱动保证每请求资源恰一行；缺行仅纯防御（与折单前回退一致）。
+      row ?? EMPTY_ESTIMATE_AGGREGATE,
+      row?.amounts ?? [],
+      row?.basis ?? [],
     ));
   }
   return result;
