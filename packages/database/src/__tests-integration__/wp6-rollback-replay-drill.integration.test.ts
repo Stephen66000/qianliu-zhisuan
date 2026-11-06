@@ -1,44 +1,44 @@
 /**
- * AT-X07 R3 重开返修演练——主路线 v2：整库备份恢复＋增量回放（acceptance-plan §6 X07
- * 语义不变：「新消费仍可读/结算且受原额度约束，不要求补虚构期初、不丢数据；
- * 不能仅恢复不兼容旧服务」；验收人退回 WP6 的修复＝主路线不再丢失切换后新消费）。
+ * AT-X07 R4 演练——主路线 v3：增量导出（全行比对）→影子恢复→重放 0092→增量回放
+ * （DO UPDATE 幂等）→retire-threshold（门槛退役保持）→verify（影子校验）→swap
+ * （单事务改名，keep＝切换后状态留档）。验收二次退回四缺口逐条对齐：
  *
- * 全程通过交付脚本 deploy/scripts/rollback-delta-20261106.sh 执行 export/restore/replay
- * （容器内 pg 工具；脚本子命令与生产操作单同款），演练断言其行为与清单闭环。
+ *   缺口①（增量漏已有行更新）：白名单 16 表全行比对（PK 全连接，任一列变更或新增
+ *      行均入增量；清单区分 inserted/updated）；回放 ON CONFLICT (id) DO UPDATE SET
+ *      列交集全列。红用例（已留证 R3 现状，WP6-X07-R4-20261106/red-evidence/）：
+ *      T0 建 in-flight 请求（未结算）→备份→切换后完成结算（ai_request/upstream_attempt
+ *      行 UPDATE＋usage/ledger/transaction 新行）→R3 回退到未结算态；修复后结算态
+ *      逐字保全。另一红用例：principal_grant 切换后收紧（quota_value/allow_overage/
+ *      pool 字段）→R3 丢更新；修复后保全。enterprise.employee_quota_monthly_from
+ *      （0092 域按迁移定义加列）同批保全。
+ *   缺口②（失败发生在 dropdb 之后）：restore/replay/retire/verify 全部只作用于影子
+ *      库；任一步失败＝删影子、live 未动、exit 非 0；verify 全过才 swap。红用例
+ *      （已留证）：消费引用备份后新建订阅周期（白名单外表）→R3 先 restore 后回放
+ *      失败时 live 已被覆盖；修复后影子内失败→删影子、live 完好。
+ *   缺口③（额度控制真实路径）：旧栈（ae506fe）子进程在回放后的库上走真实准入与
+ *      结算入口——reserveEmployeeQuota（evaluateQuotaGate：超额拒绝且原因含额度语义
+ *      REJECT_EXHAUSTED、MONTHLY 模式生效）＋settleEmployeeQuota（允许请求经旧栈
+ *      结算路径落库、period used_value 正确累计）。红证：R3 丢 enterprise/grant
+ *      更新使 MONTHLY 路径退化为 LEGACY 拒绝（真实路径失效）。
+ *   缺口④（门槛退役保持）：retire-threshold 在影子内 DROP 0081 种入触发器与函数
+ *      ＋删除 API 模式 PENDING 控制行（行数留档）。断言：回退后新建资源无 PENDING；
+ *      无 finance 行资源经旧栈准入可服务；原 PENDING 资源（控制行删除后）同样可
+ *      服务。依据＝AFR-02，操作单 §6.1/§6.4 v3 声明为回退包对旧代码行为的有意覆盖。
  *
- * 时序（镜像生产操作单 §6.1 v2）：
- *   0. 0091 水位（生产现状，§8.1 回执）＋T0 播种（激活企业/READY 资源/存量 PENDING
- *      留档/员工授权/统一模型/路由/计价/一笔切换前消费——零资金事实）→ 发布前备份
- *      （pg_dump -Fc，§4.1 同款）。
- *   1. 切换：migrateToLatest（0092→0096 五个，T2 同型）。
- *   2. 切换后新数据：两笔新消费（0.00060000/0.00040000，X08 T4 量级）＋员工月度
- *      额度域（period＋两笔 SETTLED usage）＋新建 API 资源（0094 后无 finance 行）
- *      ＋切换后 billing_rule（含 0093 source_status 列——列交集回放的 drift 探针）。
- *   3. 导出：脚本 export（备份点快照载入 ref 草稿库→逐白名单表主键反连接→增量
- *      COPY 文本＋行数＋sha256 清单；live 零写入）。白名单 15 表与 FK 闭包依据见
- *      V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/logs/fk-closure-dump.log
- *      （0096 水位 343 条 FK 边实测）与 deploy 脚本头注释。
- *   4. 负向：导出失败（制品缺失）中止——exit 非 0、live 库不动、既有清单不受污染；
- *      restore 确认门（缺 ROLLBACK_DELTA_CONFIRM 拒绝）。
- *   5. 恢复：脚本 restore（dropdb --force＋createdb＋pg_restore 到备份点 0091）；
- *      断言备份点摘要与 T0 逐字一致、0092 域表不存在。
- *   6. 重放 0092 up（幂等，§6.2 步骤 3 先例；rollback.sh「禁止叠加 down」不受影响
- *      ——0092 是 up 重放）。
- *   7. 回放：脚本 replay（FK 依赖序；staging temp 表＋ON CONFLICT (id) DO NOTHING；
- *      回放期禁用 0081 种入触发器——恢复点 0091＋0092 重放下触发器在位，不禁用会
- *      给回放资源种入 PENDING、旧代码将拒绝服务；事务内禁用、提交后校验恢复
- *      ENABLED）。断言「备份点摘要＋增量摘要＝回放后摘要」（X07 8 组机制扩展为
- *      白名单 15 表）：live 导出时摘要＝回放后摘要＝逐字在库。
- *   8. 幂等重放：二次回放 inserted 全 0、摘要不变。
- *   9. 断言组 3/5：员工额度行在位且受约束（limit/used/唯一键拒绝）；种入触发器
- *      边界——回放资源无 PENDING 行、恢复后新建资源才有 PENDING。
- *  10. 断言组 2：旧栈（ae506fe）读/结算（子进程跑 ae506fe worktree 源码，口径同
- *      WP6-20261104 legacy-ae506fe-read-check 三行式）：准入（无 finance 行资源
- *      可服务）/逐行读（切换前＋切换后金额逐字）/窗口聚合/旧结算写路径落库/额度读。
+ * 纪律：红用例先在 R3 现状跑出红（logs/r4-red-probe-run.log＋r4-red-probe.log，
+ * RED=6），修复后转绿（logs/r4-green-probe-run.log 10/10＋本套件全绿）。
  *
- * 红线自证（§6.5）：全程零 DELETE/UPDATE 消费事实；provider_finance_event 不在
- * 白名单（增量面恒空）——零期初/充值/更正类 finance 事件；迁移文件零触碰；
- * rollback.sh 既有段零触碰。
+ * 与 R3 版（7 用例）的衔接：原 A/B/C/D/E/F/G 用例全部保留并按 R4 语义扩展——
+ *   A 导出组（+inserted/updated 与全行比对）；B 负向组（+live 不动强化）；C 恢复组
+ *   （restore 改影子语义：live 物理未动）；D 回放组（applied 计数＋影子摘要＝live
+ *   摘要，含 in-flight 更新逐字）；E 幂等组（DO UPDATE 语义：二次回放 applied=清单
+ *   行数且摘要不变——重放结果不变）；F 组 3＋组 5（+retire-threshold；原「恢复后
+ *   新建资源被种入 PENDING」按缺口④裁定改断言为「无 PENDING」——有意覆盖非削弱，
+ *   触发器 ENABLED 校验保留在 E 段）；G 组 2 旧栈（+真实额度路径 C①/C②；原 PENDING
+ *   留档资源按缺口④改断言为可服务）。新增 G/verify+swap、H 门槛保持、J 缺口②
+ *   绿证场景三组。
+ * 红线不变：finance 事件零补造（verify 以 ref 快照全表摘要证明＋各段断言）；迁移
+ * 文件零触碰；rollback.sh 零触碰；不 commit。
  */
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -55,6 +55,7 @@ const HEAD_0096 = "0096_official_balance_refresh_request";
 const HEAD_0092 = "0092_employee_monthly_quota";
 const HEAD_0091 = "0091_recorded_cost_accounting_policy";
 const SEED_TRIGGER = "provider_resource_finance_state_seed_trigger";
+const SEED_FUNCTION = "provider_resource_finance_state_seed";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const DELTA_SCRIPT = resolve(REPO_ROOT, "deploy/scripts/rollback-delta-20261106.sh");
@@ -62,51 +63,65 @@ const LEGACY_ROOT = "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe";
 const LEGACY_TSX = resolve(LEGACY_ROOT, "node_modules/.bin/tsx");
 const LEGACY_CHECK_SCRIPT = resolve(
   REPO_ROOT,
-  "V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/scripts/wp6-r3-legacy-read-check.ts",
+  "V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R4-20261106/scripts/wp6-r4-legacy-read-check.ts",
 );
 
-const CONTAINER_NAME = "wp6-r3-drill-pg";
-const LIVE_DB = "wp6_r3_live";
-const REF_DB = "wp6_r3_ref";
-const REPLAY_DB = "wp6_r3_replay";
-const DUMP_IN_CONTAINER = "/tmp/wp6-r3-backup.dump";
+const CONTAINER_NAME = "wp6-r4-drill-pg";
+const LIVE_DB = "wp6_r4_live";
+const REF_DB = "wp6_r4_ref";
+const SHADOW_DB = "wp6_r4_shadow";
+const KEEP_DB = "wp6_r4_live_pre_rollback_keep";
+const DUMP_IN_CONTAINER = "/tmp/wp6-r4-backup.dump";
 
-/** 消费金额字面值（切换前＝X01 金额链同源 0.00104000；切换后＝X08 T4 量级）。 */
 const AMOUNT_PRE = "0.00104000";
 const AMOUNT_CUT1 = "0.00060000";
 const AMOUNT_CUT2 = "0.00040000";
+const AMOUNT_INFLIGHT = "0.00025000";
 const AMOUNT_LEGACY_SETTLE = "0.00052000";
-// 窗口合计＝切换前＋切换后消费事实（settled_at 均在演练窗口内）；旧结算写路径行的
-// settled_at＝回放后时钟（窗口外），不计入——口径同 WP6-20261104 legacy-read-check
-// （窗口聚合为可读性实证，OPENING_BALANCE_MISSING:* 为仪表盘桥接口径差异不阻断）。
-const WINDOW_TOTAL_CNY = "0.00204000";
-const WINDOW_ESTIMATED_CNY = "0.00204000"; // 0.00104000＋0.00060000＋0.00040000（旧结算落库前）
+const WINDOW_ESTIMATED_CNY = "0.00229000"; // 0.00104000＋0.00060000＋0.00040000＋0.00025000
 const QUOTA_LIMIT = 1_000_000n;
-const QUOTA_USED_FINAL = 1_900n; // 1200＋700（两笔切换后 SETTLED usage 的期末值）
+const QUOTA_USED_RESTORED = 1_900n; // 两笔切换后 SETTLED usage（1200＋700）
+const QUOTA_C1_ESTIMATE = "5000000"; // 超额请求（REJECT_EXHAUSTED）
+const QUOTA_C2_ESTIMATE = "50000"; // 允许请求（ALLOW→结算累计）
+const QUOTA_USED_AFTER_SETTLE = "51900"; // 1900＋50000
 const WINDOW = { start: "2026-11-04T00:00:00.000Z", end: "2026-11-05T00:00:00.000Z" };
 
-/** 白名单（＝交付脚本 REPLAY_ORDER；FK 依赖序）。 */
+/** 白名单（＝交付脚本 REPLAY_ORDER v3；enterprise 为 0092 域按迁移定义补入）。 */
 const WHITELIST = [
-  "provider", "unified_model", "principal", "principal_key", "provider_resource",
-  "billing_rule", "model_route", "ai_request", "upstream_attempt", "usage_event",
-  "ledger_line", "ledger_transaction", "principal_grant",
-  "principal_quota_period", "principal_quota_usage",
+  "enterprise", "provider", "unified_model", "principal", "principal_key",
+  "provider_resource", "billing_rule", "model_route", "ai_request",
+  "upstream_attempt", "usage_event", "ledger_line", "ledger_transaction",
+  "principal_grant", "principal_quota_period", "principal_quota_usage",
 ] as const;
-/** 0091 备份点必然无此二表（0092 未应用）——导出按「快照空集」全量。 */
 const ONLY_0092_TABLES = ["principal_quota_period", "principal_quota_usage"] as const;
 
-/** 导出期期望增量行数（与 seedCutover 一一对应；脚本清单逐表核对）。 */
-const EXPECTED_DELTA_ROWS: Record<(typeof WHITELIST)[number], number> = {
-  provider: 0, unified_model: 0, principal: 0, principal_key: 0,
-  provider_resource: 1, billing_rule: 1, model_route: 0,
-  ai_request: 2, upstream_attempt: 2, usage_event: 2,
-  ledger_line: 2, ledger_transaction: 2, principal_grant: 0,
-  principal_quota_period: 1, principal_quota_usage: 2,
+/** 期望增量（rows/inserted/updated）——与 seedT0＋seedCutover 一一对应。 */
+const EXPECTED_DELTA: Record<(typeof WHITELIST)[number], { rows: number; inserted: number; updated: number }> = {
+  enterprise: { rows: 1, inserted: 0, updated: 1 }, // employee_quota_monthly_from
+  provider: { rows: 0, inserted: 0, updated: 0 },
+  unified_model: { rows: 0, inserted: 0, updated: 0 },
+  principal: { rows: 0, inserted: 0, updated: 0 },
+  principal_key: { rows: 0, inserted: 0, updated: 0 },
+  provider_resource: { rows: 1, inserted: 1, updated: 0 }, // resourceC
+  billing_rule: { rows: 1, inserted: 1, updated: 0 }, // drift 探针行
+  model_route: { rows: 0, inserted: 0, updated: 0 },
+  ai_request: { rows: 3, inserted: 2, updated: 1 }, // r2/r3 新增；in-flight 更新
+  upstream_attempt: { rows: 3, inserted: 2, updated: 1 },
+  usage_event: { rows: 3, inserted: 3, updated: 0 },
+  ledger_line: { rows: 3, inserted: 3, updated: 0 },
+  ledger_transaction: { rows: 3, inserted: 3, updated: 0 },
+  principal_grant: { rows: 1, inserted: 0, updated: 1 }, // 收紧更新
+  principal_quota_period: { rows: 1, inserted: 1, updated: 0 },
+  principal_quota_usage: { rows: 2, inserted: 2, updated: 0 },
 };
 
-/** 命令与断言结果留痕（afterAll 写入 WP6_R3_EVIDENCE_DIR，供证据日志归档）。 */
-const COMMAND_LOG: Array<{ cmd: string; exit: number | null; note?: string }> = [];
+/** 逐字摘要剔除列：0093 为 billing_rule 加的 source_status（新栈元数据列）随 schema
+ * 回退不保留（§6.1 v3 已知边界）；两侧同步剔除后逐字比对。 */
+const DIGEST_EXCLUDED_COLUMNS: Partial<Record<(typeof WHITELIST)[number], string[]>> = {
+  billing_rule: ["source_status"],
+};
 
+const COMMAND_LOG: Array<{ cmd: string; exit: number | null; note?: string }> = [];
 function logCommand(cmd: string, exit: number | null, ...notes: Array<string | undefined>): void {
   COMMAND_LOG.push({ cmd, exit, note: notes.filter((n) => n !== undefined).join(" | ") });
 }
@@ -117,7 +132,6 @@ interface ScriptResult {
   stderr: string;
 }
 
-/** 交付脚本调用（生产操作单同款；DOCKER_HOST 继承测试进程环境）。 */
 function runDeltaScript(args: string[], env?: Record<string, string>): ScriptResult {
   const result = spawnSync("bash", [DELTA_SCRIPT, ...args], {
     encoding: "utf8",
@@ -142,7 +156,6 @@ async function containerExec(container: StartedPostgreSqlContainer, command: str
   return result.output;
 }
 
-/** 规范化 JSON（键序无关/Date→ISO/bigint→字符串；X07 摘要机制同款）。 */
 function canonicalJson(value: unknown): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "bigint") return JSON.stringify(value.toString());
@@ -159,16 +172,6 @@ function canonicalJson(value: unknown): string {
 
 type Db = ReturnType<typeof createKysely>;
 
-/** 逐字摘要剔除列：0093 为 billing_rule 加列 source_status（新栈元数据列）——恢复点
- * 0091＋0092 重放的 schema 无此列，增量回放按列交集投影天然不含它（§6.1 v2：schema
- * drift 列随回退语义回退，不属消费事实）。逐字断言对 live/回放后两侧同步剔除该列。 */
-const DIGEST_EXCLUDED_COLUMNS: Partial<Record<(typeof WHITELIST)[number], string[]>> = {
-  billing_rule: ["source_status"],
-};
-
-/** 白名单全表行摘要（企业域内全行、SELECT * 全列、ORDER BY id；X07 机制扩展到 15 表）。
- * 0092 域表在 0091 水位不存在（0092 未应用）——缺席记 ABSENT 哨兵，摘要等值比较天然通过；
- * live/回放后快照不得含 ABSENT（由断言显式核对）。 */
 async function whitelistDigests(database: Db, enterpriseId: string): Promise<Record<string, string>> {
   const digests: Record<string, string> = {};
   for (const table of WHITELIST) {
@@ -176,9 +179,13 @@ async function whitelistDigests(database: Db, enterpriseId: string): Promise<Rec
       digests[table] = `ABSENT:${table}`;
       continue;
     }
+    // enterprise 为租户根表（无 enterprise_id 列），按自身 id 过滤。
+    const whereClause = table === "enterprise"
+      ? sql`WHERE id = ${enterpriseId}::uuid`
+      : sql`WHERE enterprise_id = ${enterpriseId}::uuid`;
     const result = await sql<{ row: Record<string, unknown> }>`
       SELECT row_to_json(t) AS row FROM (
-        SELECT * FROM ${sql.raw(table)} WHERE enterprise_id = ${enterpriseId}::uuid ORDER BY id
+        SELECT * FROM ${sql.raw(table)} ${whereClause} ORDER BY id
       ) t`.execute(database);
     const excluded = DIGEST_EXCLUDED_COLUMNS[table] ?? [];
     const rows = result.rows.map((row) => {
@@ -205,7 +212,6 @@ async function tableExists(database: Db, table: string): Promise<boolean> {
   return result.rows[0]!.exists;
 }
 
-/** 期初/充值类 finance 事件行数（红线 2；X07 断言 3d 同款）。 */
 async function openingOrRechargeEventCount(database: Db, enterpriseId: string): Promise<string> {
   const result = await sql<{ count: string }>`
     SELECT count(*)::text AS count FROM provider_finance_event
@@ -231,30 +237,75 @@ interface Fixture {
   resourceReadyId: string;
   resourcePendingId: string;
   resourceCutoverId: string;
+  postRollbackResourceId: string;
   unifiedModelId: string;
   preRequestId: string;
   cutRequest1Id: string;
   cutRequest2Id: string;
   cutAttempt1Id: string;
   cutAttempt2Id: string;
-  cutUsageId1: string;
-  cutUsageId2: string;
   periodId: string;
+  inflightRequestId: string;
+  inflightAttemptId: string;
 }
 
-/** T0 播种（0091 水位：0092 域表尚不存在；grant 走裸 SQL 不带 quota_basis 列）。 */
+/** 一笔已计价结算消费（gateway 结算产物数据层同型）。 */
+async function seedConsumption(
+  db: Db,
+  spec: {
+    enterpriseId: string; principalId: string; keyId: string; resourceId: string;
+    requestId: string; startedAt: string; amount: string;
+  },
+): Promise<{ attemptId: string; usageId: string }> {
+  await db.insertInto("ai_request").values({
+    id: spec.requestId, enterprise_id: spec.enterpriseId, principal_id: spec.principalId,
+    principal_key_id: spec.keyId, protocol: "chat", unified_model: "deepseek-chat",
+    status: "SUCCEEDED", started_at: new Date(spec.startedAt),
+    finished_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+  }).execute();
+  const attemptId = await db.insertInto("upstream_attempt").values({
+    enterprise_id: spec.enterpriseId, ai_request_id: spec.requestId, attempt_no: 1,
+    provider_resource_id: spec.resourceId, upstream_model: "deepseek-chat",
+    http_status: 200, response_committed: true,
+    finished_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+  const usageId = await db.insertInto("usage_event").values({
+    enterprise_id: spec.enterpriseId, ai_request_id: spec.requestId, upstream_attempt_id: attemptId,
+    provider_resource_id: spec.resourceId, input_tokens: 1000n, output_tokens: 200n,
+    cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+    dedup_key: spec.requestId, created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+  await db.insertInto("ledger_line").values({
+    enterprise_id: spec.enterpriseId, ai_request_id: spec.requestId, upstream_attempt_id: attemptId,
+    usage_event_id: usageId, provider_resource_id: spec.resourceId, principal_id: spec.principalId,
+    resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 200n,
+    raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+    api_cost: spec.amount, api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE",
+    billing_rule_snapshot: { sourceStatus: "VERIFIED" },
+    usage_quality: "PROVIDER_REPORTED", settled_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+    created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+  }).execute();
+  await db.insertInto("ledger_transaction").values({
+    enterprise_id: spec.enterpriseId, ai_request_id: spec.requestId, principal_id: spec.principalId,
+    total_input_tokens: 1000n, total_output_tokens: 200n, total_cache_tokens: 0n,
+    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: spec.amount,
+    api_cost_status: "PRICED_USAGE", overage: false, usage_quality: "PROVIDER_REPORTED",
+    attempt_count: 1, status: "SETTLED", created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
+  }).execute();
+  return { attemptId, usageId };
+}
+
+/** T0 播种（0091 水位）：含 in-flight 请求（缺口①红/绿用例的数据前提）。 */
 async function seedT0(db: Db): Promise<Fixture> {
   const enterpriseId = randomUUID();
   const adminId = randomUUID();
   const principalId = randomUUID();
   const keyId = randomUUID();
-  await db.insertInto("enterprise").values({ id: enterpriseId, name: "WP6 R3 回放演练企业" }).execute();
+  await db.insertInto("enterprise").values({ id: enterpriseId, name: "WP6 R4 回放演练企业" }).execute();
   await db.insertInto("admin_user").values({
-    id: adminId, enterprise_id: enterpriseId, username: "wp6-r3-admin",
-    display_name: "WP6 R3 管理员", password_hash: "test",
+    id: adminId, enterprise_id: enterpriseId, username: "wp6-r4-admin",
+    display_name: "WP6 R4 管理员", password_hash: "test",
   }).execute();
-  // 已激活企业（先于资源插入：0091 水位种入触发器在位，新建 API 资源即刻 PENDING——
-  // 与生产激活企业语义一致）。
   await db.insertInto("provider_finance_runtime_state").values({
     enterprise_id: enterpriseId, strict_writes_enabled: true,
     activated_at: new Date("2026-11-04T00:00:00.000Z"), activated_by_admin_user_id: adminId,
@@ -263,9 +314,8 @@ async function seedT0(db: Db): Promise<Fixture> {
     enterprise_id: enterpriseId, code: "deepseek", name: "DeepSeek",
     adapter_type: "OPENAI_COMPATIBLE",
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
-  // 主资源：插库即被 0081 触发器种入 PENDING，随后激活为 READY（生产激活态写实）。
   const resourceReadyId = await db.insertInto("provider_resource").values({
-    enterprise_id: enterpriseId, provider_id: providerId, name: "R3 主 API 资源",
+    enterprise_id: enterpriseId, provider_id: providerId, name: "R4 主 API 资源",
     mode: "API", credential_type: "API_KEY",
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
   await sql`
@@ -274,23 +324,22 @@ async function seedT0(db: Db): Promise<Fixture> {
            ready_by_admin_user_id = ${adminId}::uuid
      WHERE provider_resource_id = ${resourceReadyId}::uuid
   `.execute(db);
-  // 存量 PENDING 留档资源（从未激活；备份点原样保留）。
   const resourcePendingId = await db.insertInto("provider_resource").values({
-    enterprise_id: enterpriseId, provider_id: providerId, name: "R3 存量 PENDING 留档资源",
+    enterprise_id: enterpriseId, provider_id: providerId, name: "R4 存量 PENDING 留档资源",
     mode: "API", credential_type: "API_KEY",
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
 
   await db.insertInto("principal").values({
-    id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "R3 员工",
+    id: principalId, enterprise_id: enterpriseId, type: "EMPLOYEE", name: "R4 员工",
     person_id: null, owner_person_id: null, department_label: null,
   }).execute();
   await db.insertInto("principal_key").values({
     id: keyId, enterprise_id: enterpriseId, principal_id: principalId,
-    key_prefix: "ql_r3", key_digest: randomUUID(), allowed_model_ids: [] as never,
+    key_prefix: "ql_r4", key_digest: randomUUID(), allowed_model_ids: [] as never,
   }).execute();
   const unifiedModelId = await db.insertInto("unified_model").values({
-    enterprise_id: enterpriseId, alias: "qianliu-r3-deepseek",
-    display_name: "R3 DeepSeek", status: "ACTIVE",
+    enterprise_id: enterpriseId, alias: "qianliu-r4-deepseek",
+    display_name: "R4 DeepSeek", status: "ACTIVE",
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
   await db.insertInto("model_route").values({
     enterprise_id: enterpriseId, unified_model_id: unifiedModelId,
@@ -299,108 +348,79 @@ async function seedT0(db: Db): Promise<Fixture> {
   await db.insertInto("billing_rule").values({
     enterprise_id: enterpriseId, provider_resource_id: resourceReadyId,
     upstream_model: "deepseek-chat", rule_type: "API_PRICE",
-    rule_version: "r3-api-price-v1", effective_from: new Date(0),
+    rule_version: "r4-api-price-v1", effective_from: new Date(0),
     cache_miss_price: "0.000001", multiplier: null, priority: 1000,
   }).execute();
-  // 0091 水位：principal_grant 无 quota_basis 列（0092:6 才加），裸 SQL 播种。
+  // 0091 水位：grant 尚无 quota_basis/pool 语义；allow_overage 初始 TRUE
+  // （切换后收紧为 false——缺口①丢失更新的合同场景）。
   const grantRows = await sql<{ id: string }>`
-    INSERT INTO principal_grant (enterprise_id, principal_id, provider, model_alias, quota_value)
-    VALUES (${enterpriseId}::uuid, ${principalId}::uuid, 'deepseek', 'qianliu-r3-deepseek', ${QUOTA_LIMIT})
+    INSERT INTO principal_grant (enterprise_id, principal_id, provider, model_alias, quota_value, allow_overage)
+    VALUES (${enterpriseId}::uuid, ${principalId}::uuid, 'deepseek', 'qianliu-r4-deepseek', ${QUOTA_LIMIT}, true)
     RETURNING id
   `.execute(db);
   const grantId = grantRows.rows[0]!.id;
 
-  seedConsumption(db, {
+  await seedConsumption(db, {
     enterpriseId, principalId, keyId, resourceId: resourceReadyId,
-    requestId: randomUUID(), startedAt: "2026-11-04T06:00:00.000Z",
-    amount: AMOUNT_PRE, usageQuality: "PROVIDER_REPORTED",
+    requestId: randomUUID(), startedAt: "2026-11-04T06:00:00.000Z", amount: AMOUNT_PRE,
   });
+  // in-flight 请求：IN_PROGRESS＋attempt 未完成＋无计量/账本行（备份点状态）。
+  const inflightRequestId = randomUUID();
+  await db.insertInto("ai_request").values({
+    id: inflightRequestId, enterprise_id: enterpriseId, principal_id: principalId,
+    principal_key_id: keyId, protocol: "chat", unified_model: "deepseek-chat",
+    status: "IN_PROGRESS", started_at: new Date("2026-11-04T07:00:00.000Z"),
+  }).execute();
+  const inflightAttemptId = await db.insertInto("upstream_attempt").values({
+    enterprise_id: enterpriseId, ai_request_id: inflightRequestId, attempt_no: 1,
+    provider_resource_id: resourceReadyId, upstream_model: "deepseek-chat",
+    started_at: new Date("2026-11-04T07:00:00.500Z"), response_committed: false,
+  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
 
+  const preRows = await sql<{ id: string }>`
+    SELECT id FROM ai_request WHERE enterprise_id = ${enterpriseId}::uuid
+      AND started_at = ${new Date("2026-11-04T06:00:00.000Z")} LIMIT 1`.execute(db);
   return {
     enterpriseId, adminId, principalId, keyId, grantId, providerId,
-    resourceReadyId, resourcePendingId, resourceCutoverId: "", unifiedModelId,
-    preRequestId: "", cutRequest1Id: "", cutRequest2Id: "",
-    cutAttempt1Id: "", cutAttempt2Id: "", cutUsageId1: "", cutUsageId2: "", periodId: "",
+    resourceReadyId, resourcePendingId, resourceCutoverId: "", postRollbackResourceId: "",
+    unifiedModelId, preRequestId: preRows.rows[0]!.id,
+    cutRequest1Id: "", cutRequest2Id: "", cutAttempt1Id: "", cutAttempt2Id: "",
+    periodId: "", inflightRequestId, inflightAttemptId,
   };
 }
 
-/** 一笔已计价结算消费（数据层复现 gateway 结算产物；X07 夹具同型）。 */
-async function seedConsumption(
-  db: Db,
-  spec: {
-    enterpriseId: string; principalId: string; keyId: string; resourceId: string;
-    requestId: string; startedAt: string; amount: string; usageQuality: string;
-  },
-): Promise<{ attemptId: string; usageId: string }> {
-  const requestId = spec.requestId;
-  await db.insertInto("ai_request").values({
-    id: requestId, enterprise_id: spec.enterpriseId, principal_id: spec.principalId,
-    principal_key_id: spec.keyId, protocol: "chat", unified_model: "deepseek-chat",
-    status: "SUCCEEDED", started_at: new Date(spec.startedAt),
-    finished_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-  }).execute();
-  const attemptId = await db.insertInto("upstream_attempt").values({
-    enterprise_id: spec.enterpriseId, ai_request_id: requestId, attempt_no: 1,
-    provider_resource_id: spec.resourceId, upstream_model: "deepseek-chat",
-    http_status: 200, response_committed: true,
-    finished_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
-  const usageId = await db.insertInto("usage_event").values({
-    enterprise_id: spec.enterpriseId, ai_request_id: requestId, upstream_attempt_id: attemptId,
-    provider_resource_id: spec.resourceId, input_tokens: 1000n, output_tokens: 200n,
-    cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: spec.usageQuality,
-    dedup_key: requestId, created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
-  await db.insertInto("ledger_line").values({
-    enterprise_id: spec.enterpriseId, ai_request_id: requestId, upstream_attempt_id: attemptId,
-    usage_event_id: usageId, provider_resource_id: spec.resourceId, principal_id: spec.principalId,
-    resource_mode: "API", raw_input_tokens: 1000n, raw_output_tokens: 200n,
-    raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
-    api_cost: spec.amount, api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE",
-    billing_rule_snapshot: { sourceStatus: "VERIFIED" },
-    usage_quality: spec.usageQuality, settled_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-    created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-  }).execute();
-  await db.insertInto("ledger_transaction").values({
-    enterprise_id: spec.enterpriseId, ai_request_id: requestId, principal_id: spec.principalId,
-    total_input_tokens: 1000n, total_output_tokens: 200n, total_cache_tokens: 0n,
-    total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: spec.amount,
-    api_cost_status: "PRICED_USAGE", overage: false, usage_quality: spec.usageQuality,
-    attempt_count: 1, status: "SETTLED", created_at: new Date(new Date(spec.startedAt).getTime() + 1000),
-  }).execute();
-  return { attemptId, usageId };
-}
-
-/** 切换后新数据（0096 水位）：两笔新消费＋员工额度域＋无期初新资源＋drift 探针计价行。 */
+/** 切换后新数据：两笔消费＋额度域＋in-flight 结算（更新已有行）＋收紧更新＋drift 探针。 */
 async function seedCutover(db: Db, fixture: Fixture): Promise<void> {
+  // 额度域启用（0092 按迁移定义为 enterprise 加列；全行比对随增量保全）。
+  await sql`UPDATE enterprise SET employee_quota_monthly_from = ${new Date("2026-11-01T00:00:00.000Z")} WHERE id = ${fixture.enterpriseId}::uuid`.execute(db);
+  // grant 收紧（缺口①丢失更新的合同场景）＋池语义（缺口③真实路径前提）。
+  await sql`UPDATE principal_grant SET allow_overage = false, quota_value = 100000, pool_model_alias = '*', quota_basis = 'RAW_TOKEN', updated_at = ${new Date("2026-11-04T10:00:00.000Z")} WHERE id = ${fixture.grantId}::uuid`.execute(db);
+
   const cut1 = await seedConsumption(db, {
     enterpriseId: fixture.enterpriseId, principalId: fixture.principalId, keyId: fixture.keyId,
     resourceId: fixture.resourceReadyId, requestId: randomUUID(),
-    startedAt: "2026-11-04T09:00:00.000Z", amount: AMOUNT_CUT1, usageQuality: "PROVIDER_REPORTED",
+    startedAt: "2026-11-04T09:00:00.000Z", amount: AMOUNT_CUT1,
   });
   fixture.cutRequest1Id = (await sql<{ id: string }>`
     SELECT id FROM ai_request WHERE enterprise_id = ${fixture.enterpriseId}::uuid
       AND started_at = ${new Date("2026-11-04T09:00:00.000Z")} LIMIT 1`.execute(db)).rows[0]!.id;
   fixture.cutAttempt1Id = cut1.attemptId;
-  fixture.cutUsageId1 = cut1.usageId;
   const cut2 = await seedConsumption(db, {
     enterpriseId: fixture.enterpriseId, principalId: fixture.principalId, keyId: fixture.keyId,
     resourceId: fixture.resourceReadyId, requestId: randomUUID(),
-    startedAt: "2026-11-04T09:30:00.000Z", amount: AMOUNT_CUT2, usageQuality: "PROVIDER_REPORTED",
+    startedAt: "2026-11-04T09:30:00.000Z", amount: AMOUNT_CUT2,
   });
   fixture.cutRequest2Id = (await sql<{ id: string }>`
     SELECT id FROM ai_request WHERE enterprise_id = ${fixture.enterpriseId}::uuid
       AND started_at = ${new Date("2026-11-04T09:30:00.000Z")} LIMIT 1`.execute(db)).rows[0]!.id;
   fixture.cutAttempt2Id = cut2.attemptId;
-  fixture.cutUsageId2 = cut2.usageId;
 
-  // 员工月度额度域（0092 产物；切换前不存在→反连接全量导出）。
   const periodId = await db.insertInto("principal_quota_period").values({
     enterprise_id: fixture.enterpriseId, principal_id: fixture.principalId, provider: "deepseek",
     period_key: "2026-11", period_start: new Date("2026-10-31T16:00:00.000Z"),
     period_end: new Date("2026-11-30T16:00:00.000Z"), timezone: "Asia/Shanghai",
     quota_basis: "RAW_TOKEN", limit_value: QUOTA_LIMIT, allow_overage: true,
-    used_value: QUOTA_USED_FINAL, reserved_value: 0n, open_grant_version: 1,
+    used_value: QUOTA_USED_RESTORED, reserved_value: 0n, open_grant_version: 1,
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
   fixture.periodId = periodId;
   await db.insertInto("principal_quota_usage").values({
@@ -418,30 +438,56 @@ async function seedCutover(db: Db, fixture: Fixture): Promise<void> {
     created_at: new Date("2026-11-04T09:30:01.000Z"), settled_at: new Date("2026-11-04T09:30:01.000Z"),
   }).execute();
 
-  // 切换后新建 API 资源：0094 已退役种入（0096 水位）→ 无 finance 行（AT-X07 对象）。
+  // in-flight 完成结算：已有行 UPDATE（缺口①对象）＋计量/账本新行。
+  await sql`UPDATE ai_request SET status = 'SUCCEEDED', finished_at = ${new Date("2026-11-04T09:45:00.000Z")} WHERE id = ${fixture.inflightRequestId}::uuid`.execute(db);
+  await sql`UPDATE upstream_attempt SET finished_at = ${new Date("2026-11-04T09:45:00.500Z")}, http_status = 200, response_committed = true WHERE id = ${fixture.inflightAttemptId}::uuid`.execute(db);
+  const inflightUsageId = await db.insertInto("usage_event").values({
+    enterprise_id: fixture.enterpriseId, ai_request_id: fixture.inflightRequestId,
+    upstream_attempt_id: fixture.inflightAttemptId, provider_resource_id: fixture.resourceReadyId,
+    input_tokens: 500n, output_tokens: 100n, cache_tokens: 0n, reasoning_tokens: 0n,
+    usage_quality: "PROVIDER_REPORTED", dedup_key: `${fixture.inflightRequestId}:settle`,
+    created_at: new Date("2026-11-04T09:45:00.500Z"),
+  }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+  await db.insertInto("ledger_line").values({
+    enterprise_id: fixture.enterpriseId, ai_request_id: fixture.inflightRequestId,
+    upstream_attempt_id: fixture.inflightAttemptId, usage_event_id: inflightUsageId,
+    provider_resource_id: fixture.resourceReadyId, principal_id: fixture.principalId,
+    resource_mode: "API", raw_input_tokens: 500n, raw_output_tokens: 100n,
+    raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+    api_cost: AMOUNT_INFLIGHT, api_cost_currency: "CNY", api_cost_status: "PRICED_USAGE",
+    billing_rule_snapshot: { sourceStatus: "VERIFIED" }, usage_quality: "PROVIDER_REPORTED",
+    settled_at: new Date("2026-11-04T09:45:00.500Z"), created_at: new Date("2026-11-04T09:45:00.500Z"),
+  }).execute();
+  await db.insertInto("ledger_transaction").values({
+    enterprise_id: fixture.enterpriseId, ai_request_id: fixture.inflightRequestId,
+    principal_id: fixture.principalId, total_input_tokens: 500n, total_output_tokens: 100n,
+    total_cache_tokens: 0n, total_reasoning_tokens: 0n, total_deducted_quota: 0n,
+    total_api_cost: AMOUNT_INFLIGHT, api_cost_status: "PRICED_USAGE", overage: false,
+    usage_quality: "PROVIDER_REPORTED", attempt_count: 1, status: "SETTLED",
+    created_at: new Date("2026-11-04T09:45:00.500Z"),
+  }).execute();
+
+  // 切换后新建 API 资源（0096：种入已退役 → 无 finance 行）。
   fixture.resourceCutoverId = await db.insertInto("provider_resource").values({
     enterprise_id: fixture.enterpriseId, provider_id: fixture.providerId,
-    name: "R3 切换后新建 API 资源", mode: "API", credential_type: "API_KEY",
+    name: "R4 切换后新建 API 资源", mode: "API", credential_type: "API_KEY",
   }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
 
-  // 切换后 billing_rule（含 0093 source_status 列——回放列交集 drift 探针）。
+  // 切换后 billing_rule（含 0093 source_status——列交集回放 drift 探针）。
   await db.insertInto("billing_rule").values({
     enterprise_id: fixture.enterpriseId, provider_resource_id: fixture.resourceReadyId,
     upstream_model: "deepseek-chat", rule_type: "API_PRICE",
-    rule_version: "r3-cutover-drift-v1", effective_from: new Date(0),
+    rule_version: "r4-cutover-drift-v1", effective_from: new Date(0),
     cache_miss_price: "0.000002", multiplier: null, priority: 1000,
     source_status: "VERIFIED",
   }).execute();
-
-  // 补记切换前请求 id（seedT0 内生成的随机 id）。
-  fixture.preRequestId = (await sql<{ id: string }>`
-    SELECT id FROM ai_request WHERE enterprise_id = ${fixture.enterpriseId}::uuid
-      AND started_at = ${new Date("2026-11-04T06:00:00.000Z")} LIMIT 1`.execute(db)).rows[0]!.id;
 }
 
 interface ManifestTable {
   table: string;
   rows: number;
+  inserted: number;
+  updated: number;
   sha256: string;
   refPresent: string;
   columns: string[];
@@ -457,7 +503,8 @@ function parseManifest(text: string): { headers: Record<string, string>; tables:
       const kv = fields.slice(2).filter((f) => f.includes("="));
       const get = (key: string) => kv.find((f) => f.startsWith(`${key}=`))?.slice(key.length + 1) ?? "";
       tables.push({
-        table: fields[1]!, rows: Number(get("rows")), sha256: get("sha256"),
+        table: fields[1]!, rows: Number(get("rows")), inserted: Number(get("inserted")),
+        updated: Number(get("updated")), sha256: get("sha256"),
         refPresent: get("ref_present"), columns: get("columns").split(","),
       });
     } else if (fields.length === 2) {
@@ -467,15 +514,18 @@ function parseManifest(text: string): { headers: Record<string, string>; tables:
   return { headers, tables };
 }
 
-describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放）", () => {
+describe.sequential("AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap）", () => {
   let container: StartedPostgreSqlContainer;
   let live: Db;
-  let replayDb: Db;
+  let shadowDb: Db | undefined;
+  let swappedLive: Db | undefined;
+  let keepDb: Db | undefined;
   let fixture: Fixture;
   let tmpHost: string;
   let dumpHostPath: string;
   let outDir: string;
   let manifestPath: string;
+  let retireLogPath: string;
   let preCutoverDigests: Record<string, string>;
   let liveDigests: Record<string, string>;
 
@@ -488,12 +538,12 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
     ).withDatabase(LIVE_DB).withUsername("qianliu_test").withPassword("qianliu_test_only")
       .withName(CONTAINER_NAME).start();
     live = createKysely(container.getConnectionUri());
-    tmpHost = mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/wp6-r3-drill-`);
+    tmpHost = mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/wp6-r4-drill-`);
     dumpHostPath = resolve(tmpHost, "backup.dump");
     outDir = resolve(tmpHost, "delta-out");
     manifestPath = resolve(outDir, "manifest.tsv");
+    retireLogPath = resolve(tmpHost, "threshold-retirement.log");
 
-    // 0) 0091 水位（生产现状 §8.1）＋T0 播种＋发布前备份＋切换。
     const upTo0091 = await createMigrator(live).migrateTo(HEAD_0091);
     expect(upTo0091.error).toBeUndefined();
     expect(await migrationHead(live)).toBe(HEAD_0091);
@@ -524,23 +574,23 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
   }, 360_000);
 
   afterAll(async () => {
-    const evidenceDir = process.env.WP6_R3_EVIDENCE_DIR;
+    const evidenceDir = process.env.WP6_R4_EVIDENCE_DIR;
     if (evidenceDir) {
       writeFileSync(resolve(evidenceDir, "wp6-rollback-replay-drill-commands.json"),
         `${JSON.stringify(COMMAND_LOG, null, 2)}\n`);
     }
     await live?.destroy();
-    await replayDb?.destroy();
+    await shadowDb?.destroy();
+    await swappedLive?.destroy();
+    await keepDb?.destroy();
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
     await container?.stop();
   }, 90_000);
 
-  it("断言 A：check-contract 只读实测＋主键反连接增量导出——清单行数/sha256/0092 域全量与期望逐表一致", async () => {
-    // check-contract：白名单存在性/单列主键/FK 闭包/回放序拓扑（只读）。
+  it("断言 A：check-contract＋全行比对增量导出——inserted/updated/rows/sha256 与期望逐表一致（缺口①）", async () => {
     const contract = runDeltaScript(["check-contract", "--container", CONTAINER_NAME, "--db-live", LIVE_DB]);
     expectScriptOk(contract);
     expect(contract.stdout).toContain("check-contract: OK");
-    // 导出（破坏动作之前；live 零写入）。
     const exportResult = runDeltaScript([
       "export", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-ref", REF_DB,
       "--dump-file", dumpHostPath, "--out-dir", outDir,
@@ -548,34 +598,37 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
     expectScriptOk(exportResult);
     expect(await migrationHead(live)).toBe(HEAD_0096);
     const manifest = parseManifest(readFileSync(manifestPath, "utf8"));
-    expect(manifest.headers["manifest_version"]).toBe("wp6-r3-1");
+    expect(manifest.headers["manifest_version"]).toBe("wp6-r4-1");
     expect(manifest.headers["live_migration_head"]).toBe(HEAD_0096);
     expect(manifest.headers["ref_migration_head"]).toBe(HEAD_0091);
     for (const table of WHITELIST) {
       const row = manifest.tables.find((t) => t.table === table);
       expect(row, `清单缺表 ${table}`).toBeDefined();
-      expect(row!.rows, `表 ${table} 增量行数`).toBe(EXPECTED_DELTA_ROWS[table]);
+      const expected = EXPECTED_DELTA[table];
+      expect(row!.rows, `表 ${table} 增量行数`).toBe(expected.rows);
+      expect(row!.inserted, `表 ${table} inserted（缺口①）`).toBe(expected.inserted);
+      expect(row!.updated, `表 ${table} updated（缺口①：已有行更新入增量）`).toBe(expected.updated);
       expect(row!.refPresent,
         `表 ${table} ref 快照在位标记（0092 域表备份点必无）`)
         .toBe((ONLY_0092_TABLES as readonly string[]).includes(table) ? "no" : "yes");
       const artifact = readFileSync(resolve(outDir, `${table}.copy`));
       expect(createHash("sha256").update(artifact).digest("hex")).toBe(row!.sha256);
-      expect(artifact.toString("utf8").split("\n").filter((line) => line !== "").length)
-        .toBe(row!.rows);
+      expect(artifact.toString("utf8").split("\n").filter((line) => line !== "").length).toBe(row!.rows);
     }
-    // 增量行内容抽核：切换后新消费逐字节（id 锚定）＋ drift 探针列在导出列清单中。
-    const ledgerArtifact = readFileSync(resolve(outDir, "ledger_line.copy"), "utf8");
-    expect(ledgerArtifact).toContain(fixture.cutRequest1Id);
-    expect(ledgerArtifact).toContain(AMOUNT_CUT1);
-    expect(ledgerArtifact).toContain(AMOUNT_CUT2);
-    const billingManifest = manifest.tables.find((t) => t.table === "billing_rule")!;
-    expect(billingManifest.columns).toContain("source_status"); // live 0096 schema 列
+    // 更新行内容抽核：in-flight 请求状态与 grant 收紧值在增量中。
     const requestArtifact = readFileSync(resolve(outDir, "ai_request.copy"), "utf8");
-    expect(requestArtifact.split("\n").filter((line) => line !== "").length).toBe(2);
-    logCommand("manifest-parse", 0, JSON.stringify(Object.fromEntries(manifest.tables.map((t) => [t.table, t.rows]))));
+    expect(requestArtifact).toContain(fixture.inflightRequestId);
+    expect(requestArtifact).toContain("SUCCEEDED");
+    const grantArtifact = readFileSync(resolve(outDir, "principal_grant.copy"), "utf8");
+    expect(grantArtifact).toContain("100000");
+    expect(grantArtifact).toContain("RAW_TOKEN");
+    const enterpriseArtifact = readFileSync(resolve(outDir, "enterprise.copy"), "utf8");
+    expect(enterpriseArtifact).toContain(fixture.enterpriseId);
+    logCommand("manifest-parse", 0,
+      JSON.stringify(Object.fromEntries(manifest.tables.map((t) => [t.table, `${t.rows}/${t.inserted}/${t.updated}`]))));
   }, 240_000);
 
-  it("断言 B（负向）：导出失败中止——exit 非 0、live 库不动、既有清单不受污染；restore 确认门拒绝", async () => {
+  it("断言 B（负向）：导出失败中止——exit 非 0、live 不动、既有清单不受污染；restore 确认门拒绝", async () => {
     const missingDump = resolve(tmpHost, "does-not-exist.dump");
     const failed = runDeltaScript([
       "export", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-ref", REF_DB,
@@ -583,75 +636,83 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
     ]);
     expect(failed.status).not.toBe(0);
     expect(failed.stderr).toContain("FAIL-CLOSED");
-    // live 库不动：水位＋15 表摘要逐字不变。
     expect(await migrationHead(live)).toBe(HEAD_0096);
     expect(await whitelistDigests(live, fixture.enterpriseId)).toEqual(liveDigests);
-    // 既有清单不受污染：manifest_done 自校验仍成立（脚本 sha 闭环）。
     const manifest = readFileSync(manifestPath, "utf8");
     const declared = manifest.split("\n").find((line) => line.startsWith("manifest_done"))!.split("\t")[1]!;
     const body = manifest.split("\n").filter((line) => line !== "" && !line.startsWith("manifest_done")).join("\n");
     expect(createHash("sha256").update(`${body}\n`).digest("hex")).toBe(declared);
-    // restore 确认门：缺 ROLLBACK_DELTA_CONFIRM 拒绝（安全等级同 rollback.sh:5）。
     const noConfirm = runDeltaScript([
-      "restore", "--container", CONTAINER_NAME, "--db-target", REPLAY_DB, "--dump-file", dumpHostPath,
+      "restore", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--dump-file", dumpHostPath,
     ]);
     expect(noConfirm.status).not.toBe(0);
     expect(noConfirm.stderr).toContain("ROLLBACK_DELTA_CONFIRM");
   }, 240_000);
 
-  it("断言 C：恢复段——整库恢复到备份点 0091，备份点摘要与 T0 逐字一致，0092 域表不存在", async () => {
+  it("断言 C：影子恢复——live 物理未动（缺口②），影子＝备份点逐字，0092 域不存在", async () => {
     const restoreResult = runDeltaScript([
-      "restore", "--container", CONTAINER_NAME, "--db-target", REPLAY_DB, "--dump-file", dumpHostPath,
+      "restore", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--dump-file", dumpHostPath,
     ], { ROLLBACK_DELTA_CONFIRM: "YES" });
     expectScriptOk(restoreResult);
-    replayDb = createKysely(swapDbName(container.getConnectionUri(), REPLAY_DB));
-    expect(await migrationHead(replayDb)).toBe(HEAD_0091);
-    // 备份点行集摘要＝T0 摘要（恢复逐字；8 组机制的白名单 15 表版）。
-    expect(await whitelistDigests(replayDb, fixture.enterpriseId)).toEqual(preCutoverDigests);
-    // 0092 域表在备份点不存在（回放 0092 前提）。
-    expect(await tableExists(replayDb, "principal_quota_period")).toBe(false);
-    expect(await tableExists(replayDb, "principal_quota_usage")).toBe(false);
-    // 红线 2 基线：备份点无期初/充值类 finance 事件。
-    expect(await openingOrRechargeEventCount(replayDb, fixture.enterpriseId)).toBe("0");
-    // 0091 水位种入触发器在位（回放须禁用的机制前提）。
+    // live 未动（水位＋16 表摘要逐字）。
+    expect(await migrationHead(live)).toBe(HEAD_0096);
+    expect(await whitelistDigests(live, fixture.enterpriseId)).toEqual(liveDigests);
+    shadowDb = createKysely(swapDbName(container.getConnectionUri(), SHADOW_DB));
+    expect(await migrationHead(shadowDb)).toBe(HEAD_0091);
+    expect(await whitelistDigests(shadowDb, fixture.enterpriseId)).toEqual(preCutoverDigests);
+    expect(await tableExists(shadowDb, "principal_quota_period")).toBe(false);
+    expect(await tableExists(shadowDb, "principal_quota_usage")).toBe(false);
+    expect(await openingOrRechargeEventCount(shadowDb, fixture.enterpriseId)).toBe("0");
     const trigger = await sql<{ tgenabled: string }>`
       SELECT tgenabled FROM pg_trigger WHERE tgname = ${SEED_TRIGGER} AND NOT tgisinternal
-    `.execute(replayDb);
+    `.execute(shadowDb);
     expect(trigger.rows[0]?.tgenabled).toBe("O");
   }, 240_000);
 
-  it("断言 D：重放 0092＋增量回放——15 表「live 摘要＝回放后摘要」逐字在库，inserted 数与清单一致", async () => {
-    // 重放 0092 up（幂等；§6.2 步骤 3 先例；up 重放非 down，rollback.sh:113 规则不受影响）。
-    const replay0092 = await createMigrator(replayDb).migrateTo(HEAD_0092);
+  it("断言 D：重放 0092＋增量回放（DO UPDATE）——16 表影子摘要＝live 摘要（含 in-flight 更新逐字）", async () => {
+    const replay0092 = await createMigrator(shadowDb!).migrateTo(HEAD_0092);
     expect(replay0092.error).toBeUndefined();
-    expect(await migrationHead(replayDb)).toBe(HEAD_0092);
-    expect(await tableExists(replayDb, "principal_quota_period")).toBe(true);
+    expect(await migrationHead(shadowDb!)).toBe(HEAD_0092);
+    expect(await tableExists(shadowDb!, "principal_quota_period")).toBe(true);
 
     const replayResult = runDeltaScript([
-      "replay", "--container", CONTAINER_NAME, "--db-target", REPLAY_DB,
+      "replay", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB,
       "--manifest", manifestPath, "--delta-dir", outDir,
     ]);
     expectScriptOk(replayResult);
-    // inserted 行数＝清单行数（首轮回放全量落库）。
     const manifest = parseManifest(readFileSync(manifestPath, "utf8"));
     for (const table of WHITELIST) {
-      const expected = EXPECTED_DELTA_ROWS[table];
-      const pattern = new RegExp(`REPLAY_RESULT table=${table} inserted=(\\d+)`);
-      const match = replayResult.stdout.match(pattern);
+      const expected = EXPECTED_DELTA[table].rows;
       if (expected === 0) {
-        expect(match, `表 ${table} 不应产生回放输出`).toBeNull();
-      } else {
-        expect(match, `表 ${table} 回放输出缺失`).not.toBeNull();
-        expect(Number(match![1]!)).toBe(expected);
+        expect(replayResult.stdout.match(new RegExp(`REPLAY_RESULT table=${table} applied=`)), `表 ${table} 不应产生回放输出`).toBeNull();
+        continue;
       }
+      const match = replayResult.stdout.match(new RegExp(`REPLAY_RESULT table=${table} applied=(\\d+)`));
+      expect(match, `表 ${table} 回放输出缺失`).not.toBeNull();
+      expect(Number(match![1]!)).toBe(expected);
     }
-    // 「备份点摘要＋增量摘要＝回放后摘要」：白名单 15 表 live 摘要＝回放后摘要＝逐字在库。
-    const postReplayDigests = await whitelistDigests(replayDb, fixture.enterpriseId);
+    // 「备份点摘要＋增量摘要＝回放后摘要」（R4 语义：全行比对含更新；billing_rule 剔除 drift 列）。
+    const postReplayDigests = await whitelistDigests(shadowDb!, fixture.enterpriseId);
     expect(postReplayDigests).toEqual(liveDigests);
-    // 红线 2：回放零补造资金（finance 事件增量＝0）。
-    expect(await openingOrRechargeEventCount(replayDb, fixture.enterpriseId)).toBe("0");
-    // 候选读侧：回放后的切换前＋切换后金额窗口聚合可读（KNOWN_COMPLETE）。
-    const estimation = await loadApiCostEstimation(replayDb, fixture.enterpriseId, {
+    // 缺口①逐值抽核：in-flight 结算态、attempt 完成态、grant 收紧、企业额度启用。
+    const req = await sql<{ status: string; finished_at: Date | null }>`
+      SELECT status, finished_at FROM ai_request WHERE id = ${fixture.inflightRequestId}::uuid`.execute(shadowDb!);
+    expect(req.rows[0]!.status).toBe("SUCCEEDED");
+    expect(req.rows[0]!.finished_at).not.toBeNull();
+    const att = await sql<{ finished_at: Date | null; response_committed: boolean }>`
+      SELECT finished_at, response_committed FROM upstream_attempt WHERE id = ${fixture.inflightAttemptId}::uuid`.execute(shadowDb!);
+    expect(att.rows[0]!.finished_at).not.toBeNull();
+    expect(att.rows[0]!.response_committed).toBe(true);
+    const grant = await sql<{ quota_value: string; allow_overage: boolean; quota_basis: string | null }>`
+      SELECT quota_value::text AS quota_value, allow_overage, quota_basis FROM principal_grant WHERE id = ${fixture.grantId}::uuid`.execute(shadowDb!);
+    expect(grant.rows[0]!.quota_value).toBe("100000");
+    expect(grant.rows[0]!.allow_overage).toBe(false);
+    expect(grant.rows[0]!.quota_basis).toBe("RAW_TOKEN");
+    const ent = await sql<{ monthly_from: Date | null }>`
+      SELECT employee_quota_monthly_from AS monthly_from FROM enterprise WHERE id = ${fixture.enterpriseId}::uuid`.execute(shadowDb!);
+    expect(ent.rows[0]!.monthly_from).not.toBeNull();
+    expect(await openingOrRechargeEventCount(shadowDb!, fixture.enterpriseId)).toBe("0");
+    const estimation = await loadApiCostEstimation(shadowDb!, fixture.enterpriseId, {
       start: new Date(WINDOW.start), end: new Date(WINDOW.end),
       resourceIds: [fixture.resourceReadyId],
     });
@@ -659,72 +720,140 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
     expect(estimation.amounts).toEqual([{ currency: "CNY", amount: WINDOW_ESTIMATED_CNY }]);
   }, 240_000);
 
-  it("断言 E：幂等重放——二次回放 inserted 全 0、15 表摘要不变", async () => {
+  it("断言 E：幂等回放——二次回放 applied＝清单行数、16 表摘要不变（DO UPDATE 结果不变）", async () => {
     const second = runDeltaScript([
-      "replay", "--container", CONTAINER_NAME, "--db-target", REPLAY_DB,
+      "replay", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB,
       "--manifest", manifestPath, "--delta-dir", outDir,
     ]);
     expectScriptOk(second);
+    const manifest = parseManifest(readFileSync(manifestPath, "utf8"));
     for (const table of WHITELIST) {
-      if (EXPECTED_DELTA_ROWS[table] === 0) continue;
-      const match = second.stdout.match(new RegExp(`REPLAY_RESULT table=${table} inserted=(\\d+)`));
+      if (EXPECTED_DELTA[table].rows === 0) continue;
+      const match = second.stdout.match(new RegExp(`REPLAY_RESULT table=${table} applied=(\\d+)`));
       expect(match, `表 ${table} 二次回放输出缺失`).not.toBeNull();
-      expect(Number(match![1]!)).toBe(0);
+      expect(Number(match![1]!)).toBe(EXPECTED_DELTA[table].rows);
     }
-    expect(await whitelistDigests(replayDb, fixture.enterpriseId)).toEqual(liveDigests);
-    expect(await openingOrRechargeEventCount(replayDb, fixture.enterpriseId)).toBe("0");
+    expect(await whitelistDigests(shadowDb!, fixture.enterpriseId)).toEqual(liveDigests);
+    expect(await openingOrRechargeEventCount(shadowDb!, fixture.enterpriseId)).toBe("0");
+    // 回放后触发器回到 ENABLED（0091 语义；retire-threshold 随后退役保持）。
+    const trigger = await sql<{ tgenabled: string }>`
+      SELECT tgenabled FROM pg_trigger WHERE tgname = ${SEED_TRIGGER} AND NOT tgisinternal
+    `.execute(shadowDb!);
+    expect(trigger.rows[0]?.tgenabled).toBe("O");
   }, 240_000);
 
-  it("断言 F（组 3＋组 5）：员工额度行在位且受约束；种入触发器边界——回放资源无 PENDING、恢复后新建才 PENDING", async () => {
-    // 组 3：额度行在位且受约束（0092 域随增量回放完整回库）。
-    const period = await replayDb.selectFrom("principal_quota_period").selectAll()
+  it("断言 F：retire-threshold（缺口④）——触发器/函数退役、API PENDING 控制行清零且留档、额度域与 READY 事实原样", async () => {
+    const retire = runDeltaScript([
+      "retire-threshold", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--log", retireLogPath,
+    ]);
+    expectScriptOk(retire);
+    // 留档内容（删除前计数进日志——控制行非资金事实）。
+    const log = readFileSync(retireLogPath, "utf8");
+    expect(log).toContain("RETIRE pending_api_before=1");
+    expect(log).toContain("RETIRE pending_api_after=0");
+    expect(log).toContain("RETIRE finance_state_rows_before=2");
+    expect(log).toContain("RETIRE finance_state_rows_after=1");
+    expect(log).toContain("RETIRE seed_trigger_present=0");
+    expect(log).toContain("RETIRE seed_function_present=0");
+    // 影子状态：触发器/函数已退役；PENDING 控制行清零；READY 事实保留。
+    const trg = await sql<{ present: boolean }>`
+      SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = ${SEED_TRIGGER} AND NOT tgisinternal) AS present`.execute(shadowDb!);
+    expect(trg.rows[0]!.present).toBe(false);
+    const fun = await sql<{ present: boolean }>`
+      SELECT to_regproc(${SEED_FUNCTION}) IS NOT NULL AS present`.execute(shadowDb!);
+    expect(fun.rows[0]!.present).toBe(false);
+    const pending = await sql<{ count: string }>`
+      SELECT count(*)::text AS count FROM provider_resource_finance_state s
+        JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id
+       WHERE s.state = 'PENDING' AND r.mode = 'API'`.execute(shadowDb!);
+    expect(pending.rows[0]!.count).toBe("0");
+    const states = await shadowDb!.selectFrom("provider_resource_finance_state").selectAll()
+      .where("enterprise_id", "=", fixture.enterpriseId).execute();
+    expect(states.map((s) => [s.provider_resource_id === fixture.resourceReadyId ? "ready" : "other", s.state]))
+      .toEqual([["ready", "READY"]]);
+    // 组 3：额度域在位且受约束（DO UPDATE 保全的切换后事实）。
+    const period = await shadowDb!.selectFrom("principal_quota_period").selectAll()
       .where("id", "=", fixture.periodId).executeTakeFirstOrThrow();
     expect(period.limit_value).toBe(QUOTA_LIMIT.toString());
-    expect(period.used_value).toBe(QUOTA_USED_FINAL.toString());
+    expect(period.used_value).toBe(QUOTA_USED_RESTORED.toString());
     expect(period.quota_basis).toBe("RAW_TOKEN");
-    expect(period.allow_overage).toBe(true);
-    const usages = await replayDb.selectFrom("principal_quota_usage").selectAll()
+    const usages = await shadowDb!.selectFrom("principal_quota_usage").selectAll()
       .where("period_id", "=", fixture.periodId).orderBy("created_at").execute();
     expect(usages.map((u) => [u.status, u.actual?.toString()])).toEqual([["SETTLED", "1200"], ["SETTLED", "700"]]);
-    // 同键第二 period 行仍被拒（UNIQUE(enterprise,principal,provider,period_key) 约束随 0092 重放在位）。
-    await expect(replayDb.insertInto("principal_quota_period").values({
+    await expect(shadowDb!.insertInto("principal_quota_period").values({
       enterprise_id: fixture.enterpriseId, principal_id: fixture.principalId, provider: "deepseek",
       period_key: "2026-11", period_start: new Date("2026-10-31T16:00:00.000Z"),
       period_end: new Date("2026-11-30T16:00:00.000Z"), timezone: "Asia/Shanghai",
       quota_basis: "RAW_TOKEN", limit_value: 1n, allow_overage: false,
       used_value: 0n, open_grant_version: 1,
     }).execute()).rejects.toThrow();
-
-    // 组 5a：回放资源（切换后新建）无 finance 行——回放期触发器禁用，未被种入污染。
-    const cutoverFinanceRows = await replayDb.selectFrom("provider_resource_finance_state").selectAll()
-      .where("provider_resource_id", "=", fixture.resourceCutoverId).execute();
-    expect(cutoverFinanceRows).toEqual([]);
-    // 备份点资源状态逐字（READY 主资源＋PENDING 留档）。
-    const states = await replayDb.selectFrom("provider_resource_finance_state").selectAll()
-      .where("enterprise_id", "=", fixture.enterpriseId)
-      .orderBy("provider_resource_id").execute();
-    // 备份点资源状态逐字（READY 主资源＋PENDING 留档；uuid 序随机，顺序无关比较）。
-    expect(states.map((s) => [s.provider_resource_id === fixture.resourceReadyId ? "ready" : "pending", s.state])
-      .sort((a, b) => (a[0]! < b[0]! ? -1 : 1)))
-      .toEqual([["pending", "PENDING"], ["ready", "READY"]]);
-    // 组 5b：恢复后新建资源才被种入（0091 语义；旧栈准入门槛既定行为）。
-    const postReplayResourceId = await replayDb.insertInto("provider_resource").values({
-      enterprise_id: fixture.enterpriseId, provider_id: fixture.providerId,
-      name: "R3 恢复后新建资源", mode: "API", credential_type: "API_KEY",
-    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
-    const seeded = await replayDb.selectFrom("provider_resource_finance_state").selectAll()
-      .where("provider_resource_id", "=", postReplayResourceId).executeTakeFirstOrThrow();
-    expect(seeded.state).toBe("PENDING");
-    // 触发器恢复 ENABLED（提交后校验；旧栈语义回到 0091 基线）。
-    const trigger = await sql<{ tgenabled: string }>`
-      SELECT tgenabled FROM pg_trigger WHERE tgname = ${SEED_TRIGGER} AND NOT tgisinternal
-    `.execute(replayDb);
-    expect(trigger.rows[0]?.tgenabled).toBe("O");
-    (fixture as { postReplayResourceId?: string }).postReplayResourceId = postReplayResourceId;
+    // 回放资源无 PENDING（回放期触发器禁用）＋enterprise 额度启用列保全。
+    expect(await shadowDb!.selectFrom("provider_resource_finance_state").selectAll()
+      .where("provider_resource_id", "=", fixture.resourceCutoverId).execute()).toEqual([]);
+    const ent = await sql<{ monthly_from: Date | null }>`
+      SELECT employee_quota_monthly_from AS monthly_from FROM enterprise WHERE id = ${fixture.enterpriseId}::uuid`.execute(shadowDb!);
+    expect(ent.rows[0]!.monthly_from).not.toBeNull();
+    expect(await openingOrRechargeEventCount(shadowDb!, fixture.enterpriseId)).toBe("0");
   }, 240_000);
 
-  it("断言 G（组 2）：旧栈（ae506fe）读/结算恢复库——准入含无 finance 行资源、逐行读切换前后金额、旧结算落库、窗口聚合、额度读", async () => {
-    const postReplayResourceId = (fixture as { postReplayResourceId?: string }).postReplayResourceId ?? "";
+  it("断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②）", async () => {
+    const noConfirm = runDeltaScript([
+      "swap", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+    ]);
+    expect(noConfirm.status).not.toBe(0);
+    expect(noConfirm.stderr).toContain("ROLLBACK_DELTA_CONFIRM");
+    const verify = runDeltaScript([
+      "verify", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+      "--db-ref", REF_DB, "--manifest", manifestPath,
+    ]);
+    expectScriptOk(verify);
+    expect(verify.stdout).toContain("verify: OK");
+    expect(verify.stdout.match(/table=\S+ digest=match/g)?.length).toBe(WHITELIST.length);
+    // 改名前断开既有池（旧连接绑定被改名库对象，避免误读）。
+    await shadowDb!.destroy();
+    await live.destroy();
+    const swap = runDeltaScript([
+      "swap", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+    ], { ROLLBACK_DELTA_CONFIRM: "YES" });
+    expectScriptOk(swap);
+    const admin = createKysely(container.getConnectionUri());
+    const dbs = await sql<{ datname: string }>`
+      SELECT datname FROM pg_database WHERE datname IN (${LIVE_DB}, ${KEEP_DB}, ${SHADOW_DB})`.execute(admin);
+    expect(dbs.rows.map((r) => r.datname).sort()).toEqual([KEEP_DB, LIVE_DB].sort());
+    await admin.destroy();
+    swappedLive = createKysely(swapDbName(container.getConnectionUri(), LIVE_DB));
+    keepDb = createKysely(swapDbName(container.getConnectionUri(), KEEP_DB));
+    expect(await migrationHead(swappedLive)).toBe(HEAD_0092);
+    expect(await whitelistDigests(swappedLive, fixture.enterpriseId)).toEqual(liveDigests);
+    // keep＝切换后状态留档（水位 0096＋摘要＝live 导出时摘要）。
+    expect(await migrationHead(keepDb)).toBe(HEAD_0096);
+    expect(await whitelistDigests(keepDb, fixture.enterpriseId)).toEqual(liveDigests);
+  }, 240_000);
+
+  it("断言 H：门槛退役保持（缺口④）——回退后新建资源无 PENDING；触发器与函数不存在", async () => {
+    const trg = await sql<{ present: boolean }>`
+      SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = ${SEED_TRIGGER} AND NOT tgisinternal) AS present`.execute(swappedLive!);
+    expect(trg.rows[0]!.present).toBe(false);
+    const fun = await sql<{ present: boolean }>`
+      SELECT to_regproc(${SEED_FUNCTION}) IS NOT NULL AS present`.execute(swappedLive!);
+    expect(fun.rows[0]!.present).toBe(false);
+    const newResourceId = await swappedLive!.insertInto("provider_resource").values({
+      enterprise_id: fixture.enterpriseId, provider_id: fixture.providerId,
+      name: "R4 回退后新建 API 资源", mode: "API", credential_type: "API_KEY",
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    fixture.postRollbackResourceId = newResourceId;
+    expect(await swappedLive!.selectFrom("provider_resource_finance_state").selectAll()
+      .where("provider_resource_id", "=", newResourceId).execute()).toEqual([]);
+    const newPlanId = await swappedLive!.insertInto("provider_resource").values({
+      enterprise_id: fixture.enterpriseId, provider_id: fixture.providerId,
+      name: "R4 回退后新建 CODING_PLAN 资源", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    expect(await swappedLive!.selectFrom("provider_resource_finance_state").selectAll()
+      .where("provider_resource_id", "=", newPlanId).execute()).toEqual([]);
+    expect(await openingOrRechargeEventCount(swappedLive!, fixture.enterpriseId)).toBe("0");
+  }, 240_000);
+
+  it("断言 I：旧栈（ae506fe）真实路径——准入可服务、消费逐字、窗口聚合、额度门 REJECT_EXHAUSTED、结算累计 used（缺口③④）", async () => {
     const legacyFixture = {
       enterpriseId: fixture.enterpriseId,
       principalId: fixture.principalId,
@@ -732,66 +861,192 @@ describe.sequential("AT-X07 R3：主路线 v2 演练（增量导出→恢复 009
       resourceReadyId: fixture.resourceReadyId,
       resourcePendingId: fixture.resourcePendingId,
       resourceCutoverId: fixture.resourceCutoverId,
-      resourcePostReplayId: postReplayResourceId,
+      postRollbackResourceId: fixture.postRollbackResourceId,
       preRequest: fixture.preRequestId,
       cutRequest1: fixture.cutRequest1Id,
       cutRequest2: fixture.cutRequest2Id,
-      amounts: { pre: AMOUNT_PRE, cut1: AMOUNT_CUT1, cut2: AMOUNT_CUT2, legacySettle: AMOUNT_LEGACY_SETTLE },
+      inflightRequest: fixture.inflightRequestId,
+      amounts: { pre: AMOUNT_PRE, cut1: AMOUNT_CUT1, cut2: AMOUNT_CUT2, inflight: AMOUNT_INFLIGHT, legacySettle: AMOUNT_LEGACY_SETTLE },
       window: WINDOW,
-      expected: { periodKey: "2026-11", limitValue: QUOTA_LIMIT.toString(),
-        usedValue: QUOTA_USED_FINAL.toString(), windowTotalCny: WINDOW_TOTAL_CNY },
+      expected: {
+        periodKey: "2026-11", limitValue: QUOTA_LIMIT.toString(),
+        usedValueRestored: QUOTA_USED_RESTORED.toString(),
+        usedValueAfterSettle: QUOTA_USED_AFTER_SETTLE,
+        windowTotalCny: WINDOW_ESTIMATED_CNY,
+        c1Estimate: QUOTA_C1_ESTIMATE, c2Estimate: QUOTA_C2_ESTIMATE,
+      },
     };
     const fixturePath = resolve(tmpHost, "legacy-fixture.json");
     const legacyOutPath = resolve(tmpHost, "legacy-result.json");
     writeFileSync(fixturePath, `${JSON.stringify(legacyFixture, null, 2)}\n`);
-    let stdout = "";
     try {
-      stdout = execFileSync(LEGACY_TSX, [LEGACY_CHECK_SCRIPT], {
+      execFileSync(LEGACY_TSX, [LEGACY_CHECK_SCRIPT], {
         encoding: "utf8",
         env: {
           ...process.env,
-          DATABASE_URL: swapDbName(container.getConnectionUri(), REPLAY_DB),
-          WP6_R3_FIXTURE_JSON: fixturePath,
-          WP6_R3_LEGACY_OUTPUT: legacyOutPath,
+          DATABASE_URL: swapDbName(container.getConnectionUri(), LIVE_DB),
+          WP6_R4_FIXTURE_JSON: fixturePath,
+          WP6_R4_LEGACY_OUTPUT: legacyOutPath,
         },
         timeout: 120_000,
       });
     } catch (error) {
       const failure = error as { stdout?: string; stderr?: string; status?: number };
-      logCommand("legacy-read-check", failure.status ?? -1, failure.stderr?.slice(0, 2000));
+      logCommand("legacy-read-check", failure.status ?? -1, (failure.stderr ?? failure.stdout ?? "").slice(0, 3000));
       throw new Error(`legacy 读检查失败: ${failure.stderr ?? error}`);
     }
-    logCommand("legacy-read-check", 0, stdout.slice(0, 500));
+    logCommand("legacy-read-check", 0, "ok");
     const report = JSON.parse(readFileSync(legacyOutPath, "utf8")) as Record<string, Record<string, unknown>>;
-    // 1) 准入：无 finance 行的回放资源被旧候选包含；PENDING（留档/回放后新建）被排除。
+    // 准入（缺口④）：READY/无 finance 行/原 PENDING（控制行删除后）/回退后新建 全部可服务。
     const admission = report.admission!;
     expect(admission.readyResource_included).toBe(true);
     expect(admission.cutoverResource_noFinanceRow_included).toBe(true);
-    expect(admission.pendingArchive_excluded).toBe(true);
-    expect(admission.postReplayNewResource_pending_excluded).toBe(true);
-    // 2) 可读：切换前＋切换后新消费金额逐字。
+    expect(admission.formerPendingResource_nowServable_included).toBe(true);
+    expect(admission.postRollbackNewResource_noPending_included).toBe(true);
+    // 可读（缺口①）：备份点＋切换后＋in-flight 结算金额逐字。
     const reads = report.readConsumptionFacts!;
-    expect(reads.preBackupRequest).toMatchObject({ amountMatchesSeed: true });
-    expect(reads.cutoverRequest1_replayed).toMatchObject({ amountMatchesSeed: true });
-    expect(reads.cutoverRequest2_replayed).toMatchObject({ amountMatchesSeed: true });
-    // 3) 可结算：旧结算写路径落新消费（created=true）并随即可读。
-    const settle = report.settleNewConsumption!;
-    expect(settle.created).toBe(true);
-    expect(settle.newLine).toMatchObject({ api_cost: AMOUNT_LEGACY_SETTLE, api_cost_currency: "CNY" });
-    // 4) 窗口聚合：切换前＋切换后＋旧结算落库合计。
-    const windowFinance = report.windowOperatingFinance!;
-    expect(windowFinance.sumMatches).toBe(true);
-    // 5) 额度：员工月度额度行旧代码可读（limit 1000000/used 1900/RAW_TOKEN）。
-    const quota = report.employeeQuotaPeriods!;
-    expect(quota.limitMatches).toBe(true);
-    expect(quota.usedMatches).toBe(true);
-    // 红线 2 终核：旧结算落库后 finance 事件仍为 0（零补造资金）。
-    expect(await openingOrRechargeEventCount(replayDb, fixture.enterpriseId)).toBe("0");
-    // 证据归档。
-    const evidenceDir = process.env.WP6_R3_EVIDENCE_DIR;
+    for (const key of ["preBackup", "cutover1", "cutover2", "inflightSettled"]) {
+      expect((reads[key] as Record<string, unknown>).amountMatchesSeed).toBe(true);
+    }
+    // 窗口聚合。
+    expect((report.windowOperatingFinance!).sumMatches).toBe(true);
+    // 额度行还原值。
+    expect((report.employeeQuotaRestored!).limitMatches).toBe(true);
+    expect((report.employeeQuotaRestored!).usedMatches).toBe(true);
+    // 缺口③①：超额请求经真实额度门被拒（MONTHLY 模式＋额度语义拒绝＋reserved 未变）。
+    const gate = report.quotaGateOverLimit!;
+    expect(gate.monthlyMode).toBe(true);
+    expect(gate.rejectedWithQuotaReason).toBe(true);
+    expect(gate.decision).toBe("REJECT_EXHAUSTED");
+    expect(gate.periodReservedUnchanged).toBe(true);
+    // 缺口③②：允许请求经旧栈结算路径落库、used 正确累计、usage SETTLED。
+    const settle = report.quotaSettlementAccumulates!;
+    expect((settle.reserved as Record<string, unknown>).reservedOk).toBe(true);
+    expect(settle.usedAccumulatedCorrectly).toBe(true);
+    expect(settle.usageSettled).toBe(true);
+    expect(settle.usedAfter).toBe(QUOTA_USED_AFTER_SETTLE);
+    // 旧结算写路径仍可落库可读。
+    const legacySettle = report.settleNewConsumption!;
+    expect(legacySettle.created).toBe(true);
+    expect(legacySettle.newLine).toMatchObject({ api_cost: AMOUNT_LEGACY_SETTLE, api_cost_currency: "CNY" });
+    // 红线 2 终核：全部真实路径动作后 finance 事件仍为 0。
+    expect(await openingOrRechargeEventCount(swappedLive!, fixture.enterpriseId)).toBe("0");
+    const evidenceDir = process.env.WP6_R4_EVIDENCE_DIR;
     if (evidenceDir) {
-      writeFileSync(resolve(evidenceDir, "wp6-r3-legacy-read-check.result.json"),
+      writeFileSync(resolve(evidenceDir, "wp6-r4-legacy-read-check.result.json"),
         `${JSON.stringify(report, null, 2)}\n`);
     }
   }, 240_000);
+
+  it("断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好", async () => {
+    const J_LIVE = "wp6_r4_j_live";
+    let jDb: Db | undefined;
+    const J_REF = "wp6_r4_j_ref";
+    const J_SHADOW = "wp6_r4_j_shadow";
+    const cr = spawnSync("docker", ["exec", CONTAINER_NAME, "sh", "-c", `createdb -U qianliu_test ${J_LIVE}`], { encoding: "utf8" });
+    expect(cr.status).toBe(0);
+    jDb = createKysely(swapDbName(container.getConnectionUri(), J_LIVE));
+    try {
+    const upTo0091 = await createMigrator(jDb).migrateTo(HEAD_0091);
+    expect(upTo0091.error).toBeUndefined();
+    const jFx = await seedT0(jDb);
+    const jDumpContainer = "/tmp/wp6-r4-j.dump";
+    await containerExec(container, ["pg_dump", "-Fc", "-U", "qianliu_test", "-d", J_LIVE, "-f", jDumpContainer]);
+    const jDumpHost = resolve(tmpHost, "j.dump");
+    expect(spawnSync("docker", ["cp", `${CONTAINER_NAME}:${jDumpContainer}`, jDumpHost], { encoding: "utf8" }).status).toBe(0);
+    await createMigrator(jDb).migrateToLatest();
+    // 切换后：CODING_PLAN 资源＋订阅周期（白名单外表，不回放）＋引用它的消费。
+    const planResourceId = await jDb.insertInto("provider_resource").values({
+      enterprise_id: jFx.enterpriseId, provider_id: jFx.providerId,
+      name: "R4 J Coding Plan 资源", mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    const periodRow = await jDb.insertInto("provider_subscription_period").values({
+      enterprise_id: jFx.enterpriseId, provider_resource_id: planResourceId,
+      product_name: "R4 J Coding Plan", period_start: new Date("2026-10-31T16:00:00.000Z"),
+      period_end_exclusive: new Date("2026-11-30T16:00:00.000Z"),
+      source: "MIGRATED_CARRYOVER", created_by_admin_user_id: jFx.adminId,
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    const requestJ = randomUUID();
+    await jDb.insertInto("ai_request").values({
+      id: requestJ, enterprise_id: jFx.enterpriseId, principal_id: jFx.principalId,
+      principal_key_id: jFx.keyId, protocol: "chat", unified_model: "deepseek-chat",
+      status: "SUCCEEDED", started_at: new Date("2026-11-04T10:00:00.000Z"),
+      finished_at: new Date("2026-11-04T10:00:01.000Z"),
+    }).execute();
+    const attJ = await jDb.insertInto("upstream_attempt").values({
+      enterprise_id: jFx.enterpriseId, ai_request_id: requestJ, attempt_no: 1,
+      provider_resource_id: planResourceId, upstream_model: "deepseek-chat",
+      http_status: 200, response_committed: true, finished_at: new Date("2026-11-04T10:00:01.000Z"),
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    const usageJ = await jDb.insertInto("usage_event").values({
+      enterprise_id: jFx.enterpriseId, ai_request_id: requestJ, upstream_attempt_id: attJ,
+      provider_resource_id: planResourceId, input_tokens: 800n, output_tokens: 100n,
+      cache_tokens: 0n, reasoning_tokens: 0n, usage_quality: "PROVIDER_REPORTED",
+      dedup_key: requestJ, created_at: new Date("2026-11-04T10:00:01.000Z"),
+    }).returning("id").executeTakeFirstOrThrow().then((r) => r.id);
+    console.log("J-PERIOD-ROW-PRE:", JSON.stringify(periodRow), typeof periodRow);
+    const jLineVals = {
+      enterprise_id: jFx.enterpriseId, ai_request_id: requestJ, upstream_attempt_id: attJ,
+      usage_event_id: usageJ, provider_resource_id: planResourceId, principal_id: jFx.principalId,
+      resource_mode: "CODING_PLAN", raw_input_tokens: 800n, raw_output_tokens: 100n,
+      raw_cache_tokens: 0n, raw_reasoning_tokens: 0n, api_cost: null, api_cost_currency: null,
+      api_cost_status: "NOT_APPLICABLE", subscription_period_id: periodRow,
+      usage_quality: "PROVIDER_REPORTED", settled_at: new Date("2026-11-04T10:00:01.000Z"),
+      created_at: new Date("2026-11-04T10:00:01.000Z"),
+    } as Record<string, unknown>;
+    const jLineFinal = jDb.insertInto("ledger_line").values(jLineVals as never);
+    const jLineFinalCompiled = jLineFinal.compile();
+    console.log("J-FINAL-SQL:", jLineFinalCompiled.sql.slice(0, 1200));
+    console.log("J-FINAL-SPID-IN-SQL:", jLineFinalCompiled.sql.includes("subscription_period_id"),
+      "SPID-PARAM:", jLineVals["subscription_period_id"]);
+    await jLineFinal.execute();
+    await jDb.insertInto("ledger_transaction").values({
+      enterprise_id: jFx.enterpriseId, ai_request_id: requestJ, principal_id: jFx.principalId,
+      total_input_tokens: 800n, total_output_tokens: 100n, total_cache_tokens: 0n,
+      total_reasoning_tokens: 0n, total_deducted_quota: 0n, total_api_cost: "0",
+      api_cost_status: "NOT_APPLICABLE", overage: false, usage_quality: "PROVIDER_REPORTED",
+      attempt_count: 1, status: "SETTLED", created_at: new Date("2026-11-04T10:00:01.000Z"),
+    }).execute();
+
+    const llRows = await sql<{ ai_request_id: string; subscription_period_id: string | null }>`
+      SELECT ai_request_id::text AS ai_request_id, subscription_period_id::text AS subscription_period_id
+        FROM ledger_line WHERE enterprise_id = ${jFx.enterpriseId}::uuid ORDER BY ai_request_id`.execute(jDb);
+    console.log("J-LL-ROWS:", JSON.stringify(llRows.rows), "requestJ:", requestJ);
+    const strictCheck = await sql<{ strict: boolean }>`
+      SELECT strict_writes_enabled AS strict FROM provider_finance_runtime_state
+       WHERE enterprise_id = ${jFx.enterpriseId}::uuid`.execute(jDb);
+    console.log("J-STRICT:", JSON.stringify(strictCheck.rows[0]));
+    const jOut = resolve(tmpHost, "j-out");
+    expectScriptOk(runDeltaScript([
+      "export", "--container", CONTAINER_NAME, "--db-live", J_LIVE, "--db-ref", J_REF,
+      "--dump-file", jDumpHost, "--out-dir", jOut,
+    ]));
+    expectScriptOk(runDeltaScript([
+      "restore", "--container", CONTAINER_NAME, "--db-shadow", J_SHADOW, "--dump-file", jDumpHost,
+    ], { ROLLBACK_DELTA_CONFIRM: "YES" }));
+    const jShadow = createKysely(swapDbName(container.getConnectionUri(), J_SHADOW));
+    expect((await createMigrator(jShadow).migrateTo(HEAD_0092)).error).toBeUndefined();
+    await jShadow.destroy();
+    const replayExit = runDeltaScript([
+      "replay", "--container", CONTAINER_NAME, "--db-shadow", J_SHADOW,
+      "--manifest", resolve(jOut, "manifest.tsv"), "--delta-dir", jOut,
+    ]);
+    expect(replayExit.status).not.toBe(0);
+    // live 完好（缺口②绿证）：水位 0096＋切换后消费与订阅周期仍在＋影子已删。
+    expect(await migrationHead(jDb)).toBe(HEAD_0096);
+    const kept = await sql<{ count: string }>`
+      SELECT count(*)::text AS count FROM ai_request WHERE enterprise_id = ${jFx.enterpriseId}::uuid
+        AND started_at = ${new Date("2026-11-04T10:00:00.000Z")}`.execute(jDb);
+    expect(kept.rows[0]!.count).toBe("1");
+    const periods = await sql<{ count: string }>`
+      SELECT count(*)::text AS count FROM provider_subscription_period
+       WHERE enterprise_id = ${jFx.enterpriseId}::uuid`.execute(jDb);
+    expect(periods.rows[0]!.count).toBe("1");
+    const shadowGone = await sql<{ exists: boolean }>`
+      SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = ${J_SHADOW}) AS exists`.execute(jDb!);
+    expect(shadowGone.rows[0]!.exists).toBe(false);
+    } finally {
+      await jDb?.destroy();
+    }
+  }, 360_000);
 });

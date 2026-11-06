@@ -149,30 +149,27 @@
 
 ### 6.0 路线裁定（WP6/plan.md §3 总指挥裁定 1）
 
-- **主路线＝整库备份恢复＋增量回放（v2，R3 裁定；见 6.1）**；**辅路线＝down 迁移链**（X07 演练验证过）。两者边界：任何"down 链不可行"的库状态（0095 多行）只能走主路线。
+- **主路线＝增量导出（全行比对）→影子恢复→重放 0092→增量回放→retire→verify→swap（v3，R4 裁定；见 6.1）**；**辅路线＝down 迁移链**（X07 演练验证过）。两者边界：任何"down 链不可行"的库状态（0095 多行）只能走主路线。
 
-### 6.1 主路线 v2：整库备份恢复＋增量回放（[R3 2026-11-06 重开返修改写]）
+### 6.1 主路线 v3：全行比对增量＋影子库管线（[R4 2026-11-06 二次返修改写]）
 
-- **v2 变更说明**：验收人 R3 退回——原主路线（纯整库恢复）会把切换决定时点之后的新消费随整库恢复从库中消失，违反 AT-X07「新消费仍可读/结算且受原额度约束，不要求补虚构期初、不丢数据」。v2 在恢复段前后增加两段：**增量导出（先于任何破坏动作）**与**增量回放**——消费事实保全，暴露窗口收窄为「导出与恢复之间的秒级」。
+- **v3 变更说明**：验收人 R4 二次退回四缺口——①R3 增量只保留新增行，已有行更新（in-flight 请求切换后结算的 ai_request/upstream_attempt 行更新、额度域配置收紧）不入增量，恢复后回退旧状态；②R3 部分失败发生在 dropdb 之后（restore 先毁原库，回放失败时 live 已不在，「失败中止库不动」不成立）；③「额度行可读」未证明「额度控制有效」（未走真实准入/结算路径）；④回退后新建资源恢复旧期初门槛不能自行当作符合原合同。v3 四项对应修复：A 全行比对增量＋DO UPDATE 幂等回放；B 影子库先行（restore/replay/retire/verify 全在影子，全过才单事务 swap）；C 旧栈真实额度路径断言；D retire-threshold 门槛退役保持。
 - **适用场景**：切换后功能性回退（新栈缺陷/行为不符预期）；0095 多行态库；任何涉及数据面回退的场景。
-- **前置条件**：存在切换前（T2 迁移执行前）的备份制品且已过非空校验（§4.1:46 同款）；运维 Owner 独立授权（rollback.sh:6 定级）；已通知用户停止操作（rollback.sh:12 回退前告知义务）；增量导出制品完整（manifest_done sha 闭环，见步骤 2——无完整制品不得进入破坏段）。
-- **步骤**（独立能力脚本＝`deploy/scripts/rollback-delta-20261106.sh`，子命令 export/restore/replay/check-contract；PG 工具全部容器内执行，rollback.sh 既有段零触碰）：
-  1. 停写收尾（§5 T1 同款：静默租约→收尾报告→停新栈业务服务，保留 postgres）。
-  2. **增量导出**：`rollback-delta-20261106.sh export`——备份点快照载入 ref 草稿库（只写 ref）→逐白名单表导出「live 库有、备份点快照没有」的行（**主键反连接，不做时间戳切割，避免时钟依赖**；产物＝COPY text＋逐表清单/行数/sha256）。**导出或校验失败＝中止回退，exit 非 0，库不动**（fail-closed，红线 4）。此步全程对 live 零写入。
-  3. **恢复**：`rollback.sh` 既有段（.sql.gz 路线）**或**同脚本 `restore` 子命令（-Fc 路线，须环境 `ROLLBACK_DELTA_CONFIRM=YES`，安全等级同 rollback.sh:5 DESTRUCTIVE）——dropdb --force＋createdb 重建目标库灌全量快照到备份点（当前生产基线＝0091）。两者二选一，随 §4.1 备份制品格式选定（§4.2 复用注意 a/b）；期望迁移头按备份点实际水位校验（勿照抄 rollback.sh:117 硬编码 0045）。
-  4. **重放 0092 up**（幂等，§6.2 步骤 3 先例；**up 重放不是 down**，rollback.sh:113「禁止叠加 down」语义不受影响）——使员工月度额度 schema（principal_quota_period/usage 等）在位；由旧栈 migrator 承担（compose migrate 同款）。
-  5. **增量回放**：`rollback-delta-20261106.sh replay`——按 FK 依赖序把增量行导回恢复库：staging temp 表（live 全列，类型取自清单）＋全部 `INSERT ... ON CONFLICT (id) DO NOTHING`（**二次执行幂等**，重放两遍结果不变）；回放期间**事务内禁用 0081 种入触发器**（0091＋0092 重放下该触发器在位——不禁用会给回放资源种入 PENDING、旧代码将拒绝服务，违反 AT-X07；事务内禁用、失败自动随事务回滚），提交后校验触发器恢复 ENABLED（恢复后新建资源仍被种入＝§6.4b 旧栈既定行为，非缺陷）；schema drift 列（0093 billing_rule.source_status）按列交集投影丢弃（SQL WARNING 回显，见下「已知边界」）。
-  6. 以旧版本（ae506fe）栈起服务（rollback.sh:13 旧镜像重建）；按 §5 T0 同款做回退后基线快照。
-- **白名单终表（FK 闭包，15 表）**——实测依据＝`V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/logs/fk-closure-dump.log`（0096 水位 343 条 FK 边全量 dump＋闭包计算）：
-  - 消费事实（5）：ai_request、upstream_attempt、**usage_event**（FK 强制纳入：ledger_line.usage_event_id NOT NULL→usage_event，0009:26；X07 受保护行集原有成员——合同种子表漏列，闭包推导补入）、ledger_line、ledger_transaction；
-  - 员工月度额度域（0092，3）：principal_quota_period、principal_quota_usage、**principal_grant**（0092:6 加列＋principal_quota_usage.grant_id NOT NULL FK，0092:31——0092 域表，闭包强制）；
-  - 切换后可能新建的维度（7）：provider、provider_resource、principal、principal_key、unified_model、model_route、billing_rule；**resource_pool 不是独立表**（仅 provider_resource.resource_pool_id varchar 列，0010:23），合同「如存在」分支落空；
-  - 白名单回放序（FK 父先于子）：provider→unified_model→principal→principal_key→provider_resource→billing_rule→model_route→ai_request→upstream_attempt→usage_event→ledger_line→ledger_transaction→principal_grant→principal_quota_period→principal_quota_usage（`check-contract` 子命令对 live 库做只读拓扑实测）。
-  - **白名单外表（FK 父，不导出——证明先于备份点存在**：0000-0091 已应用且切换窗口的 gateway 消费/结算路径不新建这些表）：enterprise、person、admin_user、historical_import_run（ai_request.import_run_id 可空）、employee_model_rule_version（principal_grant.authorization_rule_version_id 可空）、provider_finance_legacy_cost_resolution（ledger_line.legacy_cost_resolution_id 可空）、provider_subscription_period（ledger_line.subscription_period_id 可空；**已知边界**：CODING_PLAN 若在备份后新建周期且窗口内消费引用它，回放将 FK 失败＝fail-closed 中止，不产生半途状态）。
-  - **白名单反向引用表**（restore 后随整库回退、不在回放面＝回退语义的可接受丢失，均为派生/监测/瞬态，worker 重同步重建）：provider_resource_operating_snapshot／_sync_attempt、usage_bucket_aggregate、quota_counter、dispatch_decision、route_candidate、concurrency_lease、request_attribution_snapshot 等——fk-closure-dump.log reverse-only 清单全量可查；其中 provider_resource_finance_state 回放后行集与备份点逐字（演练断言 F）。
-- **切换后新消费的处理说明（v2 改写，替代原两难说明）**：**消费事实保全**——切换决定时点的白名单新行先于任何破坏动作导出为增量制品，恢复后逐字回库（演练断言 D：白名单 15 表「备份点摘要＋增量摘要＝回放后摘要」，即 live 导出时摘要＝回放后摘要；不丢数据、不补录、**任何补录都不得伪造金额或期初**红线不变）。两难收窄为**「增量导出与整库恢复之间的秒级窗口」**：导出前已停写（步骤 1），窗口仅剩停写确认到导出完成之间的在途收尾写入（秒级），且导出失败即中止、不会带缺口进入恢复。
-- **已知边界（v2 实测）**：0093 为 billing_rule 加的 source_status 列（新栈元数据，非消费事实）随 schema 回退不保留——回放按列交集投影丢弃并 WARNING 回显；若日后重升 0093，该列按 DEFAULT 'UNVERIFIED' 重建。
-- **演练证据**：`packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts` 7/7 passed（`V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/logs/wp6-rollback-replay-drill.log`，复跑 `wp6-rollback-replay-drill.rerun.log` 7/7；命令/输出/exit 留痕 `wp6-rollback-replay-drill-commands.json`；断言汇总 `x07-r3-result-summary.json`）。断言组：A 导出清单闭环（check-contract 库内实测＋15 表行数/sha256/ref_present/0092 域全量逐表核对）／B 负向（导出失败 exit 非 0、live 水位与 15 表摘要逐字不动、既有清单未污染；restore 无确认门拒绝）／C 恢复段（备份点 0091 摘要与 T0 逐字、0092 域表不存在、finance 期初/充值＝0、种入触发器在位）／D 重放 0092＋回放（「备份点摘要＋增量＝回放后摘要」逐字在库——billing_rule 剔除 drift 列后逐字；inserted 与清单一致；finance 事件增量＝0；候选读侧窗口估算 0.00204000 KNOWN_COMPLETE）／E 幂等重放（inserted 全 0、摘要不变）／F 员工额度在位受约束（limit 1000000/used 1900/RAW_TOKEN、同键第二 period 拒绝）＋种入触发器边界（回放资源无 PENDING、恢复后新建才 PENDING、触发器恢复 ENABLED）／G 旧栈（ae506fe）读/结算（子进程 ae506fe worktree 源码，口径同 legacy-ae506fe-read-check 三行式：准入——无 finance 行的回放资源可服务、READY 资源可服务、PENDING 排除；逐行读 0.00104000/0.00060000/0.00040000 逐字；旧结算写路径落库 0.00052000 created=true 随即可读；窗口聚合可读 0.00204000；额度读 limit/used 逐字；finance 事件全程 0）。既有 down 链演练（X07 断言 3/4/5/6）文件零改动仍 7/7 绿（`wp6-rollback-drill-x07-regression.log`）。
+- **前置条件**：备份制品非空且可被 pg_restore 解析（§4.1 同款升级）；运维 Owner 独立授权；已通知用户停止操作；增量清单 manifest_done sha 闭环（无完整制品不得进入任何管线步骤）。
+- **管线（独立脚本＝`deploy/scripts/rollback-delta-20261106.sh`，七子命令 export/restore/replay/retire-threshold/verify/swap/check-contract；PG 工具全容器内执行；rollback.sh 既有段零触碰）**：
+  1. 停写收尾（§5 T1 同款）。
+  2. **export（live 零写入）**：备份点快照载入 ref 草稿库→逐白名单表**全行比对**——live 与快照按 PK 全连接，**新增行或任一列变更均入增量**（不做时间戳切割）；清单区分 rows/inserted/updated＋sha256；比对列集＝live∩ref＋0092 补回列（employee_quota_monthly_from、quota_basis——0092 重放会补回 schema，非 drift），其余 live−ref 列（0093 billing_rule.source_status 等）为 drift，不比对、回放按列交集投影丢弃。导出或校验失败＝exit 非 0，库不动（红线 4）。
+  3. **restore（只写影子库）**：`ROLLBACK_DELTA_CONFIRM=YES` 确认门；dropdb --force 影子→createdb→pg_restore 备份点到影子（0091）。失败＝删影子、exit 非 0、**live 物理未动**。
+  4. **重放 0092 up**（旧栈 migrator；幂等；up 重放非 down，rollback.sh:113 不受影响）。
+  5. **replay（影子内）**：staging temp 表（live 全列，类型取自清单）＋`INSERT ... ON CONFLICT (id) DO UPDATE SET <列交集全列>`——**二次执行幂等（重放结果不变）**；回放期事务内禁用 0081 种入触发器（retire 将随后使其退役保持）；失败＝删影子、exit 非 0。
+  6. **retire-threshold（影子内，缺口④）**：DROP 0081 种入触发器与函数＋删除 API 模式 provider_resource_finance_state 的 PENDING 控制行（控制行非资金事实；删除前计数留档 --log）。依据＝AFR-02：0094 的退役须在回退后保持——这是回退包对旧代码行为的有意覆盖（非默认放行），使回退后新建资源不再获得 PENDING。
+  7. **verify（影子校验，全过才允许 swap）**：影子水位（备份点或 0091＋0092）／白名单 16 表全表摘要（比对列集）＝live／provider_finance_event 全表摘要＝ref 快照（**零补造证明**）／种入触发器与函数已退役／API PENDING＝0。失败＝删影子、exit 非 0。
+  8. **swap（唯一触碰 live 的步骤）**：`ROLLBACK_DELTA_CONFIRM=YES`；单事务 `ALTER DATABASE live→<live>_pre_rollback_keep、影子→live`。**keep 库＝切换后状态留档**；保留策略：回退验证完成后由运维清理，期间不得写入。失败＝事务回滚＋删影子、exit 非 0。
+  9. 以旧版本（ae506fe）栈起服务；回退后基线快照（§5 T0 同款）。
+- **白名单终表（16 表）**——FK 闭包实测＝`WP6-X07-R3-20261106/logs/fk-closure-dump.log`（0096 水位 343 条 FK 边）：根域 **enterprise**（R4 补入：0092:5 按迁移定义为其加列 employee_quota_monthly_from——月度额度启用状态，全行比对随增量保全，真实额度路径 currentScope 的前提）；维度 7（provider provider_resource principal principal_key unified_model model_route billing_rule；resource_pool 非独立表——0010:23 仅为列）；消费事实 5（ai_request upstream_attempt usage_event[FK 强制 0009:26] ledger_line ledger_transaction）；员工额度域 3（principal_grant[FK 强制] principal_quota_period principal_quota_usage）。白名单外表（FK 父，先于备份点存在）：person admin_user historical_import_run employee_model_rule_version provider_finance_legacy_cost_resolution provider_subscription_period（CODING_PLAN 窗口内新建周期被消费引用＝已知边界：影子内回放失败＝删影子、live 未动——本缺口②绿证场景实测）。反向引用表（派生/瞬态：operating 快照/sync_attempt、usage_bucket_aggregate、quota_counter、dispatch_decision、route_candidate、concurrency_lease、request_attribution_snapshot 等）随整库恢复回退，worker 重同步重建。
+- **切换后新消费/更新的处理说明（v3）**：**消费事实与额度域更新全量保全**——切换决定时点的白名单行（新增＋变更）先于任何破坏动作导出为增量制品，影子内回放为 live 逐字内容（演练：16 表影子摘要＝live 摘要；in-flight 结算态、grant 收紧、enterprise 启用列逐字）。不补录、不伪造金额或期初；verify 以 ref 快照全表摘要证明零补造。
+- **已知边界（v3 实测）**：0093 billing_rule.source_status 随 schema 回退不保留（重升按 DEFAULT 重建）；非白名单派生表回退丢失（worker 重建）；白名单外表引用（订阅周期等）在影子内 FK/触发器失败＝fail-closed 删影子，live 未动。
+- **演练证据**：`packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts` **10/10 passed**（`WP6-X07-R4-20261106/logs/wp6-rollback-replay-drill.log`；命令/输出/exit 留痕 `wp6-rollback-replay-drill-commands.json`）。断言组：A 导出（inserted/updated 逐表＝期望：enterprise upd1/grant upd1/ai_request upd1/attempt upd1/provider_resource ins1/billing_rule ins1/额度域 ins3…）／B 负向（导出失败 exit 非 0＋live 不动＋清单未污染＋restore 确认门）／C 影子恢复（live 物理未动＋影子＝备份点逐字＋0092 域不存在＋触发器在位）／D 回放（applied＝清单行数＋影子摘要＝live 摘要＋in-flight 结算态/grant 收紧/enterprise 启用列逐值＋finance 0＋窗口估算 0.00229000）／E 幂等（二次 applied＝行数＋摘要不变）／F retire（PENDING before=1/after=0 留档＋触发器/函数退役＋READY 保留＋额度域逐值＋同键拒绝）／G verify（17 digest=match＝16 表＋资金）＋swap（keep 存在＋新 live 0092 摘要＝live＋keep 0096 留档）／H 门槛保持（回退后新建 API/CODING_PLAN 资源无 PENDING＋触发器/函数不存在）／I 旧栈真实路径（ae506fe 子进程：准入四态可服务性＋逐行读 4 笔金额逐字＋窗口 0.00229000＋**reserveEmployeeQuota 超额 REJECT_EXHAUSTED（MONTHLY 模式）**＋**settleEmployeeQuota 允许请求结算 used 1900→51900**＋旧结算写路径落库＋finance 全程 0）／J 缺口②绿证场景（消费引用备份后新建订阅周期→影子内回放失败→删影子→live 水位 0096＋消费与订阅周期完好）。红证（R3 现状）＝`WP6-X07-R4-20261106/red-evidence/`＋`logs/r4-red-probe-run.log`（RED=6：in-flight 请求/attempt 更新丢失、grant 收紧丢失、enterprise 启用列丢失、live 被覆盖、消费消失）＋`r4-red-probe.log`；修复 diff＝`red-evidence/script-r3-to-r4.diff`＋`test-r3-to-r4.diff`；绿探针＝`logs/r4-green-probe-run.log`（10/10）。既有 down 链演练零改动仍 7/7（`wp6-rollback-drill-x07-regression.log`）。
 
 ### 6.2 辅路线：down 迁移链（演练验证过）
 
@@ -199,17 +196,18 @@
   1. **无 finance_state 行的资源被旧候选包含**（included=true，可服务）——ae506fe `listServableResources`（resource-pool-repository:421-458）对无记录资源按"未纳入门禁"语义放行；
   2. **带 PENDING 行的资源被旧过滤排除**（included=false）——即回退后新建的资源（被恢复触发器标记 PENDING）在旧代码下**不可服务**；这是行为边界，不是数据丢失；
   3. **已结算消费金额旧代码可读可结算**——`listLedgerLines` 逐字读出 0.00104000/0.00052000；`loadWindowOperatingFinance` 聚合 totalSpends=[{CNY,0.00208000}]（incompleteReason=`OPENING_BALANCE_MISSING:2` 为仪表盘桥接口径差异，不阻断读取）；旧结算写路径在 0092 水位成功落新消费（created=true）并随即可读；员工月度额度行（RAW_TOKEN limit=1000000/used=1200）旧代码可读——**受原额度约束**在回退后成立。
-- **回退包要求**（三条，写入候选交付）：
+- **回退包要求**（R4 起为四条）：
   - a) 回退到纯旧代码时，切换后新建的资源若尚无 finance 行（即未被 PENDING 污染），仍可服务；其切换后消费的数据可读、可结算已实证（X2＋legacy 三行式结论 3）。
   - b) **回退期间新建资源会重新 PENDING 且旧代码拒绝服务**——若需这些资源在回退窗口内可服务，应优先走**前滚修复**（在新候选上修复缺陷后重新发布，0094 up 会再次退役触发器、PENDING 行留档不影响服务），而非回退；确需回退时应**在回退窗口冻结新建 API 资源操作**（回退完成、旧栈就绪后再放开——放开即回到旧准入语义，新建资源需走旧代码的期初门槛流程，这是旧版本本身的既定行为，不由本回退操作单改造）。
-  - c) **不要求任何补期初操作**——回退后新建资源的 PENDING 行是恢复触发器的如实产物，不做任何 INSERT 补造（X07 断言 3d：期初/充值类 finance 事件全程 0；legacy 实证 finance_events=0 全程）。
+  - c) **不要求任何补期初操作**——不 INSERT 任何期初/充值/更正类 finance 事件（X07 断言 3d：期初/充值类 finance 事件全程 0；legacy 实证 finance_events=0 全程）。
+  - d) **（R4 新增）门槛退役保持＝retire-threshold 显式覆盖**：主路线 v3 在影子内 DROP 0081 种入触发器与函数＋删除 API 模式 PENDING 控制行（控制行非资金事实，删除前计数留档）——0094 的退役语义在整库恢复后保持，回退后新建资源无 PENDING、可服务；原 PENDING 留档资源（控制行删除后）同样可服务（演练断言 H/I 实测）。本条为回退包对旧代码行为的有意覆盖（AFR-02），**不是**对「回退后新建资源恢复旧期初门槛」的默认接受——R3 语义（b 条：回退窗口新建资源 PENDING 且旧代码拒绝服务）自 R4 起仅描述无 retire 步骤的辅路线/历史行为。
 
 ### 6.5 回退红线（违反任何一条即操作无效）
 
 1. **不删除新用量**：无论主/辅路线，不以回退为名删除、合并或改写任何 ledger_line/usage_event/ai_request 消费事实（辅路线 X07 断言 3 的 8 组摘要逐字不变即此红线的数据层表述；主路线恢复到备份点属整库语义，见 6.1 的两难说明，不属"删除"操作）。
 2. **不补造资金**：不 INSERT 任何期初/充值/更正类 finance 事件，不虚构余额（X07 断言 3d＋legacy 实证 finance_events=0）。
 3. **不改 0092-0096 迁移文件**：回退全程零触碰迁移文件本体（WP5/report.md §3 红线证伪同口径延续）；0095 多行被拒时改走主路线而不是改守卫。
-4. **增量导出失败必须中止（R3 新增，主路线 v2）**：export 任一步非 0 即退出（fail-closed，exit 非 0，live 库零写入），无完整清单（manifest_done sha256 闭环）时 restore/replay 拒绝执行——**不得在无增量制品的情况下进入 dropdb 等破坏段**。演练断言 B 实证：制品缺失 export exit 非 0、live 水位与白名单 15 表摘要逐字不动、既有清单 sha 闭环未污染；replay 对无 manifest_done／sha 不符的清单一律拒绝（wp6-rollback-replay-drill.integration.test.ts 断言 B）。
+4. **增量导出失败必须中止（R3 新增；R4 升级为影子语义）**：export 任一步非 0 即退出（fail-closed，live 库零写入），无完整清单（manifest_done sha256 闭环）时 restore/replay 拒绝执行——**不得在无增量制品的情况下进入任何破坏段**。R4 起主路线 restore/replay/retire/verify 全部只作用于影子库，任一步失败＝删影子、live 物理未动、exit 非 0，**唯一触碰 live 的步骤是 verify 全过后的单事务 swap**。演练实证：制品缺失 export exit 非 0、live 水位与白名单摘要逐字不动（断言 B）；缺口②绿证场景（消费引用备份后新建订阅周期）影子内回放失败＝删影子、live 水位 0096＋消费与订阅周期完好（断言 J）；R3 红证对照＝`WP6-X07-R4-20261106/red-evidence/`（restore 先毁原库、回放失败时 live 已被覆盖）。
 
 ---
 

@@ -1,0 +1,138 @@
+{
+  "legacyRoot": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+  "legacyHeadMigration": "0092_employee_monthly_quota（ae506fe 迁移头；恢复点 0091＋0092 幂等重放＋增量回放 v3）",
+  "databaseUrlPath": "/wp6_r4_live",
+  "admission": {
+    "query": "ResourcePoolRepository.listServableResources (ae506fe)",
+    "servableIds": [
+      "7468d41c-b703-42e6-b87c-e43fdd709444",
+      "866baac5-e853-4fce-9e4d-5ae011efba14",
+      "202aebc9-449d-4457-9a7c-c74e0c534417",
+      "07b1a040-4a2b-48df-99bd-8afadb1aea67",
+      "6d901b17-6c0f-4d4d-aded-ae1f53fd46cc"
+    ],
+    "readyResource_included": true,
+    "cutoverResource_noFinanceRow_included": true,
+    "formerPendingResource_nowServable_included": true,
+    "postRollbackNewResource_noPending_included": true
+  },
+  "readConsumptionFacts": {
+    "query": "GatewayLedgerRepository.listLedgerLines (ae506fe)",
+    "preBackup": {
+      "requestId": "cc1a06df-09f2-4f17-8214-5d07ad396e8e",
+      "lines": [
+        {
+          "api_cost": "0.00104000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutover1": {
+      "requestId": "b684c249-a4f9-48fa-9a63-e0912b52f132",
+      "lines": [
+        {
+          "api_cost": "0.00060000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutover2": {
+      "requestId": "7cf71bac-5b16-4f15-a3db-e7441d38e138",
+      "lines": [
+        {
+          "api_cost": "0.00040000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "inflightSettled": {
+      "requestId": "c9378d94-e55e-44de-bb35-709534e49b38",
+      "lines": [
+        {
+          "api_cost": "0.00025000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    }
+  },
+  "windowOperatingFinance": {
+    "path": "loadWindowOperatingFinance (ae506fe dashboard-home-costs；resource_mode='API'＋settled_at 窗内)",
+    "totalSpends": [
+      {
+        "currency": "CNY",
+        "amount": "0.00229000"
+      }
+    ],
+    "incompleteReason": "OPENING_BALANCE_MISSING:1",
+    "expectedWindowSumCny": "0.00229000",
+    "sumMatches": true
+  },
+  "employeeQuotaRestored": {
+    "path": "readQuotaPeriodsInTransaction (ae506fe employee-quota-read-repository)",
+    "periods": [
+      {
+        "period_key": "2026-11",
+        "provider": "deepseek",
+        "limit_value": "1000000",
+        "used_value": "1900",
+        "reserved_value": "0",
+        "quota_basis": "RAW_TOKEN",
+        "allow_overage": true
+      }
+    ],
+    "limitMatches": true,
+    "usedMatches": true
+  },
+  "quotaGateOverLimit": {
+    "path": "EmployeeQuotaRepository.reserveEmployeeQuota → evaluateQuotaGate (ae506fe)",
+    "requestId": "f2777d2a-a9f8-4e03-a210-2b674d76a8e4",
+    "mode": "MONTHLY",
+    "decision": "REJECT_EXHAUSTED",
+    "gateProjectedRemaining": "998100",
+    "monthlyMode": true,
+    "rejectedWithQuotaReason": true,
+    "periodReservedUnchanged": true
+  },
+  "quotaSettlementAccumulates": {
+    "path": "EmployeeQuotaRepository.settleEmployeeQuota → settleEmployeeQuotaInTransaction (ae506fe)",
+    "requestId": "9556842b-ea2f-4def-bbea-b7fec9a484d8",
+    "reserved": {
+      "mode": "MONTHLY",
+      "decision": "ALLOW",
+      "reservedOk": true
+    },
+    "usage": {
+      "status": "SETTLED",
+      "actual": "50000"
+    },
+    "usedAfter": "51900",
+    "reservedAfter": "0",
+    "usedAccumulatedCorrectly": true,
+    "usageSettled": true
+  },
+  "settleNewConsumption": {
+    "path": "GatewayLedgerRepository.createRequest/createAttempt/createUsageAndLedgerLineIfAbsent (ae506fe)",
+    "requestStatus": "IN_PROGRESS",
+    "created": true,
+    "newLine": {
+      "api_cost": "0.00052000",
+      "api_cost_currency": "CNY",
+      "api_cost_status": "PRICED_USAGE"
+    },
+    "readableAfterSettle": [
+      "0.00052000"
+    ]
+  }
+}

@@ -1,0 +1,122 @@
+PASS [A-head] 回放后水位
+  contract=0092_employee_monthly_quota
+  actual  =0092_employee_monthly_quota
+RED [A1-inflight-request] 缺口①：in-flight 请求行更新保全（切换后完成结算）
+  contract=status=SUCCEEDED ∧ finished_at 非空
+  actual  =status=IN_PROGRESS finished_at=null
+RED [A2-inflight-attempt] 缺口①：in-flight attempt 行更新保全
+  contract=finished_at 非空 ∧ response_committed=true
+  actual  =finished_at=null committed=false
+RED [A3-grant-update] 缺口①：principal_grant 更新保全（额度域配置收紧）
+  contract=quota_value=100000 ∧ allow_overage=false ∧ pool_model_alias='*' ∧ quota_basis='RAW_TOKEN'
+  actual  ={"quota_value":"1000000","allow_overage":true,"pool_model_alias":null,"quota_basis":null}
+RED [A4-enterprise-quota-from] 缺口①：enterprise.employee_quota_monthly_from 保全（0092 域按迁移定义）
+  contract=非空（2026-11-01）
+  actual  =null
+PASS [A5-finance-zero] 红线：期初/充值类 finance 事件＝0
+  contract=0
+  actual  =0
+[pool-error:B-live] terminating connection due to administrator command
+  script exit=6 stderr=ERROR:  ledger line subscription period does not cover settlement time
+CONTEXT:  PL/pgSQL function provider_finance_validate_ledger_period_link() line 16 at RAISE
+FAIL-CLOSED[6]: 回放执行失败（事务已回滚，库不变）
+
+PASS [B1-replay-fk-fail] 缺口②：引用备份后新建订阅周期（白名单外表）的消费使回放失败（fail-closed；period 归属触发器/FK 任一拦截）
+  contract=exit≠0
+  actual  =exit=6
+RED [B2-live-destroyed] 缺口②红证：回放失败时原 live 已被覆盖（『失败中止库不动』不成立）
+  contract=水位＝0096 且切换后消费仍在（live 未动）
+  actual  =水位=0092_employee_monthly_quota（0091＝已被备份点覆盖）
+RED [B3-consumption-lost] 缺口②红证：切换后消费随整库覆盖消失
+  contract=request4 行仍在
+  actual  =count=0
+== PG LOG TAIL ==
+
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /var/lib/postgresql/data -l logfile start
+
+waiting for server to start....2026-11-06 08:03:10.871 UTC [162] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 08:03:10.872 UTC [162] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 08:03:10.876 UTC [165] LOG:  database system was shut down at 2026-11-06 08:03:10 UTC
+2026-11-06 08:03:10.879 UTC [162] LOG:  database system is ready to accept connections
+ done
+server started
+CREATE DATABASE
+
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+waiting for server to shut down...2026-11-06 08:03:11.051 UTC [162] LOG:  received fast shutdown request
+.2026-11-06 08:03:11.052 UTC [162] LOG:  aborting any active transactions
+2026-11-06 08:03:11.054 UTC [162] LOG:  background worker "logical replication launcher" (PID 168) exited with exit code 1
+2026-11-06 08:03:11.054 UTC [163] LOG:  shutting down
+2026-11-06 08:03:11.055 UTC [163] LOG:  checkpoint starting: shutdown immediate
+2026-11-06 08:03:11.094 UTC [163] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.013 s, sync=0.025 s, total=0.041 s; sync files=301, longest=0.005 s, average=0.001 s; distance=4266 kB, estimate=4266 kB; lsn=0/191C7C8, redo lsn=0/191C7C8
+2026-11-06 08:03:11.099 UTC [162] LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-11-06 08:03:11.178 UTC [1] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 08:03:11.179 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-11-06 08:03:11.179 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-11-06 08:03:11.181 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 08:03:11.185 UTC [226] LOG:  database system was shut down at 2026-11-06 08:03:11 UTC
+2026-11-06 08:03:11.190 UTC [1] LOG:  database system is ready to accept connections
+2026-11-06 08:03:18.261 UTC [840] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:18.261 UTC [840] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:18.605 UTC [888] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:18.605 UTC [888] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:18.940 UTC [936] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:18.940 UTC [936] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:19.382 UTC [1006] ERROR:  relation "principal_quota_period" does not exist at character 15
+2026-11-06 08:03:19.382 UTC [1006] STATEMENT:  SELECT 1 FROM principal_quota_period LIMIT 1
+2026-11-06 08:03:19.676 UTC [1040] ERROR:  relation "principal_quota_usage" does not exist at character 15
+2026-11-06 08:03:19.676 UTC [1040] STATEMENT:  SELECT 1 FROM principal_quota_usage LIMIT 1
+2026-11-06 08:03:26.809 UTC [1542] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:26.809 UTC [1542] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:27.680 UTC [1675] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:27.680 UTC [1675] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:28.048 UTC [1732] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:28.048 UTC [1732] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:28.362 UTC [1781] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:28.362 UTC [1781] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:28.694 UTC [1829] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:28.694 UTC [1829] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:29.028 UTC [1878] ERROR:  syntax error at or near ":" at character 17
+2026-11-06 08:03:29.028 UTC [1878] STATEMENT:  SET timezone TO :'tz'
+2026-11-06 08:03:29.471 UTC [1945] ERROR:  relation "principal_quota_period" does not exist at character 15
+2026-11-06 08:03:29.471 UTC [1945] STATEMENT:  SELECT 1 FROM principal_quota_period LIMIT 1
+2026-11-06 08:03:29.685 UTC [1979] ERROR:  relation "principal_quota_usage" does not exist at character 15
+2026-11-06 08:03:29.685 UTC [1979] STATEMENT:  SELECT 1 FROM principal_quota_usage LIMIT 1
+2026-11-06 08:03:30.263 UTC [1208] FATAL:  terminating connection due to administrator command
+2026-11-06 08:03:30.370 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:31.522 UTC [224] LOG:  checkpoint complete: wrote 5745 buffers (35.1%); 0 WAL file(s) added, 0 removed, 3 recycled; write=0.071 s, sync=1.078 s, total=1.153 s; sync files=3835, longest=0.015 s, average=0.001 s; distance=52523 kB, estimate=52523 kB; lsn=0/4C675C0, redo lsn=0/4C67568
+2026-11-06 08:03:33.794 UTC [2187] ERROR:  ledger line subscription period does not cover settlement time
+2026-11-06 08:03:33.794 UTC [2187] CONTEXT:  PL/pgSQL function provider_finance_validate_ledger_period_link() line 16 at RAISE
+2026-11-06 08:03:33.794 UTC [2187] STATEMENT:  WITH ins AS (INSERT INTO ledger_line (id,ai_request_id,enterprise_id,usage_event_id,upstream_attempt_id,provider_resource_id,principal_id,resource_mode,raw_input_tokens,raw_output_tokens,raw_cache_tokens,deducted_quota,api_cost,usage_quality,created_at,billing_rule_id,rule_version,multiplier,raw_reasoning_tokens,billing_rule_snapshot,api_cost_currency,api_cost_status,subscription_period_id,settled_at,legacy_cost_resolution_id) SELECT id,ai_request_id,enterprise_id,usage_event_id,upstream_attempt_id,provider_resource_id,principal_id,resource_mode,raw_input_tokens,raw_output_tokens,raw_cache_tokens,deducted_quota,api_cost,usage_quality,created_at,billing_rule_id,rule_version,multiplier,raw_reasoning_tokens,billing_rule_snapshot,api_cost_currency,api_cost_status,subscription_period_id,settled_at,legacy_cost_resolution_id FROM stage_ledger_line ON CONFLICT (id) DO NOTHING RETURNING 1)
+	SELECT 'REPLAY_RESULT table=ledger_line inserted=' || count(*)::text FROM ins;
+2026-11-06 08:03:33.825 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:34.142 UTC [224] LOG:  checkpoint complete: wrote 1421 buffers (8.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.018 s, sync=0.296 s, total=0.318 s; sync files=968, longest=0.005 s, average=0.001 s; distance=10547 kB, estimate=48325 kB; lsn=0/56B4430, redo lsn=0/56B43D8
+2026-11-06 08:03:34.156 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:34.160 UTC [224] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.005 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=43493 kB; lsn=0/56B4CA8, redo lsn=0/56B4C50
+2026-11-06 08:03:34.172 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:34.176 UTC [224] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.005 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=39144 kB; lsn=0/56B5520, redo lsn=0/56B54C8
+2026-11-06 08:03:34.189 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:34.194 UTC [224] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=35230 kB; lsn=0/56B5D98, redo lsn=0/56B5D40
+2026-11-06 08:03:34.206 UTC [224] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:03:34.211 UTC [224] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=31707 kB; lsn=0/56B6628, redo lsn=0/56B65D0
+
+
+== RED(R3 现状) == RED=6 PASS=3
+RED [A1-inflight-request] 缺口①：in-flight 请求行更新保全（切换后完成结算）
+RED [A2-inflight-attempt] 缺口①：in-flight attempt 行更新保全
+RED [A3-grant-update] 缺口①：principal_grant 更新保全（额度域配置收紧）
+RED [A4-enterprise-quota-from] 缺口①：enterprise.employee_quota_monthly_from 保全（0092 域按迁移定义）
+RED [B2-live-destroyed] 缺口②红证：回放失败时原 live 已被覆盖（『失败中止库不动』不成立）
+RED [B3-consumption-lost] 缺口②红证：切换后消费随整库覆盖消失
