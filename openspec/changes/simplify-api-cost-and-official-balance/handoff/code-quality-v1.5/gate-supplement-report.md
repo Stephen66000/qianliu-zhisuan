@@ -48,8 +48,9 @@
 
 ## 6. 对象锁与提交（补证完成后执行并回填）
 
-- 补证材料提交：`<SHA>`（证据 run 目录＋纠文；实现零改动由 `git diff 38ab493 -- <实现路径>` 为空证明）。
-- 对象锁重生成＋verify：`<implementation_hash>` / `<full_candidate_hash>` / `<manifest_hash>`，STABLE。
+- 补证材料提交：`edbe626`（证据 run1 目录＋纠文三件）＋本终版回填提交（最终候选 HEAD 一律以 candidate-lock.json 的 head 字段为准，避免文档-锁自引用循环）。
+- 实现同一性：`git diff 38ab493 -- apps/ packages/ deploy/ V3/ package.json pnpm-lock.yaml` ＝ **0 行**（实测）——补证零实现改动。
+- 对象锁重生成＋verify：**STABLE**；implementation/full_candidate/manifest 三组哈希以 `CODE-QUALITY-V15-20261107/candidate-lock.json` 为准（材料终版后生成）。
 
 ## 7. 预算与开审条件
 
