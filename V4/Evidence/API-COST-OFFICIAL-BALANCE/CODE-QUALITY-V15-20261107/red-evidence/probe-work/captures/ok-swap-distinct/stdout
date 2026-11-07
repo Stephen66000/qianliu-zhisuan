@@ -1,0 +1,1 @@
+swap: OK live=shadow_ok 影子内容已替换为 live；keep=other_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入）

@@ -1,0 +1,333 @@
+──────────────────────────────────────────────────────────
+## CASE 1: restore-omit-live-shadow-is-live
+argv: restore --container pgtest --db-shadow synthetic_live --dump-file /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: restore: OK shadow=synthetic_live head=0091_recorded_cost_accounting_policy（live 未动；备份点水位，禁止叠加 down——rollback.sh:113 同规） 
+== dropdb 调用 ==
+  [0003] dropdb target=synthetic_live exit=0
+== createdb 调用 ==
+  [0004] createdb target=synthetic_live exit=0
+== psql 调用（写入/改名执行面）==
+  [0006] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+  [0005] pg_restore-restore exit=0
+──────────────────────────────────────────────────────────
+## CASE 2: restore-live-eq-shadow
+argv: restore --container pgtest --db-live synthetic_live --db-shadow synthetic_live --dump-file /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=5
+stderr: FAIL-CLOSED[5]: 影子库不得与 live 同名（v3：live 物理未动）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+──────────────────────────────────────────────────────────
+## CASE 3: replay-omit-live-shadow-is-live
+argv: replay --container pgtest --db-shadow synthetic_live --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-full.tsv --delta-dir /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: 0 replay: OK shadow=synthetic_live shadow_head=0091_recorded_cost_accounting_policy（ON CONFLICT (id) DO UPDATE 全列投影，二次执行幂等） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0004] psql db=synthetic_live sha256=2cd8f2c8c9c8c37969118fe58ea04e02deae539f0adc2200b4b3e560e43de48a bytes=1183 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0003] delta-dir-prep exit=0
+  [0005] delta-dir-prep exit=0
+──────────────────────────────────────────────────────────
+## CASE 4: replay-live-eq-shadow
+argv: replay --container pgtest --db-live synthetic_live --db-shadow synthetic_live --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-full.tsv --delta-dir /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: 0 replay: OK shadow=synthetic_live shadow_head=0091_recorded_cost_accounting_policy（ON CONFLICT (id) DO UPDATE 全列投影，二次执行幂等） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0004] psql db=synthetic_live sha256=2cd8f2c8c9c8c37969118fe58ea04e02deae539f0adc2200b4b3e560e43de48a bytes=1183 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0003] delta-dir-prep exit=0
+  [0005] delta-dir-prep exit=0
+──────────────────────────────────────────────────────────
+## CASE 5: retire-omit-live-shadow-is-live
+argv: retire-threshold --container pgtest --db-shadow synthetic_live --log /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/retire.log
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: RETIRE pending_api_before=1 RETIRE finance_state_rows_before=2 RETIRE pending_api_after=0 RETIRE finance_state_rows_after=1 RETIRE seed_trigger_present=0 RETIRE seed_function_present=0 retire-threshol
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live sha256=dd74590a4f843f329f974141e9f46930c97517ee23ad1ad5a11ace834177f246 bytes=1464 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 6: verify-live-eq-shadow-fail-cleanup
+argv: verify --container pgtest --db-live synthetic_live --db-shadow synthetic_live --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-missing-enterprise.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=8
+stderr: FAIL-CLOSED[8]: 清单缺表: enterprise
+stdout-head: verify: 水位=备份点 0091_recorded_cost_accounting_policy 
+== dropdb 调用 ==
+  [0004] dropdb target=synthetic_live exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0003] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='enterprise' (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 7: verify-shadow-eq-ref-vacuous-pass
+argv: verify --container pgtest --db-live other_live --db-shadow refdb --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: verify: 水位=备份点 0091_recorded_cost_accounting_policy verify: table=enterprise digest=match verify: table=provider digest=match verify: table=unified_model digest=match verify: table=principal
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0003] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='enterprise' (no-stdin) exit=0
+  [0004] psql db=id (no-stdin) exit=0
+  [0005] psql db=id (no-stdin) exit=0
+  [0006] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider' (no-stdin) exit=0
+  [0007] psql db=id (no-stdin) exit=0
+  [0008] psql db=id (no-stdin) exit=0
+  [0009] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='unified_model' (no-stdin) exit=0
+  [0010] psql db=id (no-stdin) exit=0
+  [0011] psql db=id (no-stdin) exit=0
+  [0012] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal' (no-stdin) exit=0
+  [0013] psql db=id (no-stdin) exit=0
+  [0014] psql db=id (no-stdin) exit=0
+  [0015] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_key' (no-stdin) exit=0
+  [0016] psql db=id (no-stdin) exit=0
+  [0017] psql db=id (no-stdin) exit=0
+  [0018] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider_resource' (no-stdin) exit=0
+  [0019] psql db=id (no-stdin) exit=0
+  [0020] psql db=id (no-stdin) exit=0
+  [0021] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='billing_rule' (no-stdin) exit=0
+  [0022] psql db=id (no-stdin) exit=0
+  [0023] psql db=id (no-stdin) exit=0
+  [0024] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='model_route' (no-stdin) exit=0
+  [0025] psql db=id (no-stdin) exit=0
+  [0026] psql db=id (no-stdin) exit=0
+  [0027] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ai_request' (no-stdin) exit=0
+  [0028] psql db=id (no-stdin) exit=0
+  [0029] psql db=id (no-stdin) exit=0
+  [0030] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='upstream_attempt' (no-stdin) exit=0
+  [0031] psql db=id (no-stdin) exit=0
+  [0032] psql db=id (no-stdin) exit=0
+  [0033] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='usage_event' (no-stdin) exit=0
+  [0034] psql db=id (no-stdin) exit=0
+  [0035] psql db=id (no-stdin) exit=0
+  [0036] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_line' (no-stdin) exit=0
+  [0037] psql db=id (no-stdin) exit=0
+  [0038] psql db=id (no-stdin) exit=0
+  [0039] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_transaction' (no-stdin) exit=0
+  [0040] psql db=id (no-stdin) exit=0
+  [0041] psql db=id (no-stdin) exit=0
+  [0042] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_grant' (no-stdin) exit=0
+  [0043] psql db=id (no-stdin) exit=0
+  [0044] psql db=id (no-stdin) exit=0
+  [0045] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='quota_counter' (no-stdin) exit=0
+  [0046] psql db=id (no-stdin) exit=0
+  [0047] psql db=id (no-stdin) exit=0
+  [0048] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_period' (no-stdin) exit=0
+  [0049] psql db=id (no-stdin) exit=0
+  [0050] psql db=id (no-stdin) exit=0
+  [0051] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_usage' (no-stdin) exit=0
+  [0052] psql db=id (no-stdin) exit=0
+  [0053] psql db=id (no-stdin) exit=0
+  [0054] psql db=provider_finance_event (no-stdin) exit=0
+  [0055] psql db=provider_finance_event (no-stdin) exit=0
+  [0056] psql db=SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) THEN '1' ELSE '0' END (no-stdin) exit=0
+  [0057] psql db=SELECT CASE WHEN to_regproc('provider_resource_finance_state_seed') IS NULL THEN '0' ELSE '1' END (no-stdin) exit=0
+  [0058] psql db=SELECT count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API' (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 8: swap-live-eq-shadow
+argv: swap --container pgtest --db-live synthetic_live --db-shadow synthetic_live
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: swap: OK live=synthetic_live 影子内容已替换为 live；keep=synthetic_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live (no-stdin) exit=0
+  [0003] psql db=synthetic_live (no-stdin) exit=0
+  [0004] psql db=synthetic_live_pre_rollback_keep (no-stdin) exit=0
+  [0005] psql db=exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres sha256=51f11618cd3b0f7dcc507d685fef924fa3f5ba14e401ccc15b2c647deccc4957 bytes=175 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  [0005] ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";;ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live";;
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 9: swap-keep-eq-live
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --keep-name synthetic_live
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=9
+stderr: FAIL-CLOSED[9]: 保留库名已存在（先人工处置旧 keep 库）: synthetic_live
+stdout-head: 
+== dropdb 调用 ==
+  [0005] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live (no-stdin) exit=0
+  [0003] psql db=shadow_ok (no-stdin) exit=0
+  [0004] psql db=synthetic_live (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 10: swap-shadow-eq-keep
+argv: swap --container pgtest --db-live synthetic_live --db-shadow keepname --keep-name keepname
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live keepname
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=9
+stderr: FAIL-CLOSED[9]: 保留库名已存在（先人工处置旧 keep 库）: keepname
+stdout-head: 
+== dropdb 调用 ==
+  [0005] dropdb target=keepname exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live (no-stdin) exit=0
+  [0003] psql db=keepname (no-stdin) exit=0
+  [0004] psql db=keepname (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 11: baseline-restore-omit-shadow
+argv: restore --container pgtest --dump-file /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/dump.bin
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: restore 缺少 --db-shadow
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 12: baseline-replay-omit-shadow
+argv: replay --container pgtest --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-full.tsv --delta-dir /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: replay 缺少 --db-shadow
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 13: baseline-retire-omit-shadow
+argv: retire-threshold --container pgtest --log /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/retire.log
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: retire-threshold 缺少 --db-shadow
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 14: baseline-verify-omit-live
+argv: verify --container pgtest --db-shadow shadow_ok --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/probe-work/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: verify 缺少 --db-live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 15: baseline-swap-omit-live
+argv: swap --container pgtest --db-shadow shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: swap 缺少 --db-live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）

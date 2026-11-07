@@ -1,0 +1,10 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$db" "$@"
+sh
+shadow_ok
+-Atq
+-c
+SELECT CASE WHEN to_regproc('provider_resource_finance_state_seed') IS NULL THEN '0' ELSE '1' END

@@ -1,0 +1,105 @@
+--- V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/rollback-delta-20261106.d82559f-snapshot.sh	2026-11-07 08:33:19
++++ deploy/scripts/rollback-delta-20261106.sh	2026-11-07 08:53:22
+@@ -84,9 +84,9 @@
+   cat <<EOF
+ 用法:
+   $PROG export --container C --db-live DB --db-ref REFDB --dump-file DUMP --out-dir DIR
+-  $PROG restore --container C --db-shadow SHADOW --dump-file DUMP   (须 ROLLBACK_DELTA_CONFIRM=YES)
+-  $PROG replay  --container C --db-shadow SHADOW --manifest MANIFEST_TSV --delta-dir DIR
+-  $PROG retire-threshold --container C --db-shadow SHADOW --log PATH
++  $PROG restore --container C --db-live DB --db-shadow SHADOW --dump-file DUMP   (须 ROLLBACK_DELTA_CONFIRM=YES)
++  $PROG replay  --container C --db-live DB --db-shadow SHADOW --manifest MANIFEST_TSV --delta-dir DIR
++  $PROG retire-threshold --container C --db-live DB --db-shadow SHADOW --log PATH
+   $PROG verify --container C --db-live DB --db-shadow SHADOW --db-ref REFDB --manifest MANIFEST_TSV
+   $PROG swap --container C --db-live DB --db-shadow SHADOW [--keep-name K]   (须 ROLLBACK_DELTA_CONFIRM=YES)
+   $PROG check-contract [--container C --db-live DB]
+@@ -105,10 +105,38 @@
+           失败＝删影子、exit 非 0。
+   swap    单事务：ALTER DATABASE live→keep、影子→live（keep＝切换后状态留档）。
+           失败＝事务回滚＋删影子、exit 非 0；须 ROLLBACK_DELTA_CONFIRM=YES。
++  参数防护（CQ-01）：restore/replay/retire-threshold/verify/swap 五入口要求
++          --db-live 必填（live 标识缺失＝同名防护退化为空串比较），且
++          live/shadow/keep/ref 互不同名、shadow 非系统库——校验先于任何
++          dropdb/写入/改名/失败清理，拒绝＝exit 非 0。
+ EOF
+ }
+ 
+ die() { echo "FAIL-CLOSED[$1]: $2" >&2; exit "$1"; }
++
++# CQ-01（v1.5 质量预检整改）：影子管线入口统一参数防护。
++# restore/replay/retire-threshold/verify/swap 五个会写入/删除/改名影子库或执行失败
++# 清理的入口，必须在任何 dropdb/写入/改名/失败清理之前调用本函数。缺陷本相：实现
++# 以「DB_SHADOW != DB_LIVE」保护 live，但 DB_LIVE 可为空——省略 --db-live 且误把
++# 真实 live 名填入 --db-shadow 时，保护退化为与空串比较，通过后对该名执行
++# dropdb --force（审核报告 CQ-01 桩证：exit 0＋对 synthetic_live 发出 dropdb）。
++# 故 DB_LIVE 非空为硬性前置；live/keep/ref 同名冲突组合一并拒绝（ref＝live 时
++# 资金事件摘要 live 自比，零补造证明空洞——审核返工补充红证）。
++# 拒绝＝exit 非 0，且此时未发出任何容器内 dropdb/写入/改名调用（docker 命令桩留证：
++# V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/）。
++guard_shadow_pipeline() { # $1=子命令名
++  [ -n "$DB_LIVE" ] || die 2 "$1 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）"
++  [ -n "$DB_SHADOW" ] || die 2 "$1 缺少 --db-shadow"
++  [ "$DB_SHADOW" != "$DB_LIVE" ] || die 3 "$1 影子库不得与 live 同名: $DB_SHADOW"
++  local keep="${DB_KEEP:-${DB_LIVE}_pre_rollback_keep}"
++  [ "$keep" != "$DB_LIVE" ] || die 3 "$1 keep 库名不得与 live 同名: ${keep}（--keep-name 或默认派生）"
++  [ "$DB_SHADOW" != "$keep" ] || die 3 "$1 影子库不得与 keep 库同名: $keep"
++  if [ -n "$DB_REF" ]; then
++    [ "$DB_SHADOW" != "$DB_REF" ] || die 3 "$1 影子库不得与 ref 快照库同名: $DB_REF"
++    [ "$DB_REF" != "$DB_LIVE" ] || die 3 "$1 ref 快照库不得与 live 同名: $DB_REF"
++  fi
++  case "$DB_SHADOW" in postgres|template0|template1) die 3 "$1 拒绝系统库 $DB_SHADOW";; esac
++}
+ 
+ need_tools() {
+   command -v docker >/dev/null 2>&1 || die 2 "宿主机缺少 docker"
+@@ -329,11 +357,9 @@
+ # ── restore（影子库）────────────────────────────────────────────────────
+ cmd_restore() {
+   need_tools
+-  [ -n "$DB_SHADOW" ] || die 2 "restore 缺少 --db-shadow"
++  guard_shadow_pipeline "restore"
+   require_env
+   dump_integrity_gate
+-  case "$DB_SHADOW" in postgres|template0|template1) die 5 "拒绝系统库 $DB_SHADOW";; esac
+-  [ "$DB_SHADOW" != "$DB_LIVE" ] || die 5 "影子库不得与 live 同名（v3：live 物理未动）"
+   [ "${ROLLBACK_DELTA_CONFIRM:-}" = "YES" ] \
+     || die 5 "危险动作：须环境 ROLLBACK_DELTA_CONFIRM=YES（dropdb --force 影子库＋createdb，DESTRUCTIVE 定级同 rollback.sh:5）"
+   if ! docker exec "$CONTAINER" sh -c 'dropdb --if-exists --force -U "$POSTGRES_USER" "$1"' sh "$DB_SHADOW" \
+@@ -348,7 +374,7 @@
+ # ── replay（影子内，DO UPDATE 幂等）────────────────────────────────────
+ cmd_replay() {
+   need_tools
+-  [ -n "$DB_SHADOW" ] || die 2 "replay 缺少 --db-shadow"
++  guard_shadow_pipeline "replay"
+   [ -n "$MANIFEST" ] || die 2 "replay 缺少 --manifest"
+   [ -n "$OUT_DIR" ] || die 2 "replay 缺少 --delta-dir"
+   require_env
+@@ -461,7 +487,7 @@
+ # ── retire-threshold（影子内，缺口④）───────────────────────────────────
+ cmd_retire_threshold() {
+   need_tools
+-  [ -n "$DB_SHADOW" ] || die 2 "retire-threshold 缺少 --db-shadow"
++  guard_shadow_pipeline "retire-threshold"
+   [ -n "$LOG_PATH" ] || die 2 "retire-threshold 缺少 --log"
+   require_env
+   SQL="$(mktemp "${TMPDIR:-/tmp}/wp6-r4-retire.XXXXXX")"
+@@ -509,8 +535,7 @@
+ # ── verify（影子校验，全过才允许 swap）──────────────────────────────────
+ cmd_verify() {
+   need_tools
+-  [ -n "$DB_LIVE" ] || die 2 "verify 缺少 --db-live"
+-  [ -n "$DB_SHADOW" ] || die 2 "verify 缺少 --db-shadow"
++  guard_shadow_pipeline "verify"
+   [ -n "$DB_REF" ] || die 2 "verify 缺少 --db-ref"
+   [ -n "$MANIFEST" ] || die 2 "verify 缺少 --manifest"
+   require_env
+@@ -559,8 +584,7 @@
+ # ── swap（单事务改名；keep＝切换后状态留档）─────────────────────────────
+ cmd_swap() {
+   need_tools
+-  [ -n "$DB_LIVE" ] || die 2 "swap 缺少 --db-live"
+-  [ -n "$DB_SHADOW" ] || die 2 "swap 缺少 --db-shadow"
++  guard_shadow_pipeline "swap"
+   require_env
+   [ "${ROLLBACK_DELTA_CONFIRM:-}" = "YES" ] \
+     || die 9 "危险动作：须环境 ROLLBACK_DELTA_CONFIRM=YES（单事务改名替换 live，DESTRUCTIVE 定级同 rollback.sh:5）"

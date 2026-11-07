@@ -1,0 +1,89 @@
+--- V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/wp6-rollback-replay-drill.d82559f-snapshot.ts	2026-11-07 08:33:19
++++ packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts	2026-11-07 08:45:01
+@@ -721,7 +721,8 @@
+     const body = manifest.split("\n").filter((line) => line !== "" && !line.startsWith("manifest_done")).join("\n");
+     expect(createHash("sha256").update(`${body}\n`).digest("hex")).toBe(declared);
+     const noConfirm = runDeltaScript([
+-      "restore", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--dump-file", dumpHostPath,
++      "restore", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
++      "--dump-file", dumpHostPath,
+     ]);
+     expect(noConfirm.status).not.toBe(0);
+     expect(noConfirm.stderr).toContain("ROLLBACK_DELTA_CONFIRM");
+@@ -729,7 +730,8 @@
+ 
+   it("断言 C：影子恢复——live 物理未动（缺口②），影子＝备份点逐字，0092 域不存在", async () => {
+     const restoreResult = runDeltaScript([
+-      "restore", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--dump-file", dumpHostPath,
++      "restore", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
++      "--dump-file", dumpHostPath,
+     ], { ROLLBACK_DELTA_CONFIRM: "YES" });
+     expectScriptOk(restoreResult);
+     // live 未动（水位＋17 表摘要逐字）。
+@@ -754,7 +756,7 @@
+     expect(await tableExists(shadowDb!, "principal_quota_period")).toBe(true);
+ 
+     const replayResult = runDeltaScript([
+-      "replay", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB,
++      "replay", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+       "--manifest", manifestPath, "--delta-dir", outDir,
+     ]);
+     expectScriptOk(replayResult);
+@@ -799,7 +801,7 @@
+ 
+   it("断言 E：幂等回放——二次回放 applied＝清单行数、17 表摘要不变（DO UPDATE 结果不变）", async () => {
+     const second = runDeltaScript([
+-      "replay", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB,
++      "replay", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+       "--manifest", manifestPath, "--delta-dir", outDir,
+     ]);
+     expectScriptOk(second);
+@@ -825,7 +827,8 @@
+ 
+   it("断言 F：retire-threshold（缺口④）——触发器/函数退役、API PENDING 控制行清零且留档、额度域与 READY 事实原样", async () => {
+     const retire = runDeltaScript([
+-      "retire-threshold", "--container", CONTAINER_NAME, "--db-shadow", SHADOW_DB, "--log", retireLogPath,
++      "retire-threshold", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
++      "--log", retireLogPath,
+     ]);
+     expectScriptOk(retire);
+     // 留档内容（删除前计数进日志——控制行非资金事实）。
+@@ -1120,13 +1123,14 @@
+       "--dump-file", jDumpHost, "--out-dir", jOut,
+     ]));
+     expectScriptOk(runDeltaScript([
+-      "restore", "--container", CONTAINER_NAME, "--db-shadow", J_SHADOW, "--dump-file", jDumpHost,
++      "restore", "--container", CONTAINER_NAME, "--db-live", J_LIVE, "--db-shadow", J_SHADOW,
++      "--dump-file", jDumpHost,
+     ], { ROLLBACK_DELTA_CONFIRM: "YES" }));
+     const jShadow = createKysely(swapDbName(container.getConnectionUri(), J_SHADOW));
+     expect((await createMigrator(jShadow).migrateTo(HEAD_0092)).error).toBeUndefined();
+     await jShadow.destroy();
+     const replayExit = runDeltaScript([
+-      "replay", "--container", CONTAINER_NAME, "--db-shadow", J_SHADOW,
++      "replay", "--container", CONTAINER_NAME, "--db-live", J_LIVE, "--db-shadow", J_SHADOW,
+       "--manifest", resolve(jOut, "manifest.tsv"), "--delta-dir", jOut,
+     ]);
+     expect(replayExit.status).not.toBe(0);
+@@ -1174,17 +1178,18 @@
+         "--dump-file", kDumpHost, "--out-dir", kOut,
+       ]));
+       expectScriptOk(runDeltaScript([
+-        "restore", "--container", CONTAINER_NAME, "--db-shadow", K_SHADOW, "--dump-file", kDumpHost,
++        "restore", "--container", CONTAINER_NAME, "--db-live", K_LIVE, "--db-shadow", K_SHADOW,
++        "--dump-file", kDumpHost,
+       ], { ROLLBACK_DELTA_CONFIRM: "YES" }));
+       const kShadow = createKysely(swapDbName(container.getConnectionUri(), K_SHADOW));
+       expect((await createMigrator(kShadow).migrateTo(HEAD_0092)).error).toBeUndefined();
+       expectScriptOk(runDeltaScript([
+-        "replay", "--container", CONTAINER_NAME, "--db-shadow", K_SHADOW,
++        "replay", "--container", CONTAINER_NAME, "--db-live", K_LIVE, "--db-shadow", K_SHADOW,
+         "--manifest", resolve(kOut, "manifest.tsv"), "--delta-dir", kOut,
+       ]));
+       // 回放重复执行（R5-C 幂等）：计数不重复累计。
+       expectScriptOk(runDeltaScript([
+-        "replay", "--container", CONTAINER_NAME, "--db-shadow", K_SHADOW,
++        "replay", "--container", CONTAINER_NAME, "--db-live", K_LIVE, "--db-shadow", K_SHADOW,
+         "--manifest", resolve(kOut, "manifest.tsv"), "--delta-dir", kOut,
+       ]));
+       const counterAfterReplays = await sql<{ used_value: string }>`

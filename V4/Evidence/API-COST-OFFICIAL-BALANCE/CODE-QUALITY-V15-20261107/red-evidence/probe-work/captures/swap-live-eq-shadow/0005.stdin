@@ -1,0 +1,5 @@
+\set ON_ERROR_STOP on
+BEGIN;
+ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";
+ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live";
+COMMIT;
