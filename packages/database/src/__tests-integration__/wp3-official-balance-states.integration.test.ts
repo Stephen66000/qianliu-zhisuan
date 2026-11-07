@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql } from "kysely";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
 import { createKysely, listOfficialBalanceStates, migrateToLatest } from "../index.js";
 
@@ -362,5 +363,78 @@ describe("listOfficialBalanceStates（C2 官方余额状态读取，task 3.3）"
     const statesF = await listOfficialBalanceStates(db, fEnt,
       { now: T0, expireMs: P2_MS, cooldownMs: P3_MS });
     expect(statesF.map((s) => s.provider_resource_id)).toEqual([idSmall, idLarge]);
+  });
+
+  // EG-02 收尾 T2（变异 id174 补测，official-balance-states.ts:174 双候选 reduce）：
+  // 同一资源两条不同截止——冷却候选（attempt started_at+P3，候选数组第 0 位）晚于
+  // 在途租约 expires_at（数组第 1 位＝后部），且两者都仍有效（> now）。合同：
+  // next_refresh_at = max(冷却候选, 租约)＝较晚值。变异 id174 把比较改为恒 false
+  // （reduce 恒取最后一项 b＝租约）→ 返回较早的租约值，被本用例较晚值断言杀死。
+  it("EG-02 T2：冷却候选晚于在途租约（较早候选在后）→ next_refresh_at 取较晚且有效值", async () => {
+    const seed = await seedResource("eg02-t2-max-candidate");
+    await insertSnapshot(seed, { version: 1, collectedAt: T0, totalBalance: "60", available: true });
+    const now = new Date(T0.getTime() + 10_000);
+    // 冷却候选 = started_at + P3 = now + 25s（较晚，数组第 0 位）。
+    await insertAttempt(seed, { startedAt: new Date(now.getTime() - 5_000), balanceStatus: "FAILED" });
+    // 在途租约到期 = now + 10s（较早，数组第 1 位＝后部）。
+    const leaseEnd = new Date(now.getTime() + 10_000);
+    await db.insertInto("provider_resource_balance_refresh").values({
+      enterprise_id: seed.enterpriseId, provider_resource_id: seed.resourceId,
+      actor_admin_id: seed.adminId, idempotency_key: randomUUID(), status: "RUNNING",
+      started_at: now, finished_at: null, expires_at: leaseEnd, updated_at: now,
+    }).execute();
+    const state = await read(seed, now);
+    expect(state.status).toBe("SYNCING"); // 未过期租约在途
+    const laterCandidate = new Date(now.getTime() - 5_000 + P3_MS); // now+25s
+    // 自证夹具方向：冷却候选更晚且两者均仍有效（> now）。
+    expect(laterCandidate.getTime()).toBeGreaterThan(leaseEnd.getTime());
+    expect(laterCandidate.getTime()).toBeGreaterThan(now.getTime());
+    expect(leaseEnd.getTime()).toBeGreaterThan(now.getTime());
+    // max 语义：取较晚的冷却候选，而非数组末位的较早租约（id174）。
+    expect(state.next_refresh_at?.toISOString()).toBe(laterCandidate.toISOString());
+  });
+
+  // EG-02 收尾 T3（变异 id206/id207 补测，official-balance-states.ts:205 输出排序）：
+  // 小表下规划器对 provider_resource 选 PK 全索引扫描（输出恒按 id 升序，等于排序
+  // 后的期望序——id206/207 基线幸存的根因，两次实验证实）。本用例把同企业资源规模
+  // 放大到 N=800，迫使规划器选择 seq scan（堆物理序＝插入序），从而让“输入到达
+  // 顺序”完全受夹具控制：显式按 id 降序插入 → 无 ORDER BY 时函数收到的就是降序，
+  // 断言输出按 id 升序。变异 id206（删 sort 调用）与 id207（比较器恒 undefined →
+  // V8 稳定排序保持原序）都保留降序 → 被同一用例分别杀死。先用同形状裸查询自证
+  // 到达顺序（前提不成立则如实失败，不把合同押在计划运气上）。
+  it("EG-02 T3：输入显式降序插入 → 输出按 provider_resource_id 升序（同一用例双杀 id206/id207）", async () => {
+    const ent = randomUUID(); const admin = randomUUID();
+    await db.insertInto("enterprise").values({ id: ent, name: "eg02-t3-sort" }).execute();
+    await db.insertInto("admin_user").values({ id: admin, enterprise_id: ent,
+      username: "eg02-t3-admin", password_hash: "not-used", status: "ACTIVE" }).execute();
+    const providerId = "70000000-0000-4000-8000-000000000007";
+    await db.insertInto("provider").values({ id: providerId, enterprise_id: ent,
+      code: "ds-t3", name: "eg02-t3-provider",
+      adapter_type: "OPENAI_COMPATIBLE" }).execute();
+    // N 行降序 id（0x320=800 递减到 1，12 位 hex 定长，数值降序＝字典序降序）。
+    const N = 800;
+    const idsDesc = Array.from({ length: N }, (_, i) => {
+      const n = (N - i).toString(16).padStart(12, "0");
+      return `aaaaaa00-0000-4000-8000-${n}`;
+    });
+    const values = idsDesc.map((id, i) => ({
+      id, enterprise_id: ent, provider_id: providerId,
+      name: `eg02-t3-resource-${i}`, mode: "API" as const, credential_type: "API_KEY" as const,
+    }));
+    for (let i = 0; i < values.length; i += 200) {
+      await db.insertInto("provider_resource").values(values.slice(i, i + 200)).execute();
+    }
+    // 前提自证：与函数同形状（无 ORDER BY）的裸查询应返回插入序（降序）。
+    // 本查询不在被变异文件内，变异运行不受其影响。
+    const natural = await sql<{ id: string }>`
+      SELECT pr.id FROM provider_resource pr
+      JOIN provider p ON p.id = pr.provider_id
+      WHERE pr.enterprise_id = ${ent}::uuid AND p.enterprise_id = ${ent}::uuid
+    `.execute(db);
+    expect(natural.rows.map((r) => r.id)).toEqual(idsDesc);
+    const statesT3 = await listOfficialBalanceStates(db, ent,
+      { now: T0, expireMs: P2_MS, cooldownMs: P3_MS });
+    expect(statesT3.map((s) => s.provider_resource_id)).toEqual([...idsDesc].reverse());
+    expect(statesT3).toHaveLength(N);
   });
 });

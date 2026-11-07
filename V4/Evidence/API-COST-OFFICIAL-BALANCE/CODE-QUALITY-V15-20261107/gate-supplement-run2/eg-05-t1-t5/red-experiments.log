@@ -1,0 +1,44 @@
+== T1-T3 手工变异实验（证明测试能抓到变异；生产文件验后 git checkout 还原，最终零改动） ==
+环境: node 22.23.4（nvm；log 尾注误读系统 node，此处以 nvm 实跑值为准） / vitest.eg02.mutation.config.ts / 集成 testcontainer
+
+──────── 实验 id16 ────────
+变异内容: 见 mutation-id16.patch（与 Stryker 报告 replacement 逐字一致）
+目标用例: api-cost-estimation.integration.test.ts -t 'EG-02 T1'
+目标变异: api-cost-estimation.ts:250 ArithmeticOperator（+currency_missing_rows → -）
+       → expected 'KNOWN_COMPLETE' to be 'KNOWN_PARTIAL' // Object.is equality
+  ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+        Tests  1 failed | 14 skipped (15)
+  AssertionError: expected 'KNOWN_COMPLETE' to be 'KNOWN_PARTIAL' // Object.is equality
+  结论: KILLED（定向用例在变异体上失败）；随后 git checkout 还原
+
+──────── 实验 id174 ────────
+变异内容: 见 mutation-id174.patch（与 Stryker 报告 replacement 逐字一致）
+目标用例: wp3-official-balance-states.integration.test.ts -t 'EG-02 T2'
+目标变异: official-balance-states.ts:174 ConditionalExpression（比较 → false，reduce 恒取末项）
+       → expected '2026-08-18T01:00:20.000Z' to be '2026-08-18T01:00:35.000Z' // Object.is equality
+  ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+        Tests  1 failed | 11 skipped (12)
+  AssertionError: expected '2026-08-18T01:00:20.000Z' to be '2026-08-18T01:00:35.000Z' // Object.is equality
+  结论: KILLED（定向用例在变异体上失败）；随后 git checkout 还原
+
+──────── 实验 id206 ────────
+变异内容: 见 mutation-id206.patch（与 Stryker 报告 replacement 逐字一致）
+目标用例: wp3-official-balance-states.integration.test.ts -t 'EG-02 T3'
+目标变异: official-balance-states.ts:205 MethodExpression（states.sort(...) → states）
+       → expected [ …(800) ] to deeply equal [ …(800) ]
+  ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+        Tests  1 failed | 11 skipped (12)
+  AssertionError: expected [ …(800) ] to deeply equal [ …(800) ]
+  结论: KILLED（定向用例在变异体上失败）；随后 git checkout 还原
+
+──────── 实验 id207 ────────
+变异内容: 见 mutation-id207.patch（与 Stryker 报告 replacement 逐字一致）
+目标用例: wp3-official-balance-states.integration.test.ts -t 'EG-02 T3'
+目标变异: official-balance-states.ts:205 ArrowFunction（比较器 → () => undefined）
+       → expected [ …(800) ] to deeply equal [ …(800) ]
+  ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+        Tests  1 failed | 11 skipped (12)
+  AssertionError: expected [ …(800) ] to deeply equal [ …(800) ]
+  结论: KILLED（定向用例在变异体上失败）；随后 git checkout 还原
+
+还原自证: git status packages/database/src/repositories/ 干净；diff 空（见 production-zero-diff.txt 终检）

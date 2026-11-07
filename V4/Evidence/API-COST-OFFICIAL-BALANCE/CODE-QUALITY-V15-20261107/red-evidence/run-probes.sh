@@ -52,6 +52,9 @@ build_manifest() { # $1=out $2=mode(full|missing-first)
 }
 build_manifest "$FIX/manifest-full.tsv" full
 build_manifest "$FIX/manifest-missing-enterprise.tsv" missing-first
+# T4/B6 桩用例夹具：有效水位清单去掉末行 manifest_done 完成标记
+# （＝export 未完成时落盘的制品形态；其余字段与 manifest-full 逐字一致）。
+grep -v '^manifest_done' "$FIX/manifest-full.tsv" > "$FIX/manifest-no-done.tsv"
 
 # ── 执行器 ──────────────────────────────────────────────────────────────
 CASE_NO=0
@@ -165,6 +168,11 @@ green)
     replay --container pgtest --db-live synthetic_live --db-shadow synthetic_live --manifest "$FIX/manifest-full.tsv" --delta-dir "$FIX/delta-out"
   run_case neg-replay-empty-live \
     replay --container pgtest --db-live "" --db-shadow shadow_ok --manifest "$FIX/manifest-full.tsv" --delta-dir "$FIX/delta-out"
+  # T4/B6（EG-03 遗留缺口固化）：清单缺 manifest_done 完成标记（有效水位夹具去 done 行）
+  # → 到达完成标记校验，exit 6、原因明确缺标记；不发回放 SQL、live 零操作；
+  # 如有清理调用仅指向影子库（shadow_ok）。容器不可达等前置失败不计通过。
+  run_case neg-no-done-manifest \
+    replay --container pgtest --db-live other_live --db-shadow shadow_ok --manifest "$FIX/manifest-no-done.tsv" --delta-dir "$FIX/delta-out"
   run_case neg-retire-omit-live-shadow-is-live \
     retire-threshold --container pgtest --db-shadow synthetic_live --log "$FIX/retire.log"
   run_case neg-retire-live-eq-shadow \

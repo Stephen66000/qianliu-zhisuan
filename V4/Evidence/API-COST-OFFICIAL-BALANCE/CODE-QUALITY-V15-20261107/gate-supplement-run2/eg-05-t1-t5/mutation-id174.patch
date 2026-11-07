@@ -1,0 +1,13 @@
+diff --git a/packages/database/src/repositories/official-balance-states.ts b/packages/database/src/repositories/official-balance-states.ts
+index 2fa7088..6f58513 100644
+--- a/packages/database/src/repositories/official-balance-states.ts
++++ b/packages/database/src/repositories/official-balance-states.ts
+@@ -171,7 +171,7 @@ export async function listOfficialBalanceStates(
+     }
+     if (refreshExpiresAt) refreshCandidates.push(refreshExpiresAt);
+     const nextRefreshAtRaw = refreshCandidates.length > 0
+-      ? refreshCandidates.reduce((a, b) => (a.getTime() > b.getTime() ? a : b))
++      ? refreshCandidates.reduce((a, b) => (false ? a : b))
+       : null;
+     const nextRefreshAt = nextRefreshAtRaw !== null && nextRefreshAtRaw.getTime() > now.getTime()
+       ? nextRefreshAtRaw

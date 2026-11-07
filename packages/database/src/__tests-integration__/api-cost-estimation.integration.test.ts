@@ -124,7 +124,9 @@ interface SeedLineInput {
   at: Date;
   cost: string | null;
   currency?: string | null;
-  status: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_MIGRATED";
+  /** 缺省＝NULL（遗留行形态：0085 shape 约束仅豁免 status NULL 行，是
+   *  “已计价但币种缺失”（CURRENCY_MISSING）唯一可写入的夹具路径）。 */
+  status?: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_MIGRATED";
   usageQuality?: string;
   rule?: { id: string; rule_version: string } | null;
   /** 生产结算链自 9bf1560 起在 ledger_line.billing_rule_snapshot 冻结含 sourceStatus 的
@@ -167,7 +169,7 @@ async function seedLine(f: Fixture, input: SeedLineInput): Promise<{ id: string;
     // 0085 shape 约束：CONFIRMED_ZERO 行 api_cost=0 且币种必须为 NULL。
     api_cost_currency: (input.cost === null || input.currency === null)
       ? null : input.currency ?? "CNY",
-    api_cost_status: input.status,
+    api_cost_status: input.status ?? null,
     usage_quality: input.usageQuality ?? "PROVIDER_REPORTED",
     settled_at: at, created_at: at,
     billing_rule_id: input.rule?.id ?? null,
@@ -414,6 +416,29 @@ describe("loadApiCostEstimation（同源费用估算，不依赖资金数据）"
     expect(gapOf(result.gaps, "PRICE_BASIS_UNVERIFIED")).toBe(1);
     // 信息项缺口不影响完整性。
     expect(result.completeness).toBe("KNOWN_COMPLETE");
+  });
+
+  // EG-02 收尾 T1（变异 id16 补测，api-cost-estimation.ts:250 缺口计数聚合）：
+  // 遗留“已计价但币种缺失”行（api_cost 非空、币种 NULL、status NULL——0085 shape
+  // 约束唯一放行形态，dashboard-home-costs:83 同口径遗留行），快照 VERIFIED 隔离
+  // 其他缺口/信息项。合同：CURRENCY_MISSING 独立成缺口且计入 gapTotal
+  // （completeness=KNOWN_PARTIAL），绝不误归 NOT_MIGRATED。变异 id16 把末位
+  // `+ currency_missing_rows` 改 `-`：gapTotal=0+0+0-1=-1 → KNOWN_COMPLETE，
+  // 被本用例 KNOWN_PARTIAL 断言杀死。
+  it("EG-02 T1：已计价但币种 NULL 的遗留行 → KNOWN_PARTIAL＋CURRENCY_MISSING=1（不误归 NOT_MIGRATED）", async () => {
+    const f = await fixture();
+    await seedLine(f, {
+      at: new Date("2026-09-10T12:00:00+08:00"),
+      cost: "0.00200000", currency: null,
+      snapshot: { sourceStatus: "VERIFIED" }, // 隔离：不触发 PRICE_BASIS_UNVERIFIED 信息项
+    });
+    const result = await loadApiCostEstimation(db, f.enterpriseId, { start, end });
+    expect(result.amounts).toEqual([]); // 币种缺失行不入任何金额桶
+    expect(result.completeness).toBe("KNOWN_PARTIAL"); // 缺口计数聚合含 CURRENCY_MISSING（id16）
+    // 缺口唯一且原因明确＝CURRENCY_MISSING；NOT_MIGRATED 未出现（不误归）。
+    expect(result.gaps).toEqual([{ reason: "CURRENCY_MISSING", count: 1 }]);
+    expect(result.excludedNoRecordedCost).toBe(0);
+    expect(result.priceBasis).toEqual([]); // 无 billing_rule_id → 不进价格依据
   });
 
   it("s1§3.3 语义记录：期间无任何 API 行 → KNOWN_COMPLETE + 空 amounts", async () => {

@@ -1,0 +1,7 @@
+exec
+pgtest
+sh
+-c
+dropdb --if-exists --force -U "$POSTGRES_USER" "$1"
+sh
+shadow_ok

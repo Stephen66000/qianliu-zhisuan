@@ -1,0 +1,7 @@
+RETIRE pending_api_before=1
+RETIRE finance_state_rows_before=2
+RETIRE pending_api_after=0
+RETIRE finance_state_rows_after=1
+RETIRE seed_trigger_present=0
+RETIRE seed_function_present=0
+retire-threshold: OK shadow=shadow_ok log=/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/gate-supplement-run2/eg-05-t1-t5/t4-probe-work/fixtures/retire.log

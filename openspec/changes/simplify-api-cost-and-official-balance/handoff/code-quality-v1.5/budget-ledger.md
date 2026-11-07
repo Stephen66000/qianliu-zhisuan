@@ -39,3 +39,7 @@ callback_target: "用户（验收人）"
 # 2. V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/：red-evidence/（CQ-01 红绿桩证＋三份 diff）、logs/（X07 命令留痕）、candidate-lock.json（对象锁）
 # 3. 预检输入：交接/V1.5代码质量预检-20261107/（审核报告/桩证/preflight json）
 # 4. X07 沿革：handoff/work-packages/WP6/x07-r3/r4/r5-20261106.md
+
+# 收尾批次（2026-11-07，授权：zcode收尾指令-T1-T6与EG-04.md）
+- 新增批次：测试整改批次 2（T1-T6＋EG-04）；追加墙钟 ≤110'，累计上限 530'（此前 ~415'）。
+- started_at: 收尾轮开工；ended_at: 见收尾报告。

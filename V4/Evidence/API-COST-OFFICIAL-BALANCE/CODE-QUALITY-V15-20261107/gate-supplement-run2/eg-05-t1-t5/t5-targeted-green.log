@@ -1,0 +1,17 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/wp3-official-balance-states.integration.test.ts (12 tests) 5867ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (15 tests) 9945ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  5111ms
+ ✓ src/repositories/api-cost-estimation.fallback.test.ts (3 tests) 4ms
+ ✓ src/__tests-integration__/wp3-official-balance-refresh.integration.test.ts (8 tests) 9197ms
+   ✓ 0096 官方余额手动刷新请求表（task 3.2） > down：drop 表（纯协调状态，无数据守卫）；重新 up 恢复  4038ms
+ ✓ src/__tests-integration__/api-cost-estimation-by-resource.integration.test.ts (3 tests) 4082ms
+   ✓ loadApiCostEstimationByResource（批量分组入口，与逐资源调用逐字段一致） > 1) 五资源一次批量读取：每资源与 resourceIds:[id] 单资源调用整对象 toEqual；RE 隔离；RD 空期间有条目  301ms
+
+ Test Files  5 passed (5)
+      Tests  41 passed (41)
+   Start at  15:26:55
+   Duration  36.71s (transform 1.34s, setup 0ms, collect 6.22s, tests 29.10s, environment 1ms, prepare 412ms)
+

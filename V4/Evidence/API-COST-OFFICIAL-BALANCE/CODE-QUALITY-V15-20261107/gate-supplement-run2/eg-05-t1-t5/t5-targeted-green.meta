@@ -1,0 +1,3 @@
+start: 2026-11-07 15:26:54
+cmd: corepack pnpm@11.11.0 exec vitest run --config vitest.eg02.mutation.config.ts（全 5 文件定向套件，CWD=packages/database）
+end: 2026-11-07 15:27:32

@@ -1,0 +1,4 @@
+start: 2026-11-07 15:28:05
+cmd: corepack pnpm@11.11.0 exec stryker run stryker.eg02.database.config.json（CWD=packages/database）
+runtime: node v22.23.4 / pnpm 11.11.0 / stryker 复验（T1-T3 补测后）
+end: 2026-11-07 15:42:40
