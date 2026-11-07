@@ -14,3 +14,8 @@ B-6: SURVIVED（无断言偏离） [0处]
 - B5 守卫移至破坏段后 → KILLED（neg-restore 例 dropdb/createdb 已执行后才 die，破坏先于拒绝）
 - B6 删除 manifest_done grep → 既有 20 断言 SURVIVED（无缺-done 夹具，映射表不能替代——验收人怀疑属实）；**专项实测**（无 done 清单 replay）：原版 exit6"无 manifest_done"、变异版同样 exit6"sha256 不符"——下游声明哈希一致性检查冗余兜底，fail-closed 成立。结论：grep 层为冗余防御（精确报错价值），行为级未偏离；建议（待批准）在桩套件补一条 neg-no-done-manifest 用例固化该层。
 - 六变异中 4 KILLED＋2 冗余层实证；桩套件缺口 1 处（B6 场景）如实登记。
+
+== 修正（2026-11-07，验收人指正） ==
+- 先前提交的 b6-orig.out/b6-m6.out 为第一次尝试（PATH 桩未接上→"容器不可达"），与总结不一致——已改名 *.attempt1-容器不可达-废弃.log 保留；有效原始输出＝b6-orig.valid.out（exit6 无 manifest_done）/b6-m6.valid.out（exit6 sha256 不符）＋桩捕获 *.valid/（仅影子清理调用，与验收人独立复现一致）。
+- B3 幸存注记：后续保护实际挡住的是"keep 名已存在"的存在性检查（die 9）——keep==live 时 keep 名必存在，故参数层冗余但纵深有效。
+- B6 幸存注记：后续保护实际挡住的是 manifest_done 行缺失后的"声明哈希一致性"检查（sha256 不符 die 6）——grep 层删除后 fail-closed 仍成立，价值＝更早与更精确的报错。
