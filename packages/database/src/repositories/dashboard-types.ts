@@ -181,3 +181,6 @@ export interface OverageItem {
   overageValue: string;
   overageRatio: string;
 }
+
+/** 资源模式（API 资金口径 / CODING_PLAN 套餐口径），dashboard-breakdown 系列模块共用。 */
+export type ResourceMode = "API" | "CODING_PLAN";
