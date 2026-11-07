@@ -1,0 +1,16 @@
+== EG-03 终版审计（破坏先于拒绝＝杀死；判定含中文捕获段） ==
+B-1: KILLED——neg-restore-omit-live-shadow-is-live(破坏完成exit0); neg-restore-empty-live(破坏完成exit0)… [6处]
+B-2: KILLED——neg-restore-live-eq-shadow(破坏完成exit0); neg-replay-live-eq-shadow(破坏完成exit0)… [5处]
+B-3: KILLED——neg-swap-keep-eq-live(拒绝但破坏调用已发出) [1处]
+B-4: KILLED——neg-verify-live-eq-ref(破坏完成exit0) [1处]
+B-5: KILLED——neg-restore-omit-live-shadow-is-live(拒绝但破坏调用已发出); neg-restore-live-eq-shadow(拒绝但破坏调用已发出)… [3处]
+B-6: SURVIVED（无断言偏离） [0处]
+
+== EG-03 终判（含 B6 专项实测，2026-11-07） ==
+- B1 删除 live 非空检查 → KILLED（6 负向例破坏完成 exit0，dropdb 落 live 名）
+- B2 删除 shadow≠live → KILLED（5 同名例放行）
+- B3 删除 keep≠live → SURVIVED＝构造性冗余：keep==live ⇒ keep 名必已存在 ⇒ 既有"保留库名已存在"存在性检查（die 9）先行拒绝；该例破坏仅及合法影子清理（dropdb shadow_ok）。参数检查为纵深防御层，行为无偏离。
+- B4 删除 ref≠live → KILLED（neg-verify-live-eq-ref 空洞通过 exit0）
+- B5 守卫移至破坏段后 → KILLED（neg-restore 例 dropdb/createdb 已执行后才 die，破坏先于拒绝）
+- B6 删除 manifest_done grep → 既有 20 断言 SURVIVED（无缺-done 夹具，映射表不能替代——验收人怀疑属实）；**专项实测**（无 done 清单 replay）：原版 exit6"无 manifest_done"、变异版同样 exit6"sha256 不符"——下游声明哈希一致性检查冗余兜底，fail-closed 成立。结论：grep 层为冗余防御（精确报错价值），行为级未偏离；建议（待批准）在桩套件补一条 neg-no-done-manifest 用例固化该层。
+- 六变异中 4 KILLED＋2 冗余层实证；桩套件缺口 1 处（B6 场景）如实登记。

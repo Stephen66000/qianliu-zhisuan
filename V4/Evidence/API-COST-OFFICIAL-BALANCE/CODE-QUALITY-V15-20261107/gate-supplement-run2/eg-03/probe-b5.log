@@ -1,0 +1,418 @@
+──────────────────────────────────────────────────────────
+## CASE 1: ok-restore-distinct
+argv: restore --container pgtest --db-live other_live --db-shadow shadow_ok --dump-file /tmp/eg03/work-b5/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: restore: OK shadow=shadow_ok head=0091_recorded_cost_accounting_policy（live 未动；备份点水位，禁止叠加 down——rollback.sh:113 同规） 
+== dropdb 调用 ==
+  [0003] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  [0004] createdb target=shadow_ok exit=0
+== psql 调用（写入/改名执行面）==
+  [0006] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+  [0005] pg_restore-restore exit=0
+──────────────────────────────────────────────────────────
+## CASE 2: ok-replay-distinct
+argv: replay --container pgtest --db-live other_live --db-shadow shadow_ok --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv --delta-dir /tmp/eg03/work-b5/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: 0 replay: OK shadow=shadow_ok shadow_head=0091_recorded_cost_accounting_policy（ON CONFLICT (id) DO UPDATE 全列投影，二次执行幂等） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0004] psql db=shadow_ok sha256=2cd8f2c8c9c8c37969118fe58ea04e02deae539f0adc2200b4b3e560e43de48a bytes=1183 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0003] delta-dir-prep exit=0
+  [0005] delta-dir-prep exit=0
+──────────────────────────────────────────────────────────
+## CASE 3: ok-retire-distinct
+argv: retire-threshold --container pgtest --db-live other_live --db-shadow shadow_ok --log /tmp/eg03/work-b5/fixtures/retire.log
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: RETIRE pending_api_before=1 RETIRE finance_state_rows_before=2 RETIRE pending_api_after=0 RETIRE finance_state_rows_after=1 RETIRE seed_trigger_present=0 RETIRE seed_function_present=0 retire-threshol
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=shadow_ok sha256=dd74590a4f843f329f974141e9f46930c97517ee23ad1ad5a11ace834177f246 bytes=1464 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 4: ok-verify-distinct
+argv: verify --container pgtest --db-live other_live --db-shadow shadow_ok --db-ref refdb --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: verify: 水位=备份点 0091_recorded_cost_accounting_policy verify: table=enterprise digest=match verify: table=provider digest=match verify: table=unified_model digest=match verify: table=principal
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0003] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='enterprise' (no-stdin) exit=0
+  [0004] psql db=id (no-stdin) exit=0
+  [0005] psql db=id (no-stdin) exit=0
+  [0006] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider' (no-stdin) exit=0
+  [0007] psql db=id (no-stdin) exit=0
+  [0008] psql db=id (no-stdin) exit=0
+  [0009] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='unified_model' (no-stdin) exit=0
+  [0010] psql db=id (no-stdin) exit=0
+  [0011] psql db=id (no-stdin) exit=0
+  [0012] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal' (no-stdin) exit=0
+  [0013] psql db=id (no-stdin) exit=0
+  [0014] psql db=id (no-stdin) exit=0
+  [0015] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_key' (no-stdin) exit=0
+  [0016] psql db=id (no-stdin) exit=0
+  [0017] psql db=id (no-stdin) exit=0
+  [0018] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider_resource' (no-stdin) exit=0
+  [0019] psql db=id (no-stdin) exit=0
+  [0020] psql db=id (no-stdin) exit=0
+  [0021] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='billing_rule' (no-stdin) exit=0
+  [0022] psql db=id (no-stdin) exit=0
+  [0023] psql db=id (no-stdin) exit=0
+  [0024] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='model_route' (no-stdin) exit=0
+  [0025] psql db=id (no-stdin) exit=0
+  [0026] psql db=id (no-stdin) exit=0
+  [0027] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ai_request' (no-stdin) exit=0
+  [0028] psql db=id (no-stdin) exit=0
+  [0029] psql db=id (no-stdin) exit=0
+  [0030] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='upstream_attempt' (no-stdin) exit=0
+  [0031] psql db=id (no-stdin) exit=0
+  [0032] psql db=id (no-stdin) exit=0
+  [0033] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='usage_event' (no-stdin) exit=0
+  [0034] psql db=id (no-stdin) exit=0
+  [0035] psql db=id (no-stdin) exit=0
+  [0036] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_line' (no-stdin) exit=0
+  [0037] psql db=id (no-stdin) exit=0
+  [0038] psql db=id (no-stdin) exit=0
+  [0039] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_transaction' (no-stdin) exit=0
+  [0040] psql db=id (no-stdin) exit=0
+  [0041] psql db=id (no-stdin) exit=0
+  [0042] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_grant' (no-stdin) exit=0
+  [0043] psql db=id (no-stdin) exit=0
+  [0044] psql db=id (no-stdin) exit=0
+  [0045] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='quota_counter' (no-stdin) exit=0
+  [0046] psql db=id (no-stdin) exit=0
+  [0047] psql db=id (no-stdin) exit=0
+  [0048] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_period' (no-stdin) exit=0
+  [0049] psql db=id (no-stdin) exit=0
+  [0050] psql db=id (no-stdin) exit=0
+  [0051] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_usage' (no-stdin) exit=0
+  [0052] psql db=id (no-stdin) exit=0
+  [0053] psql db=id (no-stdin) exit=0
+  [0054] psql db=provider_finance_event (no-stdin) exit=0
+  [0055] psql db=provider_finance_event (no-stdin) exit=0
+  [0056] psql db=SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) THEN '1' ELSE '0' END (no-stdin) exit=0
+  [0057] psql db=SELECT CASE WHEN to_regproc('provider_resource_finance_state_seed') IS NULL THEN '0' ELSE '1' END (no-stdin) exit=0
+  [0058] psql db=SELECT count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API' (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 5: ok-swap-distinct
+argv: swap --container pgtest --db-live other_live --db-shadow shadow_ok
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=other_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: swap: OK live=shadow_ok 影子内容已替换为 live；keep=other_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=other_live (no-stdin) exit=0
+  [0003] psql db=shadow_ok (no-stdin) exit=0
+  [0004] psql db=other_live_pre_rollback_keep (no-stdin) exit=0
+  [0005] psql db=exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres sha256=7736cc50fc0704663167ccbf387fd067792536cd6f13f2ea76d00f8565ac1042 bytes=158 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  [0005] ALTER DATABASE "other_live" RENAME TO "other_live_pre_rollback_keep";;ALTER DATABASE "shadow_ok" RENAME TO "other_live";;
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+──────────────────────────────────────────────────────────
+## CASE 6: neg-restore-omit-live-shadow-is-live
+argv: restore --container pgtest --db-shadow synthetic_live --dump-file /tmp/eg03/work-b5/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: restore 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: restore: OK shadow=synthetic_live head=0091_recorded_cost_accounting_policy（live 未动；备份点水位，禁止叠加 down——rollback.sh:113 同规） 
+== dropdb 调用 ==
+  [0003] dropdb target=synthetic_live exit=0
+== createdb 调用 ==
+  [0004] createdb target=synthetic_live exit=0
+== psql 调用（写入/改名执行面）==
+  [0006] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+  [0005] pg_restore-restore exit=0
+──────────────────────────────────────────────────────────
+## CASE 7: neg-restore-live-eq-shadow
+argv: restore --container pgtest --db-live synthetic_live --db-shadow synthetic_live --dump-file /tmp/eg03/work-b5/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: restore 影子库不得与 live 同名: synthetic_live
+stdout-head: restore: OK shadow=synthetic_live head=0091_recorded_cost_accounting_policy（live 未动；备份点水位，禁止叠加 down——rollback.sh:113 同规） 
+== dropdb 调用 ==
+  [0003] dropdb target=synthetic_live exit=0
+== createdb 调用 ==
+  [0004] createdb target=synthetic_live exit=0
+== psql 调用（写入/改名执行面）==
+  [0006] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+  [0005] pg_restore-restore exit=0
+──────────────────────────────────────────────────────────
+## CASE 8: neg-restore-empty-live
+argv: restore --container pgtest --db-live  --db-shadow shadow_ok --dump-file /tmp/eg03/work-b5/fixtures/dump.bin
+env-extra: ROLLBACK_DELTA_CONFIRM=YES
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: restore 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: restore: OK shadow=shadow_ok head=0091_recorded_cost_accounting_policy（live 未动；备份点水位，禁止叠加 down——rollback.sh:113 同规） 
+== dropdb 调用 ==
+  [0003] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  [0004] createdb target=shadow_ok exit=0
+== psql 调用（写入/改名执行面）==
+  [0006] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  [0002] pg_restore-gate exit=0
+  [0005] pg_restore-restore exit=0
+──────────────────────────────────────────────────────────
+## CASE 9: neg-replay-omit-live-shadow-is-live
+argv: replay --container pgtest --db-shadow synthetic_live --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv --delta-dir /tmp/eg03/work-b5/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: replay 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 10: neg-replay-live-eq-shadow
+argv: replay --container pgtest --db-live synthetic_live --db-shadow synthetic_live --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv --delta-dir /tmp/eg03/work-b5/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: replay 影子库不得与 live 同名: synthetic_live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 11: neg-replay-empty-live
+argv: replay --container pgtest --db-live  --db-shadow shadow_ok --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv --delta-dir /tmp/eg03/work-b5/fixtures/delta-out
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: replay 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 12: neg-retire-omit-live-shadow-is-live
+argv: retire-threshold --container pgtest --db-shadow synthetic_live --log /tmp/eg03/work-b5/fixtures/retire.log
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: retire-threshold 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 13: neg-retire-live-eq-shadow
+argv: retire-threshold --container pgtest --db-live synthetic_live --db-shadow synthetic_live --log /tmp/eg03/work-b5/fixtures/retire.log
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: retire-threshold 影子库不得与 live 同名: synthetic_live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 14: neg-verify-live-eq-shadow
+argv: verify --container pgtest --db-live synthetic_live --db-shadow synthetic_live --db-ref refdb --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: verify 影子库不得与 live 同名: synthetic_live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 15: neg-verify-shadow-eq-ref
+argv: verify --container pgtest --db-live other_live --db-shadow refdb --db-ref refdb --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: verify 影子库不得与 ref 快照库同名: refdb
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 16: neg-verify-omit-live
+argv: verify --container pgtest --db-shadow shadow_ok --db-ref refdb --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=2
+stderr: FAIL-CLOSED[2]: verify 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 17: neg-verify-live-eq-ref
+argv: verify --container pgtest --db-live other_live --db-shadow shadow_ok --db-ref other_live --manifest /tmp/eg03/work-b5/fixtures/manifest-full.tsv
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: verify ref 快照库不得与 live 同名: other_live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 18: neg-swap-live-eq-shadow
+argv: swap --container pgtest --db-live synthetic_live --db-shadow synthetic_live
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: swap 影子库不得与 live 同名: synthetic_live
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 19: neg-swap-keep-eq-live
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --keep-name synthetic_live
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: swap keep 库名不得与 live 同名: synthetic_live（--keep-name 或默认派生）
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+──────────────────────────────────────────────────────────
+## CASE 20: neg-swap-shadow-eq-keep
+argv: swap --container pgtest --db-live synthetic_live --db-shadow keepname --keep-name keepname
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live keepname
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: swap 影子库不得与 keep 库同名: keepname
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
