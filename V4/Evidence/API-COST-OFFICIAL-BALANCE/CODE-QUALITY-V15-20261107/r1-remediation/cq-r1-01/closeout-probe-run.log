@@ -1,0 +1,136 @@
+==== CQ-R1-01 CLOSEOUT（被测：rollback-delta-20261106.sh）====
+fixture-tampered: 1 done-line kept
+──────────────────────────────────────────────────────────
+## CASE 1: co1-swap-manifest-no-done-rejected
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/closeout/fixtures/manifest-no-done.tsv
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=8
+stderr: FAIL-CLOSED[8]: 清单无 manifest_done 完成标记（export 未成功）——拒绝校验
+stdout-head: 
+== dropdb 调用 ==
+  [0001] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+  ASSERT-PASS co1/exit-nonzero (expect=8 actual=8)
+  ASSERT-PASS co1-swap-manifest-no-done-rejected/zero-ALTER-DATABASE (expect=0 actual=0)
+  ASSERT-PASS co1-swap-manifest-no-done-rejected/dropdb-targets (expect=shadow_ok actual=shadow_ok)
+  ASSERT-PASS co1-swap-manifest-no-done-rejected/zero-createdb (expect=0 actual=0)
+  ASSERT-PASS co1/stderr-mentions-done-marker (pattern found)
+──────────────────────────────────────────────────────────
+## CASE 2: co2-swap-manifest-tampered-rejected
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/closeout/fixtures/manifest-tampered.tsv
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=8
+stderr: FAIL-CLOSED[8]: 清单 sha256 不符（被篡改/截断）——拒绝校验
+stdout-head: 
+== dropdb 调用 ==
+  [0001] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  （无）
+  ASSERT-PASS co2/exit-nonzero (expect=8 actual=8)
+  ASSERT-PASS co2-swap-manifest-tampered-rejected/zero-ALTER-DATABASE (expect=0 actual=0)
+  ASSERT-PASS co2-swap-manifest-tampered-rejected/dropdb-targets (expect=shadow_ok actual=shadow_ok)
+  ASSERT-PASS co2-swap-manifest-tampered-rejected/zero-createdb (expect=0 actual=0)
+  ASSERT-PASS co2/stderr-mentions-sha (pattern found)
+──────────────────────────────────────────────────────────
+## CASE 3: co3-swap-valid-manifest-full-path
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/closeout/fixtures/manifest-full.tsv
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: verify: 水位=备份点 0091_recorded_cost_accounting_policy verify: table=enterprise digest=match verify: table=provider digest=match verify: table=unified_model digest=match verify: table=principal
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0003] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='enterprise' (no-stdin) exit=0
+  [0004] psql db=id (no-stdin) exit=0
+  [0005] psql db=id (no-stdin) exit=0
+  [0006] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider' (no-stdin) exit=0
+  [0007] psql db=id (no-stdin) exit=0
+  [0008] psql db=id (no-stdin) exit=0
+  [0009] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='unified_model' (no-stdin) exit=0
+  [0010] psql db=id (no-stdin) exit=0
+  [0011] psql db=id (no-stdin) exit=0
+  [0012] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal' (no-stdin) exit=0
+  [0013] psql db=id (no-stdin) exit=0
+  [0014] psql db=id (no-stdin) exit=0
+  [0015] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_key' (no-stdin) exit=0
+  [0016] psql db=id (no-stdin) exit=0
+  [0017] psql db=id (no-stdin) exit=0
+  [0018] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider_resource' (no-stdin) exit=0
+  [0019] psql db=id (no-stdin) exit=0
+  [0020] psql db=id (no-stdin) exit=0
+  [0021] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='billing_rule' (no-stdin) exit=0
+  [0022] psql db=id (no-stdin) exit=0
+  [0023] psql db=id (no-stdin) exit=0
+  [0024] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='model_route' (no-stdin) exit=0
+  [0025] psql db=id (no-stdin) exit=0
+  [0026] psql db=id (no-stdin) exit=0
+  [0027] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ai_request' (no-stdin) exit=0
+  [0028] psql db=id (no-stdin) exit=0
+  [0029] psql db=id (no-stdin) exit=0
+  [0030] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='upstream_attempt' (no-stdin) exit=0
+  [0031] psql db=id (no-stdin) exit=0
+  [0032] psql db=id (no-stdin) exit=0
+  [0033] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='usage_event' (no-stdin) exit=0
+  [0034] psql db=id (no-stdin) exit=0
+  [0035] psql db=id (no-stdin) exit=0
+  [0036] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_line' (no-stdin) exit=0
+  [0037] psql db=id (no-stdin) exit=0
+  [0038] psql db=id (no-stdin) exit=0
+  [0039] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='ledger_transaction' (no-stdin) exit=0
+  [0040] psql db=id (no-stdin) exit=0
+  [0041] psql db=id (no-stdin) exit=0
+  [0042] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_grant' (no-stdin) exit=0
+  [0043] psql db=id (no-stdin) exit=0
+  [0044] psql db=id (no-stdin) exit=0
+  [0045] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='quota_counter' (no-stdin) exit=0
+  [0046] psql db=id (no-stdin) exit=0
+  [0047] psql db=id (no-stdin) exit=0
+  [0048] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_period' (no-stdin) exit=0
+  [0049] psql db=id (no-stdin) exit=0
+  [0050] psql db=id (no-stdin) exit=0
+  [0051] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='principal_quota_usage' (no-stdin) exit=0
+  [0052] psql db=id (no-stdin) exit=0
+  [0053] psql db=id (no-stdin) exit=0
+  [0054] psql db=provider_finance_event (no-stdin) exit=0
+  [0055] psql db=provider_finance_event (no-stdin) exit=0
+  [0056] psql db=SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) THEN '1' ELSE '0' END (no-stdin) exit=0
+  [0057] psql db=SELECT CASE WHEN to_regproc('provider_resource_finance_state_seed') IS NULL THEN '0' ELSE '1' END (no-stdin) exit=0
+  [0058] psql db=SELECT count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API' (no-stdin) exit=0
+  [0059] psql db=synthetic_live (no-stdin) exit=0
+  [0060] psql db=shadow_ok (no-stdin) exit=0
+  [0061] psql db=synthetic_live_pre_rollback_keep (no-stdin) exit=0
+  [0062] psql db=exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres sha256=6fa872042736c481c03ecc0d42b0cca171a3fe134cc37a7a8de331f31d10fa93 bytes=170 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  [0062] ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";;ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";;
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  ASSERT-PASS co3/exit (expect=0 actual=0)
+  ASSERT-PASS co3-swap-valid-manifest-full-path/rename-count (expect=2 actual=2)
+  ASSERT-PASS co3-swap-valid-manifest-full-path/rename-1-live-to-keep (expect=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep"; actual=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";)
+  ASSERT-PASS co3-swap-valid-manifest-full-path/rename-2-shadow-to-live (expect=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live"; actual=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";)
+  ASSERT-PASS co3-swap-valid-manifest-full-path (verify-digest id=/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/closeout/captures/co3-swap-valid-manifest-full-path/0004.argv precedes rename id=/Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/closeout/captures/co3-swap-valid-manifest-full-path/0062.stdin)
+  ASSERT-PASS co3/stdout-verify-ok (pattern found)
+──────────────────────────────────────────────────────────
+== SUMMARY mode=closeout cases=3 asserts-pass=16 asserts-fail=0 ==
+ALL-ASSERTS-PASS
+VERDICT mode=closeout: PASS

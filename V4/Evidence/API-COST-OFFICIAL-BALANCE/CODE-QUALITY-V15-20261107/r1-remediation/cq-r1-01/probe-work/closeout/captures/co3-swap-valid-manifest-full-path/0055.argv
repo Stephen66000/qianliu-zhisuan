@@ -1,0 +1,8 @@
+exec
+pgtest
+sh
+-c
+db="$1"; t="$2"; exec psql -X -Atq -U "$POSTGRES_USER" -d "$db" -c "SET timezone TO UTC" -c "\\copy (SELECT * FROM $t ORDER BY id) TO STDOUT WITH (FORMAT text)"
+sh
+shadow_ok
+provider_finance_event

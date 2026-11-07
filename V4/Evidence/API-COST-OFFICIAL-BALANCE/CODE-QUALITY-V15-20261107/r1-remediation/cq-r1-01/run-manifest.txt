@@ -66,3 +66,16 @@
 - M packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts（仅 swap 调用补参数×2）
 - ?? V4/Evidence/.../r1-remediation/cq-r1-01/（本目录）
 - 未触碰：apps/、packages/ 下其他任何文件（并行子 Agent 的 apps/gateway 改动归属其合同）
+
+## 收口批（验收人定向指令，基线 HEAD=573fa88；2026-11-07）
+- 变更：verify_shadow_body 读清单任何内容之前前置 require_manifest_integrity（replay :392-393 既有
+  manifest_done＋正文 sha256 校验的共用提取，拒绝语义由调用方映射——replay=6 同消息同删影子语义、
+  verify/swap 内联=8 删影子）；swap 在清单对象一致性读取之前同过该门。帮助文本/操作单 §6.1 步骤 7、8 一行同步。
+- 三例探针（closeout-probe-run.log：cases=3 asserts 16/16 VERDICT PASS，桩环境）：
+  1. co1 清单缺 manifest_done 行 → exit 8、零 ALTER DATABASE、dropdb 仅 shadow_ok
+  2. co2 正文篡改（live_migration_head 改写、保留旧 done 行）→ exit 8 摘要不符、零 ALTER DATABASE、dropdb 仅 shadow_ok
+  3. co3 有效清单 → 完整性过 → 内联 verify 全过 → exit 0、verify 先于恰两条 RENAME（live→keep 先、shadow→live 后）
+- 零漂移复跑（同批）：green 12/12 asserts 51/51；regression 21/21 asserts 30/30；
+  replay 语义抽查 neg-no-done 仍 exit 6 同消息、ok-replay exit 0。
+- 未重跑 X07/down 链整套门禁（按验收人指令）；未 commit（总指挥提交）。
+- diff 留档：script-573fa88-to-closeout.diff、release-candidate-closeout-sync.diff

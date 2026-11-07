@@ -1,4 +1,4 @@
-threshold_retirement: 2026-11-07T09:58:17Z shadow=shadow_ok
+threshold_retirement: 2026-11-07T11:18:43Z shadow=shadow_ok
 RETIRE pending_api_before=1
 RETIRE finance_state_rows_before=2
 RETIRE pending_api_after=0

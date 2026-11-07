@@ -1,0 +1,21 @@
+verify: 水位=备份点 0091_recorded_cost_accounting_policy
+verify: table=enterprise digest=match
+verify: table=provider digest=match
+verify: table=unified_model digest=match
+verify: table=principal digest=match
+verify: table=principal_key digest=match
+verify: table=provider_resource digest=match
+verify: table=billing_rule digest=match
+verify: table=model_route digest=match
+verify: table=ai_request digest=match
+verify: table=upstream_attempt digest=match
+verify: table=usage_event digest=match
+verify: table=ledger_line digest=match
+verify: table=ledger_transaction digest=match
+verify: table=principal_grant digest=match
+verify: table=quota_counter digest=match
+verify: table=principal_quota_period digest=match
+verify: table=principal_quota_usage digest=match
+verify: provider_finance_event digest=match（零补造）
+verify: OK shadow=shadow_ok（head／17 表摘要／资金零补造／门槛退役 全部通过——live 未动，可 swap）
+swap: OK live=shadow_ok 影子内容已替换为 live；keep=synthetic_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入）

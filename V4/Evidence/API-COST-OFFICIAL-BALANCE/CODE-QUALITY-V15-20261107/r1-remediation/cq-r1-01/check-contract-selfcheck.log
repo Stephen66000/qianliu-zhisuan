@@ -1,7 +1,4 @@
-# check-contract 自检（CQ-R1-01 修复后；静态回显模式）
-cmd: bash deploy/scripts/rollback-delta-20261106.sh check-contract
 bash -n: OK
-
 == 静态契约 ==
 whitelist+replay_order: enterprise provider unified_model principal principal_key provider_resource billing_rule model_route ai_request upstream_attempt usage_event ledger_line ledger_transaction principal_grant quota_counter principal_quota_period principal_quota_usage
 only_0092_tables(ref 必无): principal_quota_period principal_quota_usage
@@ -11,7 +8,7 @@ conflict_clause: ON CONFLICT (id) DO UPDATE SET <列交集全列>（二次执行
 delta_semantics: 全行比对（PK 全连接，任一列变更或新增行均入增量；清单含 inserted/updated）
 shadow_pipeline: restore/replay/retire/verify 只写影子；全过才 swap；任一步失败＝删影子、live 未动
 swap_policy: 单事务 ALTER DATABASE live→keep、影子→live；keep＝切换后状态留档（回退验证完成后由运维清理，期间不得写入）
-swap_verify_gate: swap 必须带 --db-ref/--manifest 并在改名前内联重跑 verify 全部校验（同一组 live/shadow/ref/清单）；缺参数/对象不符/校验失败＝改名前 exit 非 0（CQ-R1-01）
+swap_verify_gate: swap 必须带 --db-ref/--manifest 并在改名前内联重跑 verify 全部校验（同一组 live/shadow/ref/清单）；清单完整性（manifest_done＋正文 sha256）先于任何清单读取；缺参数/清单不完整/对象不符/校验失败＝改名前 exit 非 0（CQ-R1-01）
 fail_closed: export/校验失败 exit 非 0，live 零写入；无 manifest_done 拒绝 replay
 finance_redline: provider_finance_event 不在白名单（增量面恒空）＋verify 以 ref 全表摘要证明零补造
 check-contract: 静态回显完成（未做库内实测）

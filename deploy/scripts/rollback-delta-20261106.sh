@@ -108,8 +108,10 @@ usage() {
           执行门（CQ-R1-01）：swap 另须 --db-ref/--manifest——在发出任何改名前
           以同一组 live/shadow/ref/清单内联重跑 verify 全部校验（水位／白名单
           全表摘要＝live／资金事实摘要＝ref 零补造／种入触发器与函数退役／
-          API PENDING=0）；缺验证必需参数、清单 container/live_db/ref_db 与待
-          切换对象不符、或任一校验失败＝改名之前 exit 非 0（校验失败＝删影子）。
+          API PENDING=0）；清单完整性（manifest_done 完成标记＋正文 sha256）先于
+          任何清单读取校验。缺验证必需参数、清单不完整或被篡改、清单
+          container/live_db/ref_db 与待切换对象不符、或任一校验失败＝改名之前
+          exit 非 0（校验失败＝删影子）。
           未经过本次内联验证的影子不得接管 live 名称（旧成功日志/独立布尔/
           仅存在性检查不作验证凭据）。
   参数防护（CQ-01）：restore/replay/retire-threshold/verify/swap 五入口要求
@@ -200,6 +202,28 @@ drop_shadow_or_die() { # 失败清理：删影子（尽力而为）后 die
 
 manifest_field() {
   sed -n "s/^$1$TAB//p" "$MANIFEST" | head -1
+}
+
+# 清单完整性（replay 既有校验的共用提取，CQ-R1-01 收口）：manifest_done 完成标记
+# ＋正文（去 done 行）sha256＝done 行声明值。返回 0＝通过；1＝缺完成标记；
+# 2＝正文摘要不符（被篡改/截断）。本函数不做任何破坏动作，拒绝语义由调用方映射。
+manifest_integrity_state() {
+  grep -q "^manifest_done$TAB" "$MANIFEST" || return 1
+  DECLARED="$(sed -n "s/^manifest_done$TAB//p" "$MANIFEST" | tail -1)"
+  BODY="$(grep -v "^manifest_done$TAB" "$MANIFEST")"
+  [ "$(printf '%s\n' "$BODY" | sha256_file /dev/stdin)" = "$DECLARED" ] || return 2
+  return 0
+}
+
+# 清单完整性门：不过＝drop_shadow_or_die（删影子、exit $1）。
+# $1=exit 码（replay=6；verify/swap 内联=8）；$2=拒绝动作词（回放/校验）。
+require_manifest_integrity() {
+  MANIFEST_STATE=0
+  manifest_integrity_state || MANIFEST_STATE=$?
+  case "$MANIFEST_STATE" in
+    1) drop_shadow_or_die "$1" "清单无 manifest_done 完成标记（export 未成功）——拒绝$2" "$DB_SHADOW";;
+    2) drop_shadow_or_die "$1" "清单 sha256 不符（被篡改/截断）——拒绝$2" "$DB_SHADOW";;
+  esac
 }
 
 # 全表（或列投影）流式 sha256：容器内 \copy TO STDOUT → 宿主机 sha256_stdin。
@@ -396,10 +420,7 @@ cmd_replay() {
       drop_shadow_or_die 6 "影子库水位 $TARGET_HEAD 既非备份点 $REF_HEAD 也非 0092 重放后水位——拒绝回放" "$DB_SHADOW"
     fi
   fi
-  grep -q "^manifest_done$TAB" "$MANIFEST" || drop_shadow_or_die 6 "清单无 manifest_done 完成标记（export 未成功）——拒绝回放" "$DB_SHADOW"
-  DECLARED="$(sed -n "s/^manifest_done$TAB//p" "$MANIFEST" | tail -1)"
-  BODY="$(grep -v "^manifest_done$TAB" "$MANIFEST")"
-  [ "$(printf '%s\n' "$BODY" | sha256_file /dev/stdin)" = "$DECLARED" ] || drop_shadow_or_die 6 "清单 sha256 不符（被篡改/截断）——拒绝回放" "$DB_SHADOW"
+  require_manifest_integrity 6 回放
 
   set -- $(sed -n "s/^table$TAB\\([^$TAB]*\\).*rows=\\([0-9]*\\).*sha256=\\([^$TAB]*\\).*\$/\\1:\\2:\\3/p" "$MANIFEST")
   for ITEM in "$@"; do
@@ -546,6 +567,8 @@ cmd_retire_threshold() {
 # 资金事实全表摘要＝ref 快照（零补造）／种入触发器与函数已退役／API PENDING=0；
 # 任一失败＝drop_shadow_or_die 8（删影子、live 未动、exit 非 0）。
 verify_shadow_body() {
+  # CQ-R1-01 收口：读清单任何内容之前先过 manifest_done＋正文 sha256 完整性门。
+  require_manifest_integrity 8 校验
   REF_HEAD="$(manifest_field ref_migration_head)"
   TARGET_HEAD="$(migration_head "$DB_SHADOW")" || drop_shadow_or_die 8 "影子水位读取失败" "$DB_SHADOW"
   if [ "$TARGET_HEAD" != "$REF_HEAD" ]; then
@@ -614,6 +637,9 @@ cmd_swap() {
   [ -n "$DB_REF" ] || die 2 "swap 缺少 --db-ref（切换前须以同一 ref/清单内联重验影子——verify 全过才 swap）"
   [ -n "$MANIFEST" ] || die 2 "swap 缺少 --manifest（切换前须以同一 ref/清单内联重验影子——verify 全过才 swap）"
   [ -s "$MANIFEST" ] || die 2 "swap 清单不存在或为零字节: $MANIFEST"
+  # CQ-R1-01 收口：swap 在用清单做对象一致性比对（任何 manifest_field 读取）之前
+  # 先过完整性门——无完成标记或摘要不符的清单不得作为切换凭据。
+  require_manifest_integrity 8 校验
   require_env
   [ "${ROLLBACK_DELTA_CONFIRM:-}" = "YES" ] \
     || die 9 "危险动作：须环境 ROLLBACK_DELTA_CONFIRM=YES（单事务改名替换 live，DESTRUCTIVE 定级同 rollback.sh:5）"
@@ -658,7 +684,7 @@ cmd_check_contract() {
   echo "delta_semantics: 全行比对（PK 全连接，任一列变更或新增行均入增量；清单含 inserted/updated）"
   echo "shadow_pipeline: restore/replay/retire/verify 只写影子；全过才 swap；任一步失败＝删影子、live 未动"
   echo "swap_policy: 单事务 ALTER DATABASE live→keep、影子→live；keep＝切换后状态留档（回退验证完成后由运维清理，期间不得写入）"
-  echo "swap_verify_gate: swap 必须带 --db-ref/--manifest 并在改名前内联重跑 verify 全部校验（同一组 live/shadow/ref/清单）；缺参数/对象不符/校验失败＝改名前 exit 非 0（CQ-R1-01）"
+  echo "swap_verify_gate: swap 必须带 --db-ref/--manifest 并在改名前内联重跑 verify 全部校验（同一组 live/shadow/ref/清单）；清单完整性（manifest_done＋正文 sha256）先于任何清单读取；缺参数/清单不完整/对象不符/校验失败＝改名前 exit 非 0（CQ-R1-01）"
   echo "fail_closed: export/校验失败 exit 非 0，live 零写入；无 manifest_done 拒绝 replay"
   echo "finance_redline: provider_finance_event 不在白名单（增量面恒空）＋verify 以 ref 全表摘要证明零补造"
   if [ -z "$CONTAINER" ] || [ -z "$DB_LIVE" ]; then

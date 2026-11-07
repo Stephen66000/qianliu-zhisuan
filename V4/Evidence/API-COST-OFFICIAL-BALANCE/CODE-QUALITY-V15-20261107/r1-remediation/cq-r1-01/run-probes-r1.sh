@@ -398,7 +398,46 @@ regression)
   assert "neg-swap-shadow-eq-keep/exit-nonzero" "3" "$(cap_exit neg-swap-shadow-eq-keep)"
   assert_zero_rename neg-swap-shadow-eq-keep
   ;;
-*) echo "mode must be red|green|regression" >&2; exit 64;;
+closeout)
+  # 验收人收口三例（CQ-R1-01 第二批：verify/swap 读清单前过 manifest_done＋正文
+  # sha256 完整性门——replay 既有校验的共用提取）。桩环境，pipefail 记录退出码。
+  echo "==== CQ-R1-01 CLOSEOUT（被测：$(basename "$SCRIPT_UNDER_TEST")）====" >> "$LOG"
+  grep -v '^manifest_done' "$FIX/manifest-full.tsv" > "$FIX/manifest-no-done.tsv"
+  # 篡改清单正文（live_migration_head 改写）但保留旧 manifest_done 摘要行 → 正文摘要不符
+  sed 's/^live_migration_head\t0096_official_balance_refresh_request$/live_migration_head\t0096_TAMPERED_HEAD/' \
+    "$FIX/manifest-full.tsv" > "$FIX/manifest-tampered.tsv"
+  grep -q "0096_TAMPERED_HEAD" "$FIX/manifest-tampered.tsv"
+  echo "fixture-tampered: $(grep -c 'manifest_done' "$FIX/manifest-tampered.tsv") done-line kept" >> "$LOG"
+
+  # 例1：清单缺 manifest_done 行 → 非零退出＋零改名 SQL（仅清理对应影子库）。
+  CASE_ENV_A=(ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS="synthetic_live shadow_ok")
+  run_case co1-swap-manifest-no-done-rejected \
+    swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest "$FIX/manifest-no-done.tsv"
+  assert "co1/exit-nonzero" "8" "$(cap_exit co1-swap-manifest-no-done-rejected)"
+  assert_zero_rename co1-swap-manifest-no-done-rejected
+  assert_only_destructive co1-swap-manifest-no-done-rejected "shadow_ok"
+  assert_match "co1/stderr-mentions-done-marker" "完成标记" "$CAP_ROOT/captures/co1-swap-manifest-no-done-rejected/stderr"
+
+  # 例2：正文被改（保留旧 manifest_done 摘要行）→ 摘要不符、非零退出＋零改名 SQL。
+  CASE_ENV_A=(ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS="synthetic_live shadow_ok")
+  run_case co2-swap-manifest-tampered-rejected \
+    swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest "$FIX/manifest-tampered.tsv"
+  assert "co2/exit-nonzero" "8" "$(cap_exit co2-swap-manifest-tampered-rejected)"
+  assert_zero_rename co2-swap-manifest-tampered-rejected
+  assert_only_destructive co2-swap-manifest-tampered-rejected "shadow_ok"
+  assert_match "co2/stderr-mentions-sha" "sha256 不符" "$CAP_ROOT/captures/co2-swap-manifest-tampered-rejected/stderr"
+
+  # 例3：有效清单 → 完整性过 → 内联 verify 全过 → 正常切换（verify 先于两条 RENAME、exit 0）。
+  CASE_ENV_A=(ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS="synthetic_live shadow_ok")
+  run_case co3-swap-valid-manifest-full-path \
+    swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest "$FIX/manifest-full.tsv"
+  assert "co3/exit" "0" "$(cap_exit co3-swap-valid-manifest-full-path)"
+  assert_rename_pair co3-swap-valid-manifest-full-path synthetic_live synthetic_live_pre_rollback_keep shadow_ok
+  assert_verify_precedes_rename co3-swap-valid-manifest-full-path
+  assert_match "co3/stdout-verify-ok" "verify: OK" "$CAP_ROOT/captures/co3-swap-valid-manifest-full-path/stdout"
+  ;;
+
+*) echo "mode must be red|green|regression|closeout" >&2; exit 64;;
 esac
 
 summary
