@@ -131,6 +131,8 @@ beforeAll(async () => {
     model_alias: "qianliu-deepseek",
     quota_value: 1_000_000n,
     status: "ACTIVE",
+    // 显式种子时间，避免 DB 默认 now()（容器时钟）与宿主机 now 比较的跨时钟偏差窗口。
+    valid_from: new Date(0),
   }).returning("id").executeTakeFirstOrThrow();
   grantId = grant.id;
   await db.insertInto("quota_counter").values({ grant_id: grant.id }).execute();

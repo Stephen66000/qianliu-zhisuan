@@ -299,4 +299,68 @@ describe("listOfficialBalanceStates（C2 官方余额状态读取，task 3.3）"
     expect(lenient.status).toBe("OK");
     expect(lenient.expired).toBe(false);
   });
+  it("EG-02 定向补充：判定/活性边界与排序合同——租约恰等 now 不算 SYNCING、expired 恰等 P2 不算过期、CODING_PLAN 不支持、next_refresh_at 活性与恰等失效、输出按 resource_id 升序", async () => {
+    // a) RUNNING 租约 expires_at 恰等 now（F4）：原实现 `expires_at > now` 才 SYNCING
+    //    → 恰等不算在途 → 回落判定链（无快照 + attempt 非 FAILED → NEVER_SYNCED）。
+    const a = await seedResource("eg02-lease-boundary");
+    await insertAttempt(a, { startedAt: new Date(T0.getTime() - 120_000), balanceStatus: "SUCCESS" });
+    await db.insertInto("provider_resource_balance_refresh").values({
+      enterprise_id: a.enterpriseId, provider_resource_id: a.resourceId,
+      actor_admin_id: a.adminId, idempotency_key: randomUUID(),
+      status: "RUNNING", error_code: null,
+      started_at: new Date(T0.getTime() - 60_000), expires_at: T0,
+      updated_at: new Date(T0.getTime() - 60_000),
+    }).execute();
+    const stateA = await read(a, T0);
+    expect(stateA.status).toBe("NEVER_SYNCED");
+
+    // b) canonical deepseek 但 mode=CODING_PLAN → supported 恒 false → UNSUPPORTED。
+    const b = await seedResource("eg02-plan", { mode: "CODING_PLAN" });
+    const stateB = await read(b, T0);
+    expect(stateB).toMatchObject({ supported: false, status: "UNSUPPORTED",
+      total_balance: null, next_refresh_at: null });
+
+    // c) expired 恰等 P2（collected_at == now - P2）：原实现 `差 > expireMs` 才过期。
+    const c = await seedResource("eg02-expire-boundary");
+    await insertSnapshot(c, { version: 1,
+      collectedAt: new Date(T0.getTime() - P2_MS), totalBalance: "10", available: true });
+    const stateC = await read(c, T0);
+    expect(stateC).toMatchObject({ status: "OK", expired: false });
+
+    // d) next_refresh_at 活性：attempt 10s 前 + P3=30s → 未来 20s → 非空（原实现
+    //    refreshCandidates 非空时取 max；变异 false/恒 null 被杀）。
+    const d = await seedResource("eg02-next-refresh-live");
+    await insertAttempt(d, { startedAt: new Date(T0.getTime() - 10_000), balanceStatus: "FAILED" });
+    const stateD = await read(d, T0);
+    expect(stateD.status).toBe("FAILED");
+    expect(stateD.next_refresh_at?.getTime()).toBe(T0.getTime() + 20_000);
+
+    // e) next_refresh_at 恰等 now（attempt + P3 == now）：候选不大于 now → null（立即可刷）。
+    const e = await seedResource("eg02-next-refresh-boundary");
+    await insertAttempt(e, { startedAt: new Date(T0.getTime() - P3_MS), balanceStatus: "FAILED" });
+    const stateE = await read(e, T0);
+    expect(stateE.next_refresh_at).toBeNull();
+
+    // f) 排序合同：同企业两资源按 provider_resource_id 升序输出（uuid 逆插入序）。
+    const fEnt = randomUUID(); const fAdmin = randomUUID();
+    const idSmall = "00000000-0000-4000-8000-000000000001";
+    const idLarge = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    await db.insertInto("enterprise").values({ id: fEnt, name: "eg02-sort" }).execute();
+    await db.insertInto("admin_user").values({ id: fAdmin, enterprise_id: fEnt,
+      username: "eg02-sort-admin", password_hash: "not-used", status: "ACTIVE" }).execute();
+    for (const [providerId, resourceId, code] of [
+      [randomUUID(), idLarge, "deepseek"], [randomUUID(), idSmall, "kimi"],
+    ] as const) {
+      await db.insertInto("provider").values({ id: providerId, enterprise_id: fEnt,
+        code, name: `${code} ${resourceId.slice(0, 6)}`,
+        adapter_type: "OPENAI_COMPATIBLE" }).execute();
+      await db.insertInto("provider_resource").values({
+        id: resourceId, enterprise_id: fEnt, provider_id: providerId,
+        name: `eg02-sort-${resourceId.slice(0, 6)}`, mode: "API",
+        credential_type: "API_KEY" }).execute();
+    }
+    const statesF = await listOfficialBalanceStates(db, fEnt,
+      { now: T0, expireMs: P2_MS, cooldownMs: P3_MS });
+    expect(statesF.map((s) => s.provider_resource_id)).toEqual([idSmall, idLarge]);
+  });
 });

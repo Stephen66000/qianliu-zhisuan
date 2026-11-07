@@ -1,0 +1,4 @@
+start: 2026-11-07 12:29:23
+cmd: stryker run stryker.eg02.database.config.json
+end: 2026-11-07 12:35:56
+exit_code: 0

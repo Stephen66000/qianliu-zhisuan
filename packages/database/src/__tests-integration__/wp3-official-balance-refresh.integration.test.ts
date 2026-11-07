@@ -227,6 +227,23 @@ describe.sequential("0096 官方余额手动刷新请求表（task 3.2）", () =
     expect(attempts[0]!.sync_day.toISOString()).toBe(attempts[1]!.sync_day.toISOString());
   });
 
+  it("EG-02 定向补充：listLatest 返回该资源最近一行刷新请求（按 started_at 倒序）", async () => {
+    const seed = await seedEnterprise("eg02-listlatest");
+    const t0 = new Date("2026-08-18T03:00:00Z");
+    const begun = await seed.refreshRepo.begin(beginInput(seed, { now: t0 }));
+    // listLatest：按 started_at 倒序取该资源最近一行刷新请求。
+    const latest = await seed.refreshRepo.listLatest(seed.resourceId);
+    expect(latest).toBeDefined();
+    expect(latest!.id).toBe(begun.row.id);
+    expect(latest!.status).toBe("RUNNING");
+
+    // 注：共享写入原语合同中「resource 不存在 → snapshotId null、attempt 照写」的
+    // 分支在本 schema 下不可达——attempt 表对 provider_resource 有租户外键
+    // （resource_tenant_fk），resource 真不存在时 attempt 照写会 FK 失败；
+    // snapshotId ?? null 仅作防御保留（EG-02 报告已记录该合同/外键不一致观察）。
+    expect((await seed.refreshRepo.listLatest(seed.resourceId))!.id).toBe(begun.row.id);
+  });
+
   it("down：drop 表（纯协调状态，无数据守卫）；重新 up 恢复", async () => {
     const rollbackPg = await startPostgresContainer("wp3_0096_rollback");
     const rollbackDb = createKysely(rollbackPg.connectionString);

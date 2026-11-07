@@ -311,4 +311,66 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
       await db.destroy();
     }
   });
+  it("EG-02 定向补充：NOT_SUPPORTED 分态留痕（非经营范围 code／缺凭证／适配器 null 余额）＋401 POFE 失败留痕；省略 now 用默认时钟", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const kekBase64 = Buffer.alloc(32, 13).toString("base64");
+      const kek = Buffer.alloc(32, 13);
+      const seedRaw = async (code: string, withCredential: boolean): Promise<{ enterpriseId: string; resourceId: string }> => {
+        const enterpriseId = randomUUID(); const providerId = randomUUID(); const resourceId = randomUUID();
+        await db.insertInto("enterprise").values({ id: enterpriseId, name: enterpriseId }).execute();
+        await db.insertInto("provider").values({
+          id: providerId, enterprise_id: enterpriseId, code, name: code,
+          adapter_type: "OPENAI_COMPATIBLE",
+        }).execute();
+        await db.insertInto("provider_resource").values({
+          id: resourceId, enterprise_id: enterpriseId, provider_id: providerId,
+          name: "EG02 raw", mode: "API", credential_type: "API_KEY",
+          ...(withCredential
+            ? { credential_ciphertext: JSON.stringify(encryptCredential("sk-eg02", kek)) }
+            : {}),
+        }).execute();
+        return { enterpriseId, resourceId };
+      };
+      // a) 非经营范围 code：canonical 不落在 deepseek/kimi/zhipu → PROVIDER_NOT_SUPPORTED。
+      const a = await seedRaw("openai", true);
+      // b) deepseek API 但缺凭证 → CREDENTIAL_MISSING。
+      const b = await seedRaw("deepseek", false);
+      // c) zhipu：canonical 在经营范围内、有凭证 → 适配器对非 deepseek 返回 null
+      //    → PROVIDER_BALANCE_API_NOT_SUPPORTED（零上游调用）。
+      const c = await seedRaw("zhipu", true);
+      // d) deepseek 有凭证 + 上游 401 → 适配器抛 POFE("UNAUTHORIZED") → FAILED 留痕。
+      const d = await seedRaw("deepseek", true);
+      const unauthorizedFetch = vi.fn(async () => ({ ok: false, status: 401 })) as unknown as ProviderOperatingFetch;
+
+      // 省略 now：覆盖默认 new Date() 分支；resourcesScanned＝4（三种 NOT_SUPPORTED＋1 失败）。
+      const result = await runProviderOperatingSyncTick({ db, kekBase64, fetch: unauthorizedFetch });
+      expect(result).toMatchObject({ resourcesScanned: 4, snapshotsCreated: 0,
+        failed: 1, notSupported: 3, skippedQuiescentResources: 0 });
+
+      const errorCodeOf = async (resourceId: string): Promise<{ balance_status: string; error_code: string | null; failure_reason: string | null }> =>
+        (await db.selectFrom("provider_resource_operating_sync_attempt")
+          .select(["balance_status", "error_code", "failure_reason"])
+          .where("provider_resource_id", "=", resourceId)
+          .orderBy("started_at", "desc").executeTakeFirstOrThrow());
+      expect(await errorCodeOf(a.resourceId)).toMatchObject({
+        balance_status: "NOT_SUPPORTED", error_code: "PROVIDER_NOT_SUPPORTED" });
+      expect(await errorCodeOf(b.resourceId)).toMatchObject({
+        balance_status: "NOT_SUPPORTED", error_code: "CREDENTIAL_MISSING" });
+      expect(await errorCodeOf(c.resourceId)).toMatchObject({
+        balance_status: "NOT_SUPPORTED", error_code: "PROVIDER_BALANCE_API_NOT_SUPPORTED" });
+      expect(await errorCodeOf(d.resourceId)).toMatchObject({
+        balance_status: "FAILED", error_code: "UNAUTHORIZED" });
+      // a/b/c 未触达上游；d 恰一次（401）。
+      expect(unauthorizedFetch).toHaveBeenCalledTimes(1);
+      for (const { resourceId } of [a, b, c, d]) {
+        expect(await db.selectFrom("provider_resource_operating_snapshot").select("id")
+          .where("provider_resource_id", "=", resourceId).execute()).toHaveLength(0);
+        await retireResource(db, resourceId);
+      }
+    } finally {
+      await db.destroy();
+    }
+  });
 });

@@ -1,0 +1,32 @@
+EG-01 根因分析记录（gate-supplement-run2）
+基线：worktree 仟流智算-api-decouple，分支 codex/simplify-api-cost-and-official-balance，HEAD 7594639（已核实），工作区仅 1 个未跟踪 candidate-lock.json。
+
+[1] 配置逐项对比（vitest.pool029.config.ts @仓库根 vs vitest.config.ts @apps/gateway 相对引用）
+- environment: node == node；globals: false == false；setupFiles: 两者均无；env 注入: 两者均无。
+- .env 加载: 两配置均不加载 dotenv；仓库根仅有 .env.example，apps/gateway 无 .env 文件（未核实生产运行方式，与测试无关）。
+- include: pool029 为 9 文件显式清单；标准为 src/** 模式（root=apps/gateway）。单文件过滤下两配置收集同一 w05 文件。
+- coverage: pool029 v8 + reportsDirectory=coverage/pool029-node + 阈值 0；标准 v8 + html/json-summary + 阈值 95/85/90/95。coverage 仅影响插桩报告，不改变查询语义。
+- 其他差异: fileParallelism=false、hookTimeout 120s vs 60s、reporters 默认——均不触及运行时行为。
+- 结论：两配置在 w05 运行时语义（模块解析、DB 夹具、上游 stub、密钥）上无差异。run1 的"配置相关性"是时间巧合，非因果。
+
+[2] 复现与波动
+- 复现命令：corepack pnpm@11.11.0 exec vitest run --config vitest.pool029.config.ts apps/gateway/src/__tests-integration__/w05-northbound.test.ts
+- 结果：32/33 通过，仅第一条用例（GET /v1/models 形状）失败，data 为空数组；第 2 条用例同一查询 11ms 后通过。
+- run1 全池 6 例失败、单文件 4/33，与本轮 1 例失败——失败数随运行漂移，指向非确定性因素。
+
+[3] 根因：colima VM 时钟偏差 × 测试夹具依赖 DB 默认 now()
+- w05 种子 principal_grant 未显式给 valid_from → 落库取迁移 0004_principal_grant.js 的 defaultTo("now()")，即 PG 容器（colima VM）时钟。
+- gateway 授权查询（apps/gateway/src/auth/current-model-authorization.ts:108）以宿主机 JS new Date() 过滤 principal_grant.valid_from <= scope.now。
+- 实测（同一 PG 镜像 digest 742f40ea…）宿主 Node Date.now() vs 容器 clock_timestamp()：偏差 +1457~+1616ms，且每 5~9 秒被步进校正回 -34ms 再漂移回升（VM 时钟快走、周期性回拨）。
+- 当 w05 beforeAll 完成后立即发起请求，而 VM 处于"快钟窗口"时：valid_from = 宿主时间+~1.5s > 请求时刻 → grant join 被过滤 → /v1/models 空列表、hasCurrentInvocationAuthorization=false。步进回拨或墙钟追上后自愈。
+- 因果实验：同 pool029 配置，beforeAll 末尾临时加 2.5s 延迟 → 33/33 全过（experiment-sleep2500-pool029.log，EXIT=0）；实验后已还原该临时改动。
+- 失败用例集合（run1 全池 6 例）全部经过同一 grant 时间过滤路径，与该机制吻合；billing_rule/cooldown_until/expires_at/valid_until 均为显式宿主时间种子，无此问题。
+
+[4] 池内其他文件暴露面核查
+- pool029-employee-model-rules.test.ts：种子全部固定历史时间戳（2026-01-01/2026-08-01）——免疫。
+- pool029-authorization-rule-migration.test.ts：now() 种子仅用于 DB 内部迁移前后对比——免疫。
+- w03-key-grant.test.ts：grant 种子虽未显式 valid_from（第 492 行），但其断言均为 DB 内部状态/管理 API 列表，无用宿主机时钟过滤 valid_from 的查询——本轮免疫；存在同型隐患，未改动（超出 EG-01 范围，仅记录）。
+
+[5] 修复
+- apps/gateway/src/__tests-integration__/w05-northbound.test.ts 第 134 行前加两行：种子 principal_grant 显式 valid_from: new Date(0)（与同文件 billing_rule effective_from: new Date(0) 惯例一致）。
+- 性质：纯测试夹具修复；不删用例、不改合同断言、不 mock 依赖、不动阈值与排除项、不动生产实现。

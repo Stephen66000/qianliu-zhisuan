@@ -1,0 +1,2 @@
+$ node scripts/check-coverage-ratchet.mjs
+coverage ratchet passed: 13 scopes did not regress

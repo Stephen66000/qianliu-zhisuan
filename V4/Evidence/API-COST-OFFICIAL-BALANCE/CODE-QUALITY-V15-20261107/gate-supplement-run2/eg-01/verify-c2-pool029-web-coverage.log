@@ -1,0 +1,26 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/web
+      Coverage enabled with v8
+
+ ✓ src/api/employee-model-rules.test.tsx (2 tests) 76ms
+ ✓ src/components/layout/Sidebar.test.tsx (2 tests) 140ms
+ ✓ src/pages/EmployeeModelRules.test.tsx (5 tests) 1226ms
+   ✓ POOL-029 批量模型授权页面 > 创建、编辑、校验、发布、停用与新版本操作都调用对应 mutation  777ms
+
+ Test Files  3 passed (3)
+      Tests  9 passed (9)
+   Start at  12:04:06
+   Duration  2.88s (transform 248ms, setup 671ms, collect 530ms, tests 1.44s, environment 1.53s, prepare 240ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   99.74 |    90.43 |   97.95 |   99.74 |                   
+ api               |     100 |      100 |     100 |     100 |                   
+  ...odel-rules.ts |     100 |      100 |     100 |     100 |                   
+ components/layout |   97.82 |     87.5 |     100 |   97.82 |                   
+  Sidebar.tsx      |   97.82 |     87.5 |     100 |   97.82 | 58                
+ pages             |     100 |     89.9 |   97.56 |     100 |                   
+  ...odelRules.tsx |     100 |     89.9 |   97.56 |     100 | ...63-265,312,336 
+-------------------|---------|----------|---------|---------|-------------------

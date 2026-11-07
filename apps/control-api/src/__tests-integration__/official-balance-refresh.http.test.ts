@@ -585,6 +585,66 @@ describe("POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.
       total_balance: "110.00000000" });
   });
 
+  it("EG-02 定向补充：幂等重放——同键终态直接复用既有结果（SUCCEEDED/FAILED），不再触达上游", async () => {
+    const seed = await seedEnterprise("refresh-replay");
+    const keyOk = randomUUID();
+    stubFetch(() => ({ ok: true, status: 200, json: async () => okBalance("120") }));
+    const first = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: keyOk });
+    expect(first.statusCode).toBe(200);
+    expect((first.json() as { result: { outcome: string } }).result.outcome).toBe("SUCCEEDED");
+    const callsAfterFirst = fetchMock.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThanOrEqual(1);
+
+    // 同键重放：复用 SUCCEEDED 终态，零上游调用、零新增留痕。
+    const replayOk = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: keyOk });
+    expect(replayOk.statusCode).toBe(200);
+    const okPayload = replayOk.json() as { state: string; result: { outcome: string } };
+    expect(okPayload.state).toBe("ACCEPTED");
+    expect(okPayload.result.outcome).toBe("SUCCEEDED");
+    expect(fetchMock.mock.calls.length).toBe(callsAfterFirst);
+    expect(await refreshRowCount(seed.deepseekResourceId)).toBe(1);
+    expect(await attemptCount(seed.deepseekResourceId)).toBe(1);
+    expect(await snapshotCount(seed.deepseekResourceId)).toBe(1);
+
+    // FAILED 终态重放：复用既有错误码（幂等重放不受冷却影响，begin 先查键）。
+    await withShortCooldown(async () => {
+      stubFetch(() => ({ ok: false, status: 500, json: async () => ({}) }));
+      const keyFail = randomUUID();
+      const failed = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: keyFail });
+      expect(failed.statusCode).toBe(200);
+      expect((failed.json() as { result: { outcome: string; error_code: string } }).result)
+        .toMatchObject({ outcome: "FAILED", error_code: "UPSTREAM_UNAVAILABLE" });
+      const callsAfterFail = fetchMock.mock.calls.length;
+      const replayFail = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: keyFail });
+      expect(replayFail.statusCode).toBe(200);
+      expect((replayFail.json() as { state: string; result: { outcome: string; error_code: string } }).result)
+        .toMatchObject({ outcome: "FAILED", error_code: "UPSTREAM_UNAVAILABLE" });
+      expect(fetchMock.mock.calls.length).toBe(callsAfterFail);
+      expect(await refreshRowCount(seed.deepseekResourceId)).toBe(2);
+    });
+  });
+
+  it("EG-02 定向补充：同键 RUNNING 在途 → 重放 IN_PROGRESS（retry_after 取租约剩余秒数），不触达上游", async () => {
+    const seed = await seedEnterprise("refresh-replay-running");
+    const key = randomUUID();
+    await sql`
+      INSERT INTO provider_resource_balance_refresh
+        (enterprise_id, provider_resource_id, actor_admin_id, idempotency_key,
+         status, started_at, expires_at, updated_at)
+      SELECT ${seed.enterpriseId}::uuid, ${seed.deepseekResourceId}::uuid,
+             a.id::uuid, ${key}::uuid, 'RUNNING', now(), now() + interval '30 seconds', now()
+        FROM admin_user a WHERE a.enterprise_id = ${seed.enterpriseId}::uuid LIMIT 1
+    `.execute(db);
+    stubFetch(() => ({ ok: true, status: 200, json: async () => okBalance("130") }));
+    const replay = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: key });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toMatchObject({ state: "IN_PROGRESS" });
+    const payload = replay.json() as { retry_after_seconds: number };
+    expect(payload.retry_after_seconds).toBeGreaterThan(0);
+    expect(payload.retry_after_seconds).toBeLessThanOrEqual(60);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("请求体校验：非法 idempotency_key → 400 invalid_request", async () => {
     const seed = await seedEnterprise("refresh-body");
     const bad = await refresh(seed.superCookie, seed.deepseekResourceId, { idempotency_key: "not-a-uuid" });
