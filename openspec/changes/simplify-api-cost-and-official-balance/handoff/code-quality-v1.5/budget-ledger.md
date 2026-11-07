@@ -22,11 +22,13 @@ wall_clock_minutes: 420
 budget_hit_action: "STOP_AND_REPORT"
 
 # 运行记录（2026-11-07）
-elapsed_wall_clock_minutes: 约 160（08:40 计划冻结 → 11:20 材料就绪）
+elapsed_wall_clock_minutes: 约 235（08:40 冻结 → 11:20 首轮材料 → 11:35 补证完成；含补证阶段约 75'，总指挥亲跑未委派）
 fix_batches_used: 1/1（CQ-01 含一次总指挥返工指令；GATE-01 三串行子合同属同批）
 reaudit_rounds_used: 0/2（预留给正式审核复审）
 new_uncached_tokens_used: "N/A（平台不提供）"
 first_budget_hit: null
+# 补证阶段记录（2026-11-07 11:20-11:35）：按指令只跑既有工具——build×3/jscpd/licenses/audit 全 PASS；覆盖率 5/6 池 PASS、pool029 FAIL（w05 配置上下文型，P1）→ratchet 阻断；变异适用性核查＝无适用配置（P2）。
+# 开审阻断候选：P1（ratchet 门禁）＋P2（新模块变异/覆盖配置缺）——是否补齐/豁免由验收人裁定；握手维持不执行。
 
 planning_owner: "GLM-5.3 总指挥（zcode 会话）"
 execution_dri: "glm-flash 子 Agent×5 合同（CQ-01×2 轮、GATE-01×3 批）"

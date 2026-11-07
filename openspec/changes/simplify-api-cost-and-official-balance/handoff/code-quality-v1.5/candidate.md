@@ -5,8 +5,9 @@
 - 分支：`codex/simplify-api-cost-and-official-balance`（worktree /Users/mac/Projects/仟流智算-api-decouple）
 - base（阶段授权起点）：`ae506fed47d21865420afa91137e8b244072933e`（远端 main，PR #7）
 - 预检候选：`d82559f09aab75bac6a1e1e9d80b228d56c0f057`（X07 R5 完成态，验收人功能复判 18/18 的对象）
-- **整改后送审候选：`38ab493`**（本目录材料与对象锁绑定；最终 SHA 以 candidate-lock.json 的 HEAD 为准）
-- 完整阶段范围＝base..送审候选 全部提交（git log ae506fe..HEAD），含七工作包业务/文档/证据＋X07 R3/R4/R5＋质量整改四笔：`56d5fa7`（CQ-01）＋`dbcecd8`/`17650a6`/`38ab493`（GATE-01 三批）。**不拿本轮修复 diff 冒充整阶段。**
+- **实现提交：`38ab493`**（整改后最后一笔代码提交：CQ-01 `56d5fa7`＋GATE-01 三批 `dbcecd8`/`17650a6`/`38ab493`）
+- **送审材料提交：`cefbb6d`**（首轮材料）；**补证材料提交**：本轮 gate-supplement（证据＋纠文，SHA 见对象锁 HEAD）——材料提交不改产品实现，实现同一性由对象锁 implementation_hash 与 38ab493 树一致证明（Candidate 即实现提交树＋纯文档增量）
+- 完整阶段范围＝base..当前候选全部提交（git log ae506fe..HEAD）。**不拿本轮修复 diff 冒充整阶段。**
 
 ## 功能结论与新候选的绑定（§5.2）
 

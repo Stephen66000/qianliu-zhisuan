@@ -1,0 +1,20 @@
+start=11:29:35
+=== quality:coverage:domain ===
+exit[quality:coverage:domain]=0
+=== quality:coverage:changed ===
+exit[quality:coverage:changed]=0
+=== quality:coverage:pool029 ===
+exit[quality:coverage:pool029]=1
+=== quality:coverage:pool030 ===
+exit[quality:coverage:pool030]=0
+=== quality:coverage:pool040 ===
+exit[quality:coverage:pool040]=0
+=== quality:coverage:pool043 ===
+exit[quality:coverage:pool043]=0
+=== ratchet(重跑) ===
+exit[ratchet2]=1
+$ node scripts/check-coverage-ratchet.mjs
+pool029-node-authorization: 缺少覆盖率报告 coverage/pool029-node/coverage-summary.json（ENOENT）
+pool029-web-authorization: 缺少覆盖率报告 apps/web/coverage/pool029-web/coverage-summary.json（ENOENT）
+[ELIFECYCLE] Command failed with exit code 1.
+end=11:32:12

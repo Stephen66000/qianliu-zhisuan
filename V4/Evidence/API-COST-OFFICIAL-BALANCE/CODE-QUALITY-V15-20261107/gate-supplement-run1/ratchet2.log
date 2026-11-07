@@ -1,0 +1,4 @@
+$ node scripts/check-coverage-ratchet.mjs
+pool029-node-authorization: 缺少覆盖率报告 coverage/pool029-node/coverage-summary.json（ENOENT）
+pool029-web-authorization: 缺少覆盖率报告 apps/web/coverage/pool029-web/coverage-summary.json（ENOENT）
+[ELIFECYCLE] Command failed with exit code 1.

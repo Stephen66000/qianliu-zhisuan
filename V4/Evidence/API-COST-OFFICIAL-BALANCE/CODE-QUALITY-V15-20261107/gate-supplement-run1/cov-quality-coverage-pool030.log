@@ -1,0 +1,41 @@
+$ corepack pnpm@11.11.0 --dir apps/gateway exec vitest run --config vitest.pool030.config.ts --coverage && corepack pnpm@11.11.0 --dir packages/provider-adapters exec vitest run --config vitest.pool030.config.ts --coverage
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+      Coverage enabled with v8
+
+ ✓ src/upstream-failover-policy.test.ts (9 tests) 2ms
+ ✓ src/upstream-timeout-policy.test.ts (26 tests) 5ms
+ ✓ src/upstream-caller-factory.test.ts (12 tests) 5ms
+
+ Test Files  3 passed (3)
+      Tests  47 passed (47)
+   Start at  11:30:45
+   Duration  744ms (transform 381ms, setup 0ms, collect 922ms, tests 12ms, environment 0ms, prepare 212ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ ...ler-factory.ts |     100 |      100 |     100 |     100 |                   
+ ...over-policy.ts |     100 |      100 |     100 |     100 |                   
+ ...eout-policy.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/provider-adapters
+      Coverage enabled with v8
+
+ ✓ src/__tests__/resource-timeout-policy.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  11:30:47
+   Duration  292ms (transform 21ms, setup 0ms, collect 20ms, tests 3ms, environment 0ms, prepare 47ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ ...eout-policy.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------

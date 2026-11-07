@@ -1,0 +1,104 @@
+$ jscpd apps packages --min-lines 20 --min-tokens 100 --threshold 5 --ignore '**/.stryker-tmp/**,**/dist/**,**/coverage/**,**/reports/**,**/__tests__/**,**/__tests-integration__/**,**/*.test.ts,**/*.test.tsx' --reporters console
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/department-costs/types.ts[39m[22m [1:26 - 31:16] (31 lines, 132 tokens)
+   database/src/repositories/department-cost-types.ts [3:36 - 33:16]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/department-costs/types.ts[39m[22m [31:29 - 59:2] (29 lines, 121 tokens)
+   database/src/repositories/department-cost-types.ts [33:39 - 61:2]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/keys/routes.ts[39m[22m [68:90 - 90:71] (23 lines, 128 tokens)
+   control-api/src/keys/routes.ts [251:40 - 274:19]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/principals/routes.ts[39m[22m [256:11 - 280:37] (25 lines, 134 tokens)
+   control-api/src/principals/routes.ts [309:10 - 331:73]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/usage/routes.ts[39m[22m [79:19 - 103:13] (25 lines, 230 tokens)
+   control-api/src/usage/routes.ts [110:26 - 133:13]
+[1mClone found (typescript)[22m
+ - [1m[32mcontrol-api/src/wecom/message-handler.ts[39m[22m [10:1 - 60:7] (51 lines, 321 tokens)
+   worker/src/reporting/format-utils.ts [9:1 - 57:7]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/auth/current-model-authorization.ts[39m[22m [81:55 - 106:12] (26 lines, 198 tokens)
+   gateway/src/auth/current-model-authorization.ts [237:51 - 262:8]
+[1mClone found (typescript)[22m
+ - [1m[32mgateway/src/routes/chat.ts[39m[22m [44:61 - 71:65] (28 lines, 144 tokens)
+   gateway/src/routes/messages.ts [22:54 - 52:22]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/diagnostic-types.ts[39m[22m [166:28 - 189:17] (24 lines, 126 tokens)
+   database/src/repositories/alert-event-types.ts [7:29 - 30:17]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/provider-finance-activation-types.ts[39m[22m [17:1 - 42:17] (26 lines, 102 tokens)
+   domain/src/provider-finance-activation-contract.ts [264:1 - 283:17]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [10:37 - 42:23] (33 lines, 164 tokens)
+   database/src/repositories/dashboard-types.ts [111:17 - 143:23]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [80:5 - 110:17] (31 lines, 143 tokens)
+   database/src/repositories/dashboard-types.ts [84:43 - 114:17]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [142:42 - 178:5] (37 lines, 185 tokens)
+   database/src/repositories/dashboard-types.ts [23:5 - 65:5]
+[1mClone found (typescript)[22m
+ - [1m[32mweb/src/api/reporting-types.ts[39m[22m [268:4 - 301:15] (34 lines, 149 tokens)
+   database/src/repositories/usage-repository.ts [37:18 - 72:15]
+[1mClone found (tsx)[22m
+ - [1m[32mweb/src/pages/OperatingBillEmployees.tsx[39m[22m [13:35 - 35:16] (23 lines, 104 tokens)
+   web/src/pages/OperatingBillProjects.tsx [16:1 - 38:16]
+[1mClone found (tsx)[22m
+ - [1m[32mweb/src/pages/OperatingBillEmployees.tsx[39m[22m [41:42 - 65:32] (25 lines, 177 tokens)
+   web/src/pages/OperatingBillProjects.tsx [44:41 - 68:32]
+[1mClone found (typescript)[22m
+ - [1m[32mworker/src/reporting/daily-token-report.ts[39m[22m [205:27 - 232:7] (28 lines, 200 tokens)
+   worker/src/reporting/report-jobs.ts [247:74 - 274:7]
+[1mClone found (typescript)[22m
+ - [1m[32mworker/src/reporting/report-jobs.ts[39m[22m [458:45 - 485:8] (28 lines, 105 tokens)
+   worker/src/reporting/report-jobs.ts [491:45 - 518:6]
+[1mClone found (typescript)[22m
+ - [1m[32mworker/src/reporting/templates/company-monthly-svg.ts[39m[22m [71:45 - 91:21] (21 lines, 111 tokens)
+   worker/src/reporting/templates/daily-token-report-svg.ts [93:43 - 113:21]
+[1mClone found (typescript)[22m
+ - [1m[32mworker/src/reporting/templates/company-weekly-svg.ts[39m[22m [91:24 - 116:30] (26 lines, 108 tokens)
+   worker/src/reporting/templates/daily-token-report-svg.ts [78:31 - 103:30]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/billing-rule-persistence.ts[39m[22m [15:7 - 37:24] (23 lines, 122 tokens)
+   database/src/repositories/billing-rule-persistence.ts [57:7 - 79:24]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/dispatch-policy-repository.ts[39m[22m [111:9 - 135:38] (25 lines, 171 tokens)
+   database/src/repositories/dispatch-policy-repository.ts [153:9 - 176:38]
+[1mClone found (typescript)[22m
+ - [1m[32mdatabase/src/repositories/provider-finance-cutover-repository.ts[39m[22m [17:69 - 62:13] (46 lines, 115 tokens)
+   database/src/repositories/provider-finance-usage-backfill.ts [6:71 - 51:13]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/deepseek-adapter.ts[39m[22m [35:19 - 74:31] (40 lines, 187 tokens)
+   provider-adapters/src/adapters/kimi-adapter.ts [33:18 - 75:31]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/kimi-adapter.ts[39m[22m [26:34 - 76:27] (51 lines, 213 tokens)
+   provider-adapters/src/adapters/zhipu-adapter.ts [24:35 - 73:27]
+[1mClone found (typescript)[22m
+ - [1m[32mprovider-adapters/src/adapters/kimi-adapter.ts[39m[22m [55:23 - 77:28] (23 lines, 104 tokens)
+   provider-adapters/src/adapters/zhipu-adapter.ts [53:23 - 74:4]
+[90m┌────────────┬────────────────┬─────────────┬──────────────┬──────────────┬──────────────────┬───────────────────┐[39m
+[90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m css        [90m│[39m 2              [90m│[39m 279         [90m│[39m 4180         [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m javascript [90m│[39m 72             [90m│[39m 7908        [90m│[39m 38596        [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m json       [90m│[39m 7              [90m│[39m 282         [90m│[39m 893          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markdown   [90m│[39m 1              [90m│[39m 66          [90m│[39m 413          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m markup     [90m│[39m 1              [90m│[39m 41          [90m│[39m 501          [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m tsx        [90m│[39m 119            [90m│[39m 19368       [90m│[39m 146663       [90m│[39m 2            [90m│[39m 46 (0.24%)       [90m│[39m 281 (0.19%)       [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m typescript [90m│[39m 546            [90m│[39m 94924       [90m│[39m 621174       [90m│[39m 24           [90m│[39m 710 (0.75%)      [90m│[39m 3713 (0.60%)      [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 748            [90m│[39m 122868      [90m│[39m 812420       [90m│[39m 26           [90m│[39m 756 (0.62%)      [90m│[39m 3994 (0.49%)      [90m│[39m
+[90m└────────────┴────────────────┴─────────────┴──────────────┴──────────────┴──────────────────┴───────────────────┘[39m
+[90mFound 26 clones.[39m
+[90mtime: 112.291ms[39m
+
+[90m💡 Auto-refactor with AI: [1m[39mnpx skills add https://github.com/kucherenko/jscpd --skill dry-refactoring[90m[22m
+[90m🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page[39m
+[90m💖 Support jscpd project → https://opencollective.com/jscpd[39m

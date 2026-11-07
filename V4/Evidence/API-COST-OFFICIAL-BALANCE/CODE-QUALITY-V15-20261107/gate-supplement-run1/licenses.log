@@ -1,0 +1,2 @@
+$ corepack pnpm@11.11.0 licenses list --prod --json | node scripts/check-licenses.mjs
+license gate passed: (MIT AND Zlib), (MIT OR GPL-3.0-or-later), Apache-2.0, BSD-3-Clause, BlueOak-1.0.0, ISC, MIT, Unlicense

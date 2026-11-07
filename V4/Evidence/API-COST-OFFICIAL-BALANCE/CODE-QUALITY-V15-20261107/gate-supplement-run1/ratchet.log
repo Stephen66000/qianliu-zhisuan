@@ -1,0 +1,10 @@
+$ node scripts/check-coverage-ratchet.mjs
+pool029-node-authorization: 缺少覆盖率报告 coverage/pool029-node/coverage-summary.json（ENOENT）
+pool029-web-authorization: 缺少覆盖率报告 apps/web/coverage/pool029-web/coverage-summary.json（ENOENT）
+pool030-gateway-timeout: 缺少覆盖率报告 apps/gateway/coverage/pool030-gateway/coverage-summary.json（ENOENT）
+pool030-provider-timeout: 缺少覆盖率报告 packages/provider-adapters/coverage/pool030-provider/coverage-summary.json（ENOENT）
+pool043-node-operating-bill-accounts: 缺少覆盖率报告 coverage/pool043-node/coverage-summary.json（ENOENT）
+pool043-gateway-model-identity: 缺少覆盖率报告 apps/gateway/coverage/pool043-gateway/coverage-summary.json（ENOENT）
+pool043-web-operating-bill-accounts: 缺少覆盖率报告 apps/web/coverage/pool043-web/coverage-summary.json（ENOENT）
+pool040-gateway-revoked-settlement: 缺少覆盖率报告 apps/gateway/coverage/pool040-gateway/coverage-summary.json（ENOENT）
+[ELIFECYCLE] Command failed with exit code 1.
