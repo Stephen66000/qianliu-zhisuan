@@ -1,6 +1,12 @@
 import { sql, type Kysely } from "kysely";
 import type { Database } from "@qianliu/database";
-import { IDS } from "./seed-e2e-ids.js";
+import { WP4_IDS } from "./seed-e2e-wp4-ids.js";
+import { seedWp4ClosedMonth } from "./seed-e2e-wp4-closed-month.js";
+import { seedWp4OfficialBalanceStates } from "./seed-e2e-wp4-balance-states.js";
+
+// WP4_IDS 拆至 seed-e2e-wp4-ids.ts；此处再导出，
+// apps/web/e2e/wp4-cost-official-balance.spec.ts 的 import 路径保持不变。
+export { WP4_IDS };
 
 /**
  * WP4（simplify-api-cost-and-official-balance）S6 浏览器证据夹具（全部合成数据）。
@@ -33,61 +39,6 @@ import { IDS } from "./seed-e2e-ids.js";
  *    （UNKNOWN_COST，0085 shape 要求金额与币种同时 NULL）→ 与 F01 叠加当月已计价
  *    部分 CNY 3.00104＋USD 0.5，估算 KNOWN_PARTIAL＋PRICE_MISSING。
  */
-export const WP4_IDS = {
-  provider: "00000000-0000-4000-8000-000000000310",
-  okResource: "00000000-0000-4000-8000-000000000311",
-  failedResource: "00000000-0000-4000-8000-000000000312",
-  okSnapshot: "00000000-0000-4000-8000-000000000313",
-  failedSnapshot: "00000000-0000-4000-8000-000000000314",
-  okAttempt: "00000000-0000-4000-8000-000000000315",
-  failedAttempt: "00000000-0000-4000-8000-000000000316",
-  billingRule: "00000000-0000-4000-8000-000000000317",
-  f01Request: "00000000-0000-4000-8000-000000000318",
-  f01Attempt: "00000000-0000-4000-8000-000000000319",
-  f01Usage: "00000000-0000-4000-8000-000000000320",
-  f01Line: "00000000-0000-4000-8000-000000000321",
-  f01Transaction: "00000000-0000-4000-8000-000000000322",
-  usdRequest: "00000000-0000-4000-8000-000000000323",
-  usdAttempt: "00000000-0000-4000-8000-000000000324",
-  usdUsage: "00000000-0000-4000-8000-000000000325",
-  usdLine: "00000000-0000-4000-8000-000000000326",
-  usdTransaction: "00000000-0000-4000-8000-000000000327",
-  apiOpeningEvent: "00000000-0000-4000-8000-000000000329",
-  apiRechargeEvent: "00000000-0000-4000-8000-000000000328",
-  // ── S3a-2 追加（全部挂新键，不动既有键）──────────────────────────
-  // G14/AT-OAB-04：过期资源（快照 40，collected_at 早于 30 分钟过期阈值）
-  expiredResource: "00000000-0000-4000-8000-000000000330",
-  expiredSnapshot: "00000000-0000-4000-8000-000000000331",
-  expiredAttempt: "00000000-0000-4000-8000-000000000332",
-  // G15/AT-OAB-08：从未成功资源（无任何快照，仅一条 FAILED attempt）
-  neverResource: "00000000-0000-4000-8000-000000000333",
-  neverAttempt: "00000000-0000-4000-8000-000000000334",
-  // G16/AT-OAB-09：同一 provider（同账户）下两资源各查得 100，不得合计 200
-  pairAResource: "00000000-0000-4000-8000-000000000335",
-  pairBResource: "00000000-0000-4000-8000-000000000336",
-  pairASnapshot: "00000000-0000-4000-8000-000000000337",
-  pairBSnapshot: "00000000-0000-4000-8000-000000000338",
-  pairAAttempt: "00000000-0000-4000-8000-000000000339",
-  pairBAttempt: "00000000-0000-4000-8000-000000000340",
-  // G19/G20（AT-OAB-13/14）：过期资源的"不可计算"预测快照（not_calculable_reason）
-  expiredForecast: "00000000-0000-4000-8000-000000000341",
-  // G6/AT-ACE-07（F02）：当月三条费用质量行——已计价 1 CNY／已计价 2 CNY／有用量无价格
-  f02aRequest: "00000000-0000-4000-8000-000000000342",
-  f02aAttempt: "00000000-0000-4000-8000-000000000343",
-  f02aUsage: "00000000-0000-4000-8000-000000000344",
-  f02aLine: "00000000-0000-4000-8000-000000000345",
-  f02aTransaction: "00000000-0000-4000-8000-000000000346",
-  f02bRequest: "00000000-0000-4000-8000-000000000347",
-  f02bAttempt: "00000000-0000-4000-8000-000000000348",
-  f02bUsage: "00000000-0000-4000-8000-000000000349",
-  f02bLine: "00000000-0000-4000-8000-000000000350",
-  f02bTransaction: "00000000-0000-4000-8000-000000000351",
-  f02uRequest: "00000000-0000-4000-8000-000000000352",
-  f02uAttempt: "00000000-0000-4000-8000-000000000353",
-  f02uUsage: "00000000-0000-4000-8000-000000000354",
-  f02uLine: "00000000-0000-4000-8000-000000000355",
-  f02uTransaction: "00000000-0000-4000-8000-000000000356",
-} as const;
 
 /** 与 official-balance-sync-writes.ts officialBalanceSyncDay 同口径（上海自然日）。 */
 function shanghaiSyncDay(now: Date): Date {
@@ -95,16 +46,6 @@ function shanghaiSyncDay(now: Date): Date {
     timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(now);
   return new Date(`${day}T00:00:00.000Z`);
-}
-
-/** 上海时区的上一个月（YYYY-MM），供已关账历史月夹具。 */
-function previousShanghaiMonth(now: Date): string {
-  const shifted = new Date(now.getTime() + 8 * 3_600_000);
-  const year = shifted.getUTCFullYear();
-  const month = shifted.getUTCMonth(); // 0-based
-  const targetYear = month === 0 ? year - 1 : year;
-  const targetMonth = month === 0 ? 12 : month;
-  return `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
 }
 
 export async function seedWp4CostOfficialBalance(
@@ -176,114 +117,7 @@ export async function seedWp4CostOfficialBalance(
   ]).execute();
 
   // ── 1b. S3a-2 官方余额状态扩展（过期／从未成功／同账户两 Key）─────────
-  // G14（AT-OAB-04）：过期资源——成功快照 40，collected_at 早于 P2（30 分钟过期阈值）
-  //   2 小时 → C2 状态 EXPIRED，页面显示"数据过期"标记＋保鲜值 40。
-  // G15（AT-OAB-08）：从未成功资源——无任何快照，仅一条 FAILED attempt（上游 401）→
-  //   余额 null 显示"暂无官方数据"，绝不冒充 0 元。
-  // G16（AT-OAB-09）：同一 provider（states 集成夹具 :173 的"已确认同账户"数据层表达
-  //   ＝同 provider_id 下两个资源）各查得 100 → 两行独立展示，无任何合计字段。
-  await db.insertInto("provider_resource").values([
-    {
-      id: WP4_IDS.expiredResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
-      name: "DeepSeek 官方余额 E2E（数据过期）", mode: "API", credential_type: "API_KEY",
-      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
-    },
-    {
-      id: WP4_IDS.neverResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
-      name: "DeepSeek 官方余额 E2E（从未成功）", mode: "API", credential_type: "API_KEY",
-      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
-    },
-    {
-      id: WP4_IDS.pairAResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
-      name: "DeepSeek 官方余额 E2E（同账户 A）", mode: "API", credential_type: "API_KEY",
-      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
-    },
-    {
-      id: WP4_IDS.pairBResource, enterprise_id: enterpriseId, provider_id: WP4_IDS.provider,
-      name: "DeepSeek 官方余额 E2E（同账户 B）", mode: "API", credential_type: "API_KEY",
-      status: "ACTIVE", created_at: minuteAgo(30 * 86_400_000),
-    },
-  ]).execute();
-  await db.insertInto("provider_resource_operating_snapshot").values([
-    {
-      id: WP4_IDS.expiredSnapshot, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.expiredResource,
-      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
-      collected_at: minuteAgo(2 * 3_600_000), currency: "CNY",
-      current_balance: "40", granted_balance: "0", topped_up_balance: "40",
-      provider_balance_available: true, balance_updated_at: minuteAgo(2 * 3_600_000),
-    },
-    {
-      id: WP4_IDS.pairASnapshot, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.pairAResource,
-      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
-      collected_at: minuteAgo(45_000), currency: "CNY",
-      current_balance: "100", granted_balance: "0", topped_up_balance: "100",
-      provider_balance_available: true, balance_updated_at: minuteAgo(45_000),
-    },
-    {
-      id: WP4_IDS.pairBSnapshot, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.pairBResource,
-      version: 1, source: "PROVIDER_SYNC", balance_source: "PROVIDER_API",
-      collected_at: minuteAgo(90_000), currency: "CNY",
-      current_balance: "100", granted_balance: "0", topped_up_balance: "100",
-      provider_balance_available: true, balance_updated_at: minuteAgo(90_000),
-    },
-  ]).execute();
-  await db.insertInto("provider_resource_operating_sync_attempt").values([
-    {
-      id: WP4_IDS.expiredAttempt, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.expiredResource,
-      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
-      snapshot_id: WP4_IDS.expiredSnapshot, provider_data_at: minuteAgo(2 * 3_600_000),
-      started_at: minuteAgo(2 * 3_600_000 + 5_000), completed_at: minuteAgo(2 * 3_600_000),
-      next_sync_at: new Date(now.getTime() + 15 * 60_000),
-      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
-    },
-    {
-      // G15：从未成功——只有 FAILED attempt、没有任何快照（区别于 failedResource 的保鲜场景）。
-      id: WP4_IDS.neverAttempt, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.neverResource,
-      sync_day: shanghaiSyncDay(now), balance_status: "FAILED", cost_status: "NOT_SUPPORTED",
-      snapshot_id: null, provider_data_at: null,
-      started_at: minuteAgo(20_000), completed_at: minuteAgo(19_000),
-      next_sync_at: new Date(now.getTime() + 15 * 60_000),
-      error_code: "UPSTREAM_AUTH_FAILED",
-      failure_reason: "E2E 合成失败场景：上游 401 鉴权失败（从未成功，无保鲜值可显示）",
-      adapter_version: "wp4-e2e-v1",
-    },
-    {
-      id: WP4_IDS.pairAAttempt, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.pairAResource,
-      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
-      snapshot_id: WP4_IDS.pairASnapshot, provider_data_at: minuteAgo(45_000),
-      started_at: minuteAgo(50_000), completed_at: minuteAgo(45_000),
-      next_sync_at: new Date(now.getTime() + 15 * 60_000),
-      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
-    },
-    {
-      id: WP4_IDS.pairBAttempt, enterprise_id: enterpriseId,
-      provider_resource_id: WP4_IDS.pairBResource,
-      sync_day: shanghaiSyncDay(now), balance_status: "SUCCESS", cost_status: "NOT_SUPPORTED",
-      snapshot_id: WP4_IDS.pairBSnapshot, provider_data_at: minuteAgo(90_000),
-      started_at: minuteAgo(95_000), completed_at: minuteAgo(90_000),
-      next_sync_at: new Date(now.getTime() + 15 * 60_000),
-      error_code: null, failure_reason: null, adapter_version: "wp4-e2e-v1",
-    },
-  ]).execute();
-  // G19/G20（AT-OAB-13/14）：过期资源的供给预测"不可计算"快照——forecast_exhaust_at 为空
-  // ＋not_calculable_reason（worker 对 official_balance_expired 的合成输出）。
-  // /supply-forecasts 门禁：快照 remaining（API=current_balance 40）须与 forecast
-  // remaining_quota 相等且 snapshot_at 不早于快照 calculated_at（+2s 余量）。
-  await db.insertInto("supply_forecast").values({
-    id: WP4_IDS.expiredForecast, enterprise_id: enterpriseId,
-    provider_resource_id: WP4_IDS.expiredResource,
-    rate_1h: null, rate_24h: null, rate_7d: null,
-    forecast_exhaust_at: null, next_recover_at: null, coverage_hours: null,
-    remaining_quota: "40", confidence: "LOW", data_points: 24,
-    not_calculable_reason: "官方余额数据过期，暂不可计算（OAB-14 合成夹具）",
-    algorithm_version: "wp4-e2e-v1", snapshot_at: new Date(now.getTime() + 2_000),
-  }).execute();
+  await seedWp4OfficialBalanceStates(db, enterpriseId, shanghaiSyncDay(now), now);
 
   // ── 2. F01 估算半开窗夹具（600/400/200 @ 1/0.1/2 元每百万 → 0.00104 CNY）──
   await db.insertInto("billing_rule").values({
@@ -473,115 +307,7 @@ export async function seedWp4CostOfficialBalance(
   }).execute();
 
   // ── 3. 已关账历史月（CLOSED＋冻结版本快照）─────────────────────────
-  const closedMonth = previousShanghaiMonth(now);
-  const closedMonthStart = `${closedMonth}-01`;
-  const nextMonthStart = (() => {
-    const year = Number(closedMonth.slice(0, 4));
-    const month = Number(closedMonth.slice(5, 7));
-    const nextYear = month === 12 ? year + 1 : year;
-    const nextMonth = month === 12 ? 1 : month + 1;
-    return `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
-  })();
-  const frozenSnapshot = {
-    month: closedMonth,
-    timezone: "Asia/Shanghai",
-    periodStart: `${closedMonthStart}T00:00:00+08:00`,
-    periodEnd: `${nextMonthStart}T00:00:00+08:00`,
-    status: "CLOSED",
-    version: 1,
-    generatedAt: now.toISOString(),
-    closedAt: now.toISOString(),
-    closedBy: adminId,
-    closeNote: "E2E 合成关账：历史口径保留夹具（WP4）",
-    summary: {
-      totalCost: "396.00000000",
-      apiCost: "96.00000000",
-      ledgerApiCost: "96.00000000",
-      openingBalance: "1000.00000000",
-      monthlyRecharge: "100.00000000",
-      apiSpendStatus: "CALCULABLE",
-      apiSpendReason: null,
-      packageCost: "300.00000000",
-      endingBalance: "1004.00000000",
-      endingBalanceCurrency: "CNY",
-      openingBalances: [{ currency: "CNY", amount: "1000.00000000" }],
-      rechargeAmounts: [{ currency: "CNY", amount: "100.00000000" }],
-      endingBalances: [{ currency: "CNY", amount: "1004.00000000" }],
-      apiSpends: [{ currency: "CNY", amount: "96.00000000" }],
-      packageCosts: [{ currency: "CNY", amount: "300.00000000" }],
-      totalSpends: [{ currency: "CNY", amount: "396.00000000" }],
-      planUtilization: "42.0",
-      activePrincipalCount: 1,
-      confirmedValueAmount: "0",
-      confirmedNonMonetaryCount: 0,
-      unallocatedCost: "0",
-    },
-    providers: [
-      {
-        providerResourceId: WP4_IDS.okResource, providerCode: "DeepSeek",
-        providerName: "DeepSeek WP4 E2E", resourceName: "DeepSeek 官方余额 E2E",
-        mode: "API", currency: "CNY", openingBalanceCurrency: "CNY",
-        rechargeAmounts: [{ currency: "CNY", amount: "100.00000000" }],
-        endingBalanceCurrency: "CNY", apiSpendCurrency: "CNY",
-        apiCost: "96.00000000", ledgerApiCost: "96.00000000",
-        openingBalance: "1000.00000000", rechargeAmount: "100.00000000",
-        apiSpendStatus: "CALCULABLE", apiSpendReason: null,
-        packageCost: "0", totalCost: "96.00000000", endingBalance: "1004.00000000",
-        totalQuota: null, usedQuota: null, remainingQuota: null, quotaUnit: null,
-        utilization: null, activePrincipalCount: 1, status: "ACTIVE",
-        planAssessment: null, idleEntitlementCost: null, assessmentBasis: null,
-        purchases: [], servicePeriodStart: null, servicePeriodEnd: null,
-        operatingSnapshotSource: null,
-        requestRange: { from: null, to: null, count: 0 },
-        factFingerprint: "wp4-e2e-closed-month-api",
-        confirmation: { status: "NOT_APPLICABLE", note: "E2E 合成夹具",
-          confirmedBy: null, confirmedAt: null, version: 1, matchesCurrentFacts: false },
-      },
-      {
-        providerResourceId: IDS.isolatedResource, providerCode: "zhipu",
-        providerName: "智谱 E2E", resourceName: "E2E 待恢复资源",
-        mode: "CODING_PLAN", currency: "CNY",
-        apiCost: "0", packageCost: "300.00000000", packageCostCurrency: "CNY",
-        totalCost: "300.00000000", endingBalance: null,
-        totalQuota: "100000", usedQuota: "42000", remainingQuota: "58000",
-        quotaUnit: "TOKEN", utilization: "42.0", activePrincipalCount: 1,
-        status: "CREDENTIAL_INVALID", planAssessment: "UNDERUSED",
-        idleEntitlementCost: "150", assessmentBasis: "按未使用比例折算，不代表退款",
-        purchases: [], servicePeriodStart: null, servicePeriodEnd: null,
-        operatingSnapshotSource: null,
-        requestRange: { from: null, to: null, count: 0 },
-        factFingerprint: "wp4-e2e-closed-month-plan",
-        confirmation: { status: "NOT_APPLICABLE", note: "E2E 合成夹具",
-          confirmedBy: null, confirmedAt: null, version: 1, matchesCurrentFacts: false },
-      },
-    ],
-    subjects: [
-      {
-        principalId, principalName: "E2E 固定员工", principalType: "EMPLOYEE",
-        providers: ["DeepSeek WP4 E2E", "智谱 E2E"],
-        inputTokens: "1600", outputTokens: "300", cacheTokens: "400",
-        reasoningTokens: "0", totalTokens: "2300", deductedQuota: "42000",
-        apiCost: "96.00000000", packageAllocatedCost: "300.00000000",
-        totalAllocatedCost: "396.00000000", activeDays: 2, requestCount: 2,
-      },
-    ],
-    values: [],
-    gaps: [],
-    sourceFacts: { ledgerLineCount: 0, operatingSnapshotIds: [] },
-  };
-  const [period] = await db.insertInto("operating_bill_period").values({
-    enterprise_id: enterpriseId, period_month: closedMonthStart,
-    status: "CLOSED", current_version: 1, created_by: adminId,
-  }).returning("id").execute();
-  await db.insertInto("operating_bill_version").values({
-    enterprise_id: enterpriseId, period_id: period!.id, version: 1,
-    snapshot: frozenSnapshot, close_note: "E2E 合成关账：历史口径保留夹具（WP4）",
-    closed_by: adminId, closed_at: now,
-  }).execute();
-  await db.insertInto("operating_bill_event").values({
-    enterprise_id: enterpriseId, period_id: period!.id, action: "CLOSED",
-    version: 1, reason: "E2E 合成关账", actor_admin_id: adminId, metadata: { source: "wp4-e2e-seed" },
-  }).execute();
+  await seedWp4ClosedMonth(db, enterpriseId, adminId, principalId, now);
 
   // ── 4. strict_writes 运行态＋历史资金记录（旧口径，只读）来源标签夹具 ──
   await sql`
