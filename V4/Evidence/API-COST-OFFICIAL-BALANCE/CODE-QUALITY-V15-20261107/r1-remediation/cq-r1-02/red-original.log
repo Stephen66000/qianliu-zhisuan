@@ -1,0 +1,55 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+
+{"level":30,"time":1794045581757,"pid":75299,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:55784"}
+{"level":30,"time":1794045581762,"pid":75299,"hostname":"Stephen-macbook.local","reqId":"20261795-514d-4267-9099-3562a54b3837","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045581862,"pid":75299,"hostname":"Stephen-macbook.local","reqId":"20261795-514d-4267-9099-3562a54b3837","res":{"statusCode":200},"responseTime":99.45691699999998,"msg":"request completed"}
+{"level":30,"time":1794045581867,"pid":75299,"hostname":"Stephen-macbook.local","reqId":"626e2b23-ab93-4159-a74e-e168d80175c7","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045581924,"pid":75299,"hostname":"Stephen-macbook.local","reqId":"626e2b23-ab93-4159-a74e-e168d80175c7","res":{"statusCode":200},"responseTime":56.42587500000036,"msg":"request completed"}
+ ❯ src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts (3 tests | 2 failed) 2333ms
+   × CQ-R1-02 真实授权→结算链路冻结 source_status > 红证：VERIFIED 规则经真实请求结算，ledger 快照应为 VERIFIED 109ms
+     → expected 'UNVERIFIED' to be 'VERIFIED' // Object.is equality
+   ✓ CQ-R1-02 真实授权→结算链路冻结 source_status > 对照组：UNVERIFIED 规则同链路结算，快照按合同展示 UNVERIFIED 58ms
+   × CQ-R1-02 真实授权→结算链路冻结 source_status > 绿证：费用估算按结算时快照展示；改当前规则状态不影响历史快照 13ms
+     → expected 'UNVERIFIED' to be 'VERIFIED' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts > CQ-R1-02 真实授权→结算链路冻结 source_status > 红证：VERIFIED 规则经真实请求结算，ledger 快照应为 VERIFIED
+AssertionError: expected 'UNVERIFIED' to be 'VERIFIED' // Object.is equality
+
+Expected: "VERIFIED"
+Received: "UNVERIFIED"
+
+ ❯ src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts:243:36
+    241|     expect(snapshot).not.toBeNull();
+    242|     // 原版缺陷：授权 SELECT/映射漏 source_status → 快照恒 UNVERIFIED。
+    243|     expect(snapshot?.sourceStatus).toBe("VERIFIED");
+       |                                    ^
+    244|   });
+    245| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts > CQ-R1-02 真实授权→结算链路冻结 source_status > 绿证：费用估算按结算时快照展示；改当前规则状态不影响历史快照
+AssertionError: expected 'UNVERIFIED' to be 'VERIFIED' // Object.is equality
+
+Expected: "VERIFIED"
+Received: "UNVERIFIED"
+
+ ❯ src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts:263:41
+    261|     const basisUnverified = estimation.priceBasis.find((b) => b.ruleId…
+    262|     // VERIFIED 不被误报为待核实；UNVERIFIED 按合同展示。
+    263|     expect(basisVerified?.sourceStatus).toBe("VERIFIED");
+       |                                         ^
+    264|     expect(basisVerified?.ruleVersion).toBe(VERIFIED_RULE_VERSION);
+    265|     expect(basisUnverified?.sourceStatus).toBe("UNVERIFIED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  17:59:38
+   Duration  4.07s (transform 845ms, setup 0ms, collect 1.55s, tests 2.33s, environment 0ms, prepare 43ms)
+

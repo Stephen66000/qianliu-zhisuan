@@ -1,0 +1,14 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/api-cost-estimation-by-resource.integration.test.ts (3 tests) 4359ms
+   ✓ loadApiCostEstimationByResource（批量分组入口，与逐资源调用逐字段一致） > 1) 五资源一次批量读取：每资源与 resourceIds:[id] 单资源调用整对象 toEqual；RE 隔离；RD 空期间有条目  414ms
+ ✓ src/__tests-integration__/api-cost-estimation-attempts.integration.test.ts (6 tests) 5566ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (15 tests) 13283ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  7681ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  18:02:18
+   Duration  15.34s (transform 947ms, setup 0ms, collect 5.50s, tests 23.21s, environment 0ms, prepare 173ms)
+

@@ -1,0 +1,29 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+
+ ✓ src/__tests-integration__/w13-billing.test.ts (4 tests) 2785ms
+{"level":30,"time":1794045668486,"pid":84348,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:55856"}
+{"level":30,"time":1794045668493,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"0c33de1c-3bd4-4063-b523-543d9d5b9e86","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045668580,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"0c33de1c-3bd4-4063-b523-543d9d5b9e86","res":{"statusCode":200},"responseTime":86.38783400000011,"msg":"request completed"}
+{"level":30,"time":1794045668582,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"3da72cae-1cf4-415e-8198-24bdd7dbd229","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045668643,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"3da72cae-1cf4-415e-8198-24bdd7dbd229","res":{"statusCode":200},"responseTime":61.329749999999876,"msg":"request completed"}
+{"level":30,"time":1794045668644,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"cab59e4f-a31c-4629-9859-805923dbecca","req":{"method":"POST","url":"/v1/messages","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045668697,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"cab59e4f-a31c-4629-9859-805923dbecca","res":{"statusCode":200},"responseTime":52.48216599999978,"msg":"request completed"}
+{"level":30,"time":1794045668697,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"b793722f-0e65-4832-81e0-3855356bcdf3","req":{"method":"POST","url":"/v1/messages","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045668751,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"b793722f-0e65-4832-81e0-3855356bcdf3","res":{"statusCode":200},"responseTime":53.338416999999936,"msg":"request completed"}
+{"level":30,"time":1794045668751,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"655fbfc9-c0ff-4fa0-857f-b297658bad95","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045668803,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"655fbfc9-c0ff-4fa0-857f-b297658bad95","res":{"statusCode":200},"responseTime":51.17995900000005,"msg":"request completed"}
+{"level":30,"time":1794045668808,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"ef0fc5db-9acd-4bc9-81ba-190d83ada440","req":{"method":"POST","url":"/v1/chat/completions","host":"127.0.0.1:55856","remoteAddress":"127.0.0.1","remotePort":55859},"msg":"incoming request"}
+{"level":30,"time":1794045668946,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"ef0fc5db-9acd-4bc9-81ba-190d83ada440","res":{"statusCode":200},"responseTime":137.29212499999994,"msg":"request completed"}
+{"level":30,"time":1794045668947,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"c7f1ec04-dbff-4859-9a5e-1cb90b132b2a","req":{"method":"POST","url":"/v1/messages","host":"127.0.0.1:55856","remoteAddress":"127.0.0.1","remotePort":55860},"msg":"incoming request"}
+{"level":30,"time":1794045729332,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"c7f1ec04-dbff-4859-9a5e-1cb90b132b2a","res":{"statusCode":200},"responseTime":60384.546375,"msg":"request completed"}
+{"level":30,"time":1794045729335,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"708a9cb5-8626-4a59-a8ab-95c4130f3f03","req":{"method":"POST","url":"/v1/responses","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045729497,"pid":84348,"hostname":"Stephen-macbook.local","reqId":"708a9cb5-8626-4a59-a8ab-95c4130f3f03","res":{"statusCode":200},"responseTime":161.24295800000255,"msg":"request completed"}
+ ✓ src/__tests-integration__/p0-real-upstream-responses.test.ts (8 tests) 63955ms
+   ✓ P0 Responses → 真实 Chat Completions caller → 账本 > Messages 真实 SSE 连续输出超过 60 秒，工具、usage 与事件顺序符合 Anthropic  60388ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  18:01:03
+   Duration  66.24s (transform 1.06s, setup 0ms, collect 3.89s, tests 66.74s, environment 0ms, prepare 86ms)
+

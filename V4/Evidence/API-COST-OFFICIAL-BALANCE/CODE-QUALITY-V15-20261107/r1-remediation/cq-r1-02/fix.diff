@@ -1,0 +1,24 @@
+diff --git a/apps/gateway/src/auth/current-model-authorization.ts b/apps/gateway/src/auth/current-model-authorization.ts
+index 6e7a291..378ddb2 100644
+--- a/apps/gateway/src/auth/current-model-authorization.ts
++++ b/apps/gateway/src/auth/current-model-authorization.ts
+@@ -208,6 +208,11 @@ async function resolveCurrentInvocationAuthorization(
+       "billing_rule.output_price as billing_output_price",
+       "billing_rule.currency as billing_currency",
+       "billing_rule.priority as billing_priority",
++      // CQ-R1-02：授权快照 SELECT 透传价格依据核实状态，结算链（attempt-usage-settlement
++      // → billing.billingRuleSnapshot）才能把 VERIFIED 冻结进 ledger 快照；漏列会让
++      // 真实链路恒落 UNVERIFIED（computeBilling 辅助路径早已透传）。缺列/旧行由
++      // billing.ts 的 `?? "UNVERIFIED"` 保守解释，不回填历史。
++      "billing_rule.source_status as billing_source_status",
+     ])
+     .distinct()
+     .where("principal_key.id", "=", input.keyId)
+@@ -313,6 +318,7 @@ async function resolveCurrentInvocationAuthorization(
+     outputPrice: row.billing_output_price,
+     currency: row.billing_currency,
+     priority: row.billing_priority,
++    sourceStatus: row.billing_source_status,
+   }));
+   const billingRule = matchApplicableBillingRule(
+     rules,
