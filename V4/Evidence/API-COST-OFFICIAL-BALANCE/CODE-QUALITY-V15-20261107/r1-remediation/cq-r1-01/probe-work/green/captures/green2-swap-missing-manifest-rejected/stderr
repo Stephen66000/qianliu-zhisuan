@@ -1,0 +1,1 @@
+FAIL-CLOSED[2]: swap 缺少 --manifest（切换前须以同一 ref/清单内联重验影子——verify 全过才 swap）

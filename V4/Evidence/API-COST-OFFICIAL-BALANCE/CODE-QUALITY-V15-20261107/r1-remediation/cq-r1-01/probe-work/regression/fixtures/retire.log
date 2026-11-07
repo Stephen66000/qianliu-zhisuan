@@ -1,0 +1,9 @@
+threshold_retirement: 2026-11-07T09:58:17Z shadow=shadow_ok
+RETIRE pending_api_before=1
+RETIRE finance_state_rows_before=2
+RETIRE pending_api_after=0
+RETIRE finance_state_rows_after=1
+RETIRE seed_trigger_present=0
+RETIRE seed_function_present=0
+basis: AFR-02 退役在回退后保持（0094 down 会恢复触发器/函数；本步骤为回退包对旧代码行为的有意覆盖，非默认放行）
+pending_rows_are: 资金门槛控制行（非资金事实），删除前计数已留档

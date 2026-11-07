@@ -1,0 +1,1 @@
+FAIL-CLOSED[9]: swap 清单 ref_db 与 --db-ref 不符（验证对象≠待切换对象）: 清单=refdb 调用=otherref

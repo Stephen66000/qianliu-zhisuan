@@ -1,0 +1,7 @@
+# packages/database lint＋typecheck（测试文件仅补 swap 调用参数后复核）
+cmd: pnpm lint / pnpm typecheck（cwd=/Users/mac/Projects/仟流智算-api-decouple/packages/database）
+
+$ eslint src --max-warnings=0
+lint exit=0
+$ tsc -p tsconfig.json --noEmit
+typecheck exit=0

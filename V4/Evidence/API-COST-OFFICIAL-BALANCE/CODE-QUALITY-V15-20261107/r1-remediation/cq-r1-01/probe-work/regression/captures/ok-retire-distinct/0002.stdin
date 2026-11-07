@@ -1,0 +1,13 @@
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT 'RETIRE pending_api_before=' || count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API';
+SELECT 'RETIRE finance_state_rows_before=' || count(*)::text FROM provider_resource_finance_state;
+ALTER TABLE provider_resource DISABLE TRIGGER provider_resource_finance_state_seed_trigger;
+DROP TRIGGER IF EXISTS provider_resource_finance_state_seed_trigger ON provider_resource;
+DROP FUNCTION IF EXISTS provider_resource_finance_state_seed();
+DELETE FROM provider_resource_finance_state s USING provider_resource r WHERE s.enterprise_id = r.enterprise_id AND s.provider_resource_id = r.id AND s.state = 'PENDING' AND r.mode = 'API';
+COMMIT;
+SELECT 'RETIRE pending_api_after=' || count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API';
+SELECT 'RETIRE finance_state_rows_after=' || count(*)::text FROM provider_resource_finance_state;
+SELECT 'RETIRE seed_trigger_present=' || CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) THEN '1' ELSE '0' END;
+SELECT 'RETIRE seed_function_present=' || CASE WHEN to_regproc('provider_resource_finance_state_seed') IS NULL THEN '0' ELSE '1' END;

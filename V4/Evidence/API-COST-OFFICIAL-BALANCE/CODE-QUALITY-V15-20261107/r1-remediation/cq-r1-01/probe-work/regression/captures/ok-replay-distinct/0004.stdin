@@ -1,0 +1,28 @@
+\set ON_ERROR_STOP on
+BEGIN;
+SET timezone TO 'UTC';
+ALTER TABLE provider_resource DISABLE TRIGGER provider_resource_finance_state_seed_trigger; -- 回放期禁用 0081 种入（retire-threshold 将在此后使其退役保持）
+-- enterprise rows=0 skip
+-- provider rows=0 skip
+-- unified_model rows=0 skip
+-- principal rows=0 skip
+-- principal_key rows=0 skip
+-- provider_resource rows=0 skip
+-- billing_rule rows=0 skip
+-- model_route rows=0 skip
+-- ai_request rows=0 skip
+-- upstream_attempt rows=0 skip
+-- usage_event rows=0 skip
+-- ledger_line rows=0 skip
+-- ledger_transaction rows=0 skip
+-- principal_grant rows=0 skip
+-- quota_counter rows=0 skip
+-- principal_quota_period rows=0 skip
+-- principal_quota_usage rows=0 skip
+COMMIT;
+ALTER TABLE provider_resource ENABLE TRIGGER provider_resource_finance_state_seed_trigger; -- 回放完成恢复 0091 种入语义（retire-threshold 随后退役保持）
+DO $$ BEGIN
+  IF (SELECT tgenabled FROM pg_trigger WHERE tgname='provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) IS DISTINCT FROM 'O' THEN
+    RAISE EXCEPTION 'seed trigger not re-ENABLED after replay (must return to 0091 semantics)';
+  END IF;
+END $$;

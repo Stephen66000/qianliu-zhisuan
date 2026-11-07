@@ -883,6 +883,7 @@ describe.sequential("AT-X07 R4：主路线 v3 演练（全行比对增量→影�
   it("断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②）", async () => {
     const noConfirm = runDeltaScript([
       "swap", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+      "--db-ref", REF_DB, "--manifest", manifestPath,
     ]);
     expect(noConfirm.status).not.toBe(0);
     expect(noConfirm.stderr).toContain("ROLLBACK_DELTA_CONFIRM");
@@ -898,6 +899,7 @@ describe.sequential("AT-X07 R4：主路线 v3 演练（全行比对增量→影�
     await live.destroy();
     const swap = runDeltaScript([
       "swap", "--container", CONTAINER_NAME, "--db-live", LIVE_DB, "--db-shadow", SHADOW_DB,
+      "--db-ref", REF_DB, "--manifest", manifestPath,
     ], { ROLLBACK_DELTA_CONFIRM: "YES" });
     expectScriptOk(swap);
     const admin = createKysely(container.getConnectionUri());

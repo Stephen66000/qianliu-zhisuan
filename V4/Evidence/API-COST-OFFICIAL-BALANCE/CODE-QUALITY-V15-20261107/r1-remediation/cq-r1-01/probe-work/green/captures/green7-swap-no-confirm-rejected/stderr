@@ -1,0 +1,1 @@
+FAIL-CLOSED[9]: 危险动作：须环境 ROLLBACK_DELTA_CONFIRM=YES（单事务改名替换 live，DESTRUCTIVE 定级同 rollback.sh:5）

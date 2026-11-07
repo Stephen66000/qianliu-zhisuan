@@ -1,0 +1,6 @@
+exec
+-i
+pgtest
+sh
+-c
+exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres

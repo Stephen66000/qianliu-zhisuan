@@ -1,0 +1,7 @@
+snapshot_source: git show e136e8a:deploy/scripts/rollback-delta-20261106.sh
+worktree_HEAD_at_capture: e136e8a476b699bf12b07eb5df67c40499a7d405
+last_commit_touching_script: 56d5fa7e2523a64f2bed930c16ede229f2b04f06
+snapshot_SHA256: df84db645b37bc19aff56c5efd669520a1a77e8e5bc341fbd015faa07891270a
+captured_at: 2026-11-07T09:51:31Z
+worktree_script_SHA256_before_fix: df84db645b37bc19aff56c5efd669520a1a77e8e5bc341fbd015faa07891270a
+identical_check: SAME

@@ -1,0 +1,68 @@
+# CQ-R1-01 运行清单（命令＋退出码＋对象哈希）
+# 记录时点：2026-11-07（v1.5 正式审核 R1 定向返修批次 1）
+# 执行者：GLM-5.3-Flash 子 Agent（总指挥授权合同：CQ-R1-01 swap 前置影子库验证门）
+
+## 对象
+- 受审基线：worktree /Users/mac/Projects/仟流智算-api-decouple，HEAD=e136e8a476b699bf12b07eb5df67c40499a7d405（开工时核实一致，树仅 1 个未跟踪锁文件 candidate-lock.json）
+- 原版快照：rollback-delta-20261106.e136e8a-snapshot.sh
+  SHA256 = df84db645b37bc19aff56c5efd669520a1a77e8e5bc341fbd015faa07891270a
+  ＝git show e136e8a:deploy/scripts/rollback-delta-20261106.sh，与 worktree 修复前逐字节一致（snapshot-SHA256.txt）
+- 修复对象：deploy/scripts/rollback-delta-20261106.sh（唯一生产文件；帮助文本/操作单 §6.1/X07 测试调用同步）
+- 桩基线：../red-evidence/ 的 stub-docker.sh（bfa0c97d…）＋run-probes.sh（fb433709…）＋audit-capture.sh（0183392b…）
+  本目录副本：stub-docker-r1.sh（仅追加 STUB_FAIL_ENV／STUB_SHADOW_DIGEST_ALT 两开关）、audit-capture.sh（逐字复制）、run-probes-r1.sh（捕获协议同基线＋程序化断言）
+
+## 红证（被测＝原版快照；隔离桩环境，零真实 Docker/库接触）
+- cmd: bash run-probes-r1.sh red <snapshot> red-probe-run.log probe-work/red
+- 退出码：0；结果：cases=4 asserts_pass=18 asserts_fail=0（VERDICT PASS——断言方向＝缺陷复现）
+  - red1-swap-unverified-shadow：exit=0＋发出 ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep" 与 ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live"（合同要求拒绝＋零 RENAME→原版违反＝红）
+  - red2a-verify-digest-mismatch-fails：verify exit=8＋dropdb 仅 shadow_ok（验证失败路径形态）
+  - red2b-swap-after-verify-failure-still-passes：验证失败型影子直接 swap 仍 exit=0＋双 RENAME（捕获零摘要调用——原版 swap 根本不跑校验＝红）
+  - red3-swap-env-unreachable：容器不可达 exit=3、零破坏调用（前置环境失败≠验证拒绝，如实记录）
+
+## 绿证（被测＝修复后 deploy/scripts/rollback-delta-20261106.sh；同一桩环境）
+- cmd: bash run-probes-r1.sh green <fixed-script> green-probe-run.log probe-work/green
+- 退出码：0；结果：cases=12 asserts_pass=51 asserts_fail=0（VERDICT PASS）
+  - 过程注记：首跑 1 项断言失败＝探针自身计数口径错误（把资金零补造行计入白名单
+    digest-match 数：18 vs 17），修正为 X07 断言 G 同款口径（17 白名单＋1 资金分列）后
+    全过——非被测脚本缺陷；现 green-probe-run.log 为修正后单次完整运行
+  - 绿1-3 缺验证必需参数/清单缺失：exit=2 且零容器调用（先于 require_env）
+  - 绿4-6 验证对象与待切换对象不符（清单 live_db/container/ref_db vs 调用）：exit=9、零 RENAME、零破坏调用
+  - 绿7 未确认（ROLLBACK_DELTA_CONFIRM≠YES）：exit=9（既有确认前提保持）
+  - 绿8 影子校验失败：exit=8＋dropdb 仅 shadow_ok＋零 ALTER DATABASE RENAME
+  - 绿9 verify 全过→内联校验先于改名、原事务双 RENAME 序正确（live→keep 先、shadow→live 后）
+  - 绿10 容器不可达仍 exit=3 零破坏（与验证拒绝可区分）
+  - 绿11-12 verify 子命令语义不变（17 白名单 digest=match＋1 资金 digest=match／失配仍 exit 8＋删影子）
+
+## 回归（CQ-01 桩绿证全组复刻；唯一适配＝ok-swap-distinct 补 --db-ref/--manifest）
+- cmd: bash run-probes-r1.sh regression <fixed-script> regression-probe-run.log probe-work/regression
+- 退出码：0；结果：cases=21 asserts_pass=30 asserts_fail=0
+  - 5 正路径（ok-restore/replay/retire/verify/swap-distinct）行为不变；ok-verify 17+1 digest=match；ok-swap 双 RENAME 序正确
+  - 16 负路径（缺 live/shadow=live/空 live/keep 冲突/shadow=ref/live=ref/无 manifest_done…）全数 exit≠0 且零破坏/零 RENAME
+  - 注：CQ-01 操作单原文计「20 用例」为 5 正＋15 负；实际 green 矩阵逐条清点为 21（含 neg-no-done-manifest，T4/B6）——本回归按实际矩阵全组复刻，未删减
+
+## X07 主路线（真实隔离库 testcontainers postgres:17-alpine）
+- cwd: packages/database；commit=e136e8a＋本批 3 文件改动
+- cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true \
+    npx vitest run --config ../../vitest.config.ts src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts --maxWorkers=4
+- 退出码：0；结果：Tests 11 passed (11)（断言零删减；G 用例 swap 调用仅补 --db-ref/--manifest 两个参数，断言逐字保留）
+- 环境注记：RYUK 禁用＝本机 colima（virtiofs）无法把 docker.sock 再导出给 ryuk 容器挂载——实测报
+  "mkdir /Users/mac/.colima/default/docker.sock: operation not supported"；与 WP6-X07-R4-20261106/scripts/r4-red-probe.ts
+  头注记载的环境配置（DOCKER_HOST、TESTCONTAINERS_RYUK_DISABLED）一致。任务合同所写「DOCKER_HOST=colima＋RYUK」
+  中的 RYUK 在本机不可用（未核实其原意是否即指上述禁用配置）；两次尝试日志见 x07-*.log 头部说明。
+
+## down 链回归
+- cmd: 同上环境；src/__tests-integration__/wp6-rollback-drill.integration.test.ts
+- 退出码：0；结果：Tests 7 passed (7)（本套件不调用 rollback-delta 脚本——纯回归确认零影响）
+
+## 自检与受影响包复核
+- bash -n deploy/scripts/rollback-delta-20261106.sh → OK
+- bash deploy/scripts/rollback-delta-20261106.sh check-contract（静态回显）→ exit 0，
+  含新增 swap_verify_gate 行；库内实测版 check-contract 在 X07 断言 A 内对真实隔离库执行（exit 0，见 commands 留痕惯例）
+- packages/database：pnpm lint → exit 0；pnpm typecheck（tsc --noEmit）→ exit 0（database-lint-typecheck.log）
+
+## 改动范围（git diff，未 commit）
+- M deploy/scripts/rollback-delta-20261106.sh（本合同唯一生产目标文件）
+- M openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP6/release-candidate.md（操作单 §6.1 步骤 8）
+- M packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts（仅 swap 调用补参数×2）
+- ?? V4/Evidence/.../r1-remediation/cq-r1-01/（本目录）
+- 未触碰：apps/、packages/ 下其他任何文件（并行子 Agent 的 apps/gateway 改动归属其合同）
