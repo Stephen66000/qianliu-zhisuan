@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { generateCompanyWeeklySvg } from "../templates/company-weekly-svg.js";
 import { generatePersonalWeeklySvg } from "../templates/personal-weekly-svg.js";
@@ -15,7 +12,7 @@ describe("1080px reporting layout previews", () => {
       { provider: "Kimi", basis: "套餐折算额度", detail: "已证使用 0.0 万 · 预占 500.0 万 · 余额待核 / 暂定" },
     ];
     const companyData = { enterpriseName: "合成预览企业", reportTimezone: "Asia/Shanghai",
-      dateRange: "10.26 - 11.1", monthQuotaTotal: "3个厂商池", monthConsumedTokens: "1项超额，1项待核", monthQuotaRemaining: "历史策略待核",
+      dateRange: "10.26 - 11.1", monthQuotaTotal: "22.0 亿", monthTokenUsageRate: "123.2%", monthQuotaRemaining: "-5.1 亿",
       totalRequests: "22,607 次", totalTokens: "27.1 亿", dailyAvgTokens: "8740.2 万 /天", totalEmployees: 7, totalModels: 4,
       quotaRows, quotaAsOf: "截至10月31日", topUsers: Array.from({ length: 7 }, (_, index) => ({ rank: index + 1,
         name: index === 0 ? "欧阳测试特别长姓名成员" : `合成成员${index + 1}`, department: "跨部门人工智能产品研发与创新团队", requests: "3,229 次",
@@ -31,15 +28,20 @@ describe("1080px reporting layout previews", () => {
         { label: "日均使用量", value: "1257.1 万 /天" }, { label: "最晚请求时间", value: "10月31日 23:59" },
         { label: "额度截至10月31日", value: "1项超额，1项待核" }, ...quotaRows.map(row => ({ label: `${row.provider} · ${row.basis}`, value: row.detail })) ] });
     expect(svg).toContain("共 4 个，展示 Top3"); expect(svg).toContain(">GLM 5.3 Flash</text>"); expect(svg).toContain(">GLM 5.3</text>");
-    expect(svg).toContain("欧阳测试特别长姓名成员");
-    for (const row of quotaRows) expect(svg).toContain(row.detail);
+    expect(svg).toContain(">欧阳测…</text>");
+    expect(svg).toContain(">跨部门人工…</text>");
+    expect(svg).toContain(">所属团队</text>");
+    for (const row of quotaRows) {
+      expect(svg).not.toContain(row.detail);
+      expect(personal).toContain(`${row.provider} · ${row.basis}`);
+    }
     expect(svg).not.toContain("月末剩余额度</text>"); expect(svg).not.toContain("18.1");
     expect(monthly).toContain("Token使用量月报"); expect(monthly).toContain("月末剩余额度</text>"); expect(monthly).toContain("-5.1");
     expect(monthly).not.toContain("余额待核 / 暂定");
-    const directory = fileURLToPath(new URL("../../../../../V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/reporting/", import.meta.url)); await mkdir(directory, { recursive: true });
-    for (const [name, content] of [["synthetic-seven-member-three-provider", svg], ["synthetic-long-name-personal", personal]] as const) {
-      const png = await renderSvgToPng(content, { fitWidth: 1080 }); expect(png.readUInt32BE(16)).toBe(1080); expect(png.readUInt32BE(20)).toBeGreaterThan(1520);
-      await writeFile(resolve(directory, `${name}.svg`), content); await writeFile(resolve(directory, `${name}.png`), png);
+    for (const content of [svg, personal]) {
+      const png = await renderSvgToPng(content, { fitWidth: 1080 });
+      expect(png.readUInt32BE(16)).toBe(1080);
+      expect(png.readUInt32BE(20)).toBeGreaterThan(1520);
     }
   });
 });

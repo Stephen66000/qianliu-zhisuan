@@ -23,6 +23,7 @@ export type EmployeeReportFacts = Awaited<ReturnType<typeof readEmployeeReportFa
 /** All business reads share one read-only MVCC snapshot; delivery consumes only the returned values. */
 export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
   enterpriseId: string; period: UsageOverviewPeriod; timezone: string; anchor: Date; now?: Date;
+  includeCompanyWeekQuota?: boolean;
 }) {
   return db.transaction().setIsolationLevel("repeatable read").execute(async trx => {
     await sql`SET TRANSACTION READ ONLY`.execute(trx);
@@ -47,11 +48,22 @@ export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
     // monthly facts with mutable grants; legacy months retain the established KPI contract.
     const monthlyAllocationKnown = periods.every(period => period.quality === "COMPLETE")
       && scopedGrants.every(grant => periods.some(period => period.principal_id === grant.principal_id && period.provider === grant.provider));
-    const companyMonthlyAllocation = input.period !== "MONTH" ? null : periods.length
+    const companyWeek = input.period === "WEEK" && input.includeCompanyWeekQuota;
+    const companyMonthlyAllocation = input.period !== "MONTH" && !companyWeek ? null : periods.length
       ? monthlyAllocationKnown ? periods.reduce((sum, period) => sum + BigInt(period.limit_value), 0n).toString() : null
       : grants.some(grant => grant.updated_at >= end) ? null
         : scopedGrants.reduce((sum, grant) => sum + BigInt(grant.quota_value), 0n).toString();
     const quotaMonth = employeeQuotaMonth(new Date(end.getTime() - 1), input.timezone);
+    // The week can straddle a month boundary. Keep its usage totals separate from
+    // the month-to-date KPI, and read both at the same exclusive Sunday cutoff.
+    const companyMonthToDateTokens = companyWeek ? (await trx.selectFrom("ledger_transaction as lt")
+      .innerJoin("ai_request as ar", join => join.onRef("ar.id", "=", "lt.ai_request_id").onRef("ar.enterprise_id", "=", "lt.enterprise_id"))
+      .innerJoin("principal as p", join => join.onRef("p.id", "=", "lt.principal_id").onRef("p.enterprise_id", "=", "lt.enterprise_id"))
+      .select(sql<string>`coalesce(sum(lt.total_input_tokens + lt.total_output_tokens), 0)::text`.as("tokens"))
+      .where("lt.enterprise_id", "=", input.enterpriseId).where("p.type", "=", "EMPLOYEE")
+      .where("lt.status", "=", "SETTLED").where("ar.status", "=", "SUCCEEDED")
+      .where("lt.created_at", ">=", quotaMonth.periodStart).where("lt.created_at", "<", end)
+      .executeTakeFirstOrThrow()).tokens : null;
     const legacyUsage = await trx.selectFrom("ledger_line as l")
       .innerJoin("principal as p", join => join.onRef("p.id", "=", "l.principal_id").onRef("p.enterprise_id", "=", "l.enterprise_id"))
       .innerJoin("provider_resource as r", join => join.onRef("r.id", "=", "l.provider_resource_id").onRef("r.enterprise_id", "=", "l.enterprise_id"))
@@ -122,6 +134,6 @@ export async function readEmployeeReportFacts(db: Kysely<Database>, input: {
     return { factVersion: "employee-report-v2", generatedAt: generatedAt.toISOString(), scope: { type: "EMPLOYEE" as const, enterpriseId: input.enterpriseId },
       snapshotMetadata: { factVersion: "employee-report-v2", generatedAt: generatedAt.toISOString(), scope: "EMPLOYEE" as const,
         timezone: input.timezone, quotaPeriodKey: cutoff.periodKey, quotaAsOf: end.toISOString(), provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" },
-      overview, models, companyMonthlyAllocation, quota: quotaForPrincipal(), quotaForPrincipal, personal, provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" };
+      overview, models, companyMonthlyAllocation, companyMonthToDateTokens, quota: quotaForPrincipal(), quotaForPrincipal, personal, provenance: "repeatable-read;activity=settled-successful-employee;quota=attempt-reservation-month" };
   });
 }
