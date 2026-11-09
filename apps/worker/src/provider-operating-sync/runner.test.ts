@@ -240,6 +240,36 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
     try {
       await migrateToLatest(db);
       const { enterpriseId, resourceId } = await seedApiResource(db, "恢复链回归测试", 5);
+      const principalId = randomUUID();
+      const modelId = randomUUID();
+      const upstreamModel = "deepseek-test-flash";
+      await db.insertInto("principal").values({
+        id: principalId, enterprise_id: enterpriseId, name: "余额恢复测试主体", type: "EMPLOYEE",
+      }).execute();
+      const key = await db.insertInto("principal_key").values({
+        enterprise_id: enterpriseId, principal_id: principalId, key_prefix: "test",
+        key_digest: `recovery-${principalId}`, allowed_model_ids: sql`'[]'::jsonb`,
+      }).returning("id").executeTakeFirstOrThrow();
+      await db.insertInto("principal_grant").values({
+        enterprise_id: enterpriseId, principal_id: principalId, provider: "deepseek",
+        model_alias: "*", pool_model_alias: "*", quota_value: 1_000n, valid_from: new Date(0),
+      }).execute();
+      await db.insertInto("unified_model").values({
+        id: modelId, enterprise_id: enterpriseId, alias: "ql-deepseek-flash", display_name: "DeepSeek Flash",
+      }).execute();
+      await db.insertInto("model_route").values({
+        enterprise_id: enterpriseId, unified_model_id: modelId,
+        provider_resource_id: resourceId, upstream_model: upstreamModel,
+      }).execute();
+      await db.insertInto("billing_rule").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId, upstream_model: upstreamModel,
+        rule_type: "API_PRICE", rule_version: "balance-recovery", effective_from: new Date(0),
+        cache_miss_price: "0.000001",
+      }).execute();
+      const readKeyModels = async () => (await db.selectFrom("principal_key").select("allowed_model_ids")
+        .where("id", "=", key.id).executeTakeFirstOrThrow()).allowed_model_ids;
+      const clearKeyModels = () => db.updateTable("principal_key")
+        .set({ allowed_model_ids: sql`'[]'::jsonb` }).where("id", "=", key.id).execute();
       const kekBase64 = Buffer.alloc(32, 5).toString("base64");
       const repo = new ProviderRepository(db);
       await repo.appendOperatingSnapshot(enterpriseId, resourceId, {
@@ -259,12 +289,14 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
         updated_at: new Date("2026-08-18T01:30:00Z") })
         .where("id", "=", resourceId).execute();
+      expect(await readKeyModels()).toEqual([]);
       // T2（P1 到点）：成功 100 → 快照 v3（01:45）晚于隔离时刻 → BALANCE_SYNC_RECOVERED → DEGRADED。
       await expect(tick(new Date("2026-08-18T01:45:00Z")))
         .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
           skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
+      expect(await readKeyModels()).toEqual([modelId]);
       expect(await db.selectFrom("resource_status_event").select(["reason", "to_status"])
         .where("provider_resource_id", "=", resourceId).orderBy("id", "desc")
         .executeTakeFirstOrThrow()).toMatchObject({
@@ -275,17 +307,20 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
         updated_at: new Date("2026-08-18T02:05:00Z") })
         .where("id", "=", resourceId).execute();
+      await clearKeyModels();
       await expect(tick(new Date("2026-08-18T02:10:00Z")))
         .resolves.toEqual({ resourcesScanned: 1, snapshotsCreated: 1, failed: 0, notSupported: 0,
           skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "DEGRADED" });
+      expect(await readKeyModels()).toEqual([modelId]);
 
       // 证据不足：新隔离（02:30）后仅有 provider_balance_available=NULL 的快照（v5，02:50）
       // → 不恢复；本轮上游失败也只留 attempt 失败原因，不覆盖最后成功快照。
       await db.updateTable("provider_resource").set({ status: "EXHAUSTED",
         updated_at: new Date("2026-08-18T02:30:00Z") })
         .where("id", "=", resourceId).execute();
+      await clearKeyModels();
       await db.insertInto("provider_resource_operating_snapshot").values({
         enterprise_id: enterpriseId, provider_resource_id: resourceId, version: 5,
         source: "PROVIDER_SYNC", collected_at: new Date("2026-08-18T02:50:00Z"),
@@ -298,6 +333,7 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
           skippedQuiescentResources: 0 });
       expect(await db.selectFrom("provider_resource").select("status")
         .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "EXHAUSTED" });
+      expect(await readKeyModels()).toEqual([]);
 
       // 失败保鲜：快照历史不新增（v1 ADMIN＋v2/v3/v4 同步＋v5 直插 = 5）；
       // 最新 attempt FAILED/UPSTREAM_UNAVAILABLE；last_success_data_at = 最后成功采集时刻。
@@ -306,6 +342,12 @@ describe("WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋
       expect(states[0]).toMatchObject({ balance_status: "FAILED", cost_status: "NOT_SUPPORTED",
         error_code: "UPSTREAM_UNAVAILABLE" });
       expect(states[0]?.last_success_data_at?.toISOString()).toBe("2026-08-18T02:10:00.000Z");
+
+      await expect(tick(new Date("2026-08-18T03:15:00Z"), okFetch(["0"])))
+        .resolves.toMatchObject({ snapshotsCreated: 1, failed: 0 });
+      expect(await db.selectFrom("provider_resource").select("status")
+        .where("id", "=", resourceId).executeTakeFirstOrThrow()).toEqual({ status: "EXHAUSTED" });
+      expect(await readKeyModels()).toEqual([]);
       await retireResource(db, resourceId);
     } finally {
       await db.destroy();

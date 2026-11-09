@@ -268,6 +268,7 @@ export class ResourcePoolRepository {
         .where("collected_at", ">", row.updated_at).executeTakeFirst();
       if (!evidence) return null;
       await this.applyTransitionTx(trx, row, transition, null, "system");
+      await refreshResourcePrincipalKeyModelsTx(trx, row);
       return transition;
     });
   }
