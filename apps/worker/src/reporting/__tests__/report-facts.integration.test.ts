@@ -70,9 +70,15 @@ describe("employee report frozen facts", () => {
   });
   it("uses November quota at the end of a crossing week and creates no historical quota rows", async () => {
     const input = { db, enterpriseId, kekBase64: "unused", targetDate: new Date("2026-11-01T12:00:00Z"), now, dryRun: true };
+    await usage(employee, key, "DeepSeek V3", 20000000n, "2026-10-31T23:59:59+08:00");
+    const reportFacts = await readEmployeeReportFacts(db, {
+      enterpriseId, period: "WEEK", timezone: "Asia/Shanghai", anchor: input.targetDate, now, includeCompanyWeekQuota: true,
+    });
+    expect(reportFacts.overview.metrics.realTokens).toBe("35000000");
+    expect(reportFacts.companyMonthToDateTokens).toBe("15000000");
     const company = await runCompanyWeeklyReport(input);
     const personal = await runPersonalWeeklyReports({ ...input, userPersonId: "欧阳测试长姓名成员" });
-    expect(company.dateRange).toBe("10.26 - 11.1"); expect(company.svg).toContain("截至11月1日");
+    expect(company.dateRange).toBe("10.26 - 11.1"); expect(company.summaryText).toContain("截至11月1日");
     expect(company.svg).toContain("共 5 个，展示 Top3");
     expect(personal[0]!.svg).toContain("截至11月1日"); expect(personal[0]!.svg).toContain("历史余额待核账");
     expect(company.svg).not.toContain("18.1"); expect(company.svg).not.toContain("project-provider");
@@ -118,9 +124,9 @@ describe("employee report frozen facts", () => {
     expect(facts.quota.rows.find(row => row.provider === "kimi")!.detail).toContain("预占 500.0 万");
     const company = await runCompanyWeeklyReport(input);
     const personal = await runPersonalWeeklyReports({ ...input, userPersonId: "欧阳测试长姓名成员" });
-    expect(company.summaryText).toContain(facts.quota.statusLabel);
+    expect(company.summaryText).toContain("当月分配额度：待核");
     expect(personal[0]!.summaryText).toContain(facts.quota.statusLabel);
-    for (const row of facts.quota.rows) { expect(company.svg).toContain(row.detail); expect(company.summaryText).toContain(row.detail); }
+    for (const row of facts.quota.rows) { expect(company.svg).not.toContain(row.detail); expect(company.summaryText).not.toContain(row.detail); }
     const directory = fileURLToPath(new URL("../../../../../V4/Evidence/EMPLOYEE-QUOTA-REPORTING-20261101/reporting/", import.meta.url));
     await writeFile(resolve(directory, "synthetic-monthly-quota-company.png"), company.pngBuffer!);
     await writeFile(resolve(directory, "synthetic-monthly-quota-company.svg"), company.svg!);

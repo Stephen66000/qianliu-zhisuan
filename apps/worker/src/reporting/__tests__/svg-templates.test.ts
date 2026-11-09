@@ -83,7 +83,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
       enterpriseName: "仟流智算创新科技",
       dateRange: "9.7 - 9.13",
       monthQuotaTotal: "500.0 万",
-      monthConsumedTokens: "128.5 万",
+      monthTokenUsageRate: "25.7%",
       monthQuotaRemaining: "371.5 万",
       totalRequests: "10,450 次",
       totalTokens: "384.3 万",
@@ -128,18 +128,18 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
 
     const svg = generateCompanyWeeklySvg(data);
 
-    expect(svg).toContain("仟流智算创新科技 · 全员用量周报");
-    expect(svg).toContain("9.7 - 9.13");
-    expect(svg).toContain("本月总 Token");
-    expect(svg).toContain("Token 消耗总量");
-    expect(svg).toContain("剩余 Token 总量");
+    expect(svg).toContain("仟流智算创新科技 · Token使用量周报");
+    expect(svg).toContain("9.7-9.13");
+    expect(svg).toContain("当月分配额度");
+    expect(svg).toContain("当月Token使用率");
+    expect(svg).toContain("剩余额度");
     expect(svg).toContain("500.0");
-    expect(svg).toContain("128.5");
+    expect(svg).toContain("25.7");
     expect(svg).toContain("371.5");
     expect(svg).toContain("10,450");
     expect(svg).toContain("384.3");
     expect(svg).toContain("54.9");
-    expect(svg).toContain("全员使用量");
+    expect(svg).toContain("人员使用量");
     expect(svg).toContain("使用模型");
     expect(svg).toContain("DeepSeek V3");
 

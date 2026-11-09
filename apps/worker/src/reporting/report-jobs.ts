@@ -180,7 +180,7 @@ export async function runCompanyWeeklyReport(
 
   const context = periodicContext(options, enterprise.timezone);
   const { monthly, timezone, anchorDate, divisor } = context;
-  const facts = await readEmployeeReportFacts(db, { enterpriseId, period: context.period, timezone, anchor: anchorDate, now: options.now ?? options.clock?.() });
+  const facts = await readEmployeeReportFacts(db, { enterpriseId, period: context.period, timezone, anchor: anchorDate, now: options.now ?? options.clock?.(), includeCompanyWeekQuota: !monthly });
   const overview = facts.overview;
   const rangeStart = new Date(overview.range.from);
   const rangeEnd = new Date(overview.range.to);
@@ -188,7 +188,6 @@ export async function runCompanyWeeklyReport(
   const totalTokens = Number(overview.metrics.realTokens);
   const requestCount = Number(overview.metrics.requestCount);
   const activeEmployees = overview.metrics.activeSubjects;
-  const quota = facts.quota;
   const presentation = companyReportPresentation(Boolean(monthly), facts);
   const topModelsData = facts.models.models;
   const totalModelTokens = totalTokens;
@@ -222,13 +221,9 @@ export async function runCompanyWeeklyReport(
     enterpriseName: enterprise.name,
     dateRange: dateRangeStr,
     reportMonth: monthly?.label,
-    reportTimezone: timezone,
     monthQuotaTotal: presentation.monthQuotaTotal,
     monthTokenUsageRate: presentation.monthTokenUsageRate,
-    monthConsumedTokens: presentation.monthConsumedTokens,
     monthQuotaRemaining: presentation.monthQuotaRemaining,
-    quotaRows: quota.rows,
-    quotaAsOf: quota.asOfLabel,
     totalModels: facts.models.totalModels,
     totalRequests: presentation.totalRequests,
     totalTokens: formatTokenVolume(totalTokens),

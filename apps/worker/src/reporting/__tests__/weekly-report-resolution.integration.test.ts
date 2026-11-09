@@ -51,17 +51,17 @@ function pngSize(png: Buffer): [number, number] {
 }
 
 describe("Weekly jobs produce actual 2x images before delivery", () => {
-  it("company preview decodes at 1080x1520 and retains the original viewBox", async () => {
+  it("company preview decodes at 2x using the shared layout", async () => {
     const sizes = captureDecodedSizes();
     const result = await runCompanyWeeklyReport({ db, enterpriseId, kekBase64: "unused",
       targetDate, recipients: [memberName], dryRun: true });
     expect(result.status).toBe("DRY_RUN");
     expect(result.dateRange).toBe("9.21 - 9.27");
-    expect(result.summaryText).toContain("⚡ 全周消耗总量：");
-    expect(result.svg).toContain('viewBox="0 0 540 776"');
-    expect(result.svg).toContain('width="540" height="776"');
-    expect(pngSize(result.pngBuffer!)).toEqual([1080, 1552]);
-    expect(sizes[0]).toEqual([1080, 1552]);
+    expect(result.summaryText).toContain("⚡ 全周Token使用量：");
+    expect(result.svg).toContain('viewBox="0 0 540 861"');
+    expect(result.svg).toContain('width="540" height="861"');
+    expect(pngSize(result.pngBuffer!)).toEqual([1080, 1722]);
+    expect(sizes[0]).toEqual([1080, 1722]);
   });
 
   it("personal delivery uploads a 1080x1538 image without changing its crop or recipients", async () => {
