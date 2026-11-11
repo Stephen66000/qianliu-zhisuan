@@ -1,0 +1,15 @@
+== 变异映射表（stryker-eg02-report-after-t123.json，2026-11-07 15:28-15:42 复验） ==
+总变异 208；Killed 205；Survived 3；score 98.56%（≥break 80，exit 0）；基线 208/201/7 → 杀 4 非等价、留 3 等价
+
+变异 ID │ 文件:行 │ mutator │ 替换内容 │ 结果 │ 杀死用例（新测试）
+id16 │ api-cost-estimation.ts:250 │ ArithmeticOperator │ 末位 +currency_missing_rows → - │ KILLED │ EG-02 T1（已计价但币种 NULL 遗留行，api-cost-estimation.integration.test.ts）
+id174 │ official-balance-states.ts:174 │ ConditionalExpression │ a>b?a:b → false（reduce 恒取末项） │ KILLED │ EG-02 T2（冷却候选晚于租约且早候选在后，wp3-official-balance-states.integration.test.ts）
+id206 │ official-balance-states.ts:205 │ MethodExpression │ states.sort(cmp) → states │ KILLED │ EG-02 T3（同用例）；手工变异实验亦证失败
+id207 │ official-balance-states.ts:205 │ ArrowFunction │ cmp → () => undefined │ KILLED │ EG-02 T3（同一测试双杀）；手工变异实验亦证失败
+
+幸存 3 项＝等价依据保留（EG-02 对账 run2/eg-02/survivor-reconciliation.txt 口径）：
+id0 │ estimation:166 │ 默认参数 includeResourceId=false→true：单资源版 SQL 多投影一列不影响外层聚合与断言，投影固定列不变（等价）
+id61 │ estimation:377 │ 空清单早退 false：unnest([]) 空集 → 每资源行同构空 Map（等价）
+id175 │ states:174 │ >→>=：仅并列时刻 tie-break 不同，取值相同（等价）
+
+killedBy 映射（Stryker 原始报告）: id16→test#10（EG-02 T1）；id174→test#33（EG-02 T2）；id206/id207→test#34（EG-02 T3 同一测试）

@@ -1,0 +1,8 @@
+exec
+-i
+pgtest
+sh
+-c
+db="$1"; shift; exec pg_restore --no-owner --no-privileges -U "$POSTGRES_USER" -d "$db"
+sh
+synthetic_live

@@ -1,0 +1,12 @@
+== 环境异常记录：worktree 被并发会话短暂改指（T1-T5 收尾批执行期间） ==
+
+现象：
+1) 15:45 前后首次取证时 HEAD 瞬时为 9a5fd5691338a9b86044ffc0bfbf7298e350eded（2026-11-02 merge 'preserve published Worker reports with monthly quota accounting'，非本批合同基线），同时树中出现大量与 EMPLOYEE-QUOTA-REPORTING-20261101 / quota-pricing 相关的修改与未跟踪条目（含 .workbuddy/、.zcodeignore、openspec/README.md、packages/domain/reports/mutation/mutation.html、一份产品文档删除标记等）——均非本轮 T1-T5 改动。
+2) 15:47 复核时 HEAD 已回到 1447ade 且树恢复基线 6 条目；15:48 第二次取证时再次瞬时观察到 9a5fd56 态；15:48:31 原子快照成功捕获 1447ade 稳态。
+3) stash 栈仅有一条旧档 stash@{0}（On codex/quota-pricing-review-20260905: wip-main-4，非本轮产生）。
+
+影响评估：
+- 本轮四项授权改动（两个测试文件、run-probes.sh）与 eg-05-t1-t5/ 全部证据在每次复核时均完整存在，未受损；
+- production-zero-diff.txt 为 15:48:31 在 HEAD=1447ade 下的原子快照；
+- 本轮未执行任何 commit/checkout/stash/restore（仅实验后 git checkout -- <两个生产源文件> 还原自身实验改动），HEAD 波动非本批操作所致；
+- 推断（未核实）：另一并发 zcode/WorkBuddy 会话在同一 worktree 上做 quota 相关任务的分支切换循环。按合同『遇到与合同冲突的现实情况报告冲突』如实上报，提请总指挥在该 worktree 上协调串行化。

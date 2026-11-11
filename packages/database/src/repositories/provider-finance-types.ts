@@ -169,7 +169,7 @@ export interface ResourceFinanceView {
 
 export class ProviderFinanceError extends Error {
   constructor(
-    readonly code: "NOT_FOUND" | "INVALID_MODE" | "INVALID_REQUEST" | "CONFLICT" | "IDEMPOTENCY_CONFLICT" | "DUPLICATE_CONFIRMATION_REQUIRED",
+    readonly code: "NOT_FOUND" | "INVALID_MODE" | "INVALID_REQUEST" | "CONFLICT" | "IDEMPOTENCY_CONFLICT" | "DUPLICATE_CONFIRMATION_REQUIRED" | "API_FUNDING_RETIRED",
     message: string,
     readonly detail?: unknown,
   ) {

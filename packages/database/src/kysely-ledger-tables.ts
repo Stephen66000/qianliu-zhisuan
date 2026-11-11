@@ -64,7 +64,8 @@ export interface BillingRuleTable {
   timezone: string | null; days_of_week: number[] | null; start_time: string | null; end_time: string | null;
   time_windows: Generated<BillingRuleWindow[] | null>; multiplier: string | null; cache_hit_price: string | null;
   cache_miss_price: string | null; output_price: string | null; currency: Generated<string>;
-  priority: Generated<number>; enabled: Generated<boolean>; source: string | null; version: Generated<number>;
+  priority: Generated<number>; enabled: Generated<boolean>; source: string | null;
+  source_status: Generated<"VERIFIED" | "UNVERIFIED">; version: Generated<number>;
   archived_at: Generated<Date | null>; archived_by_admin_id: string | null;
   created_at: Generated<Date>; updated_at: Generated<Date>;
 }

@@ -1,0 +1,82 @@
+{
+  "legacyRoot": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+  "legacyHeadMigration": "0092_employee_monthly_quota（ae506fe 迁移头）",
+  "databaseUrlPath": "/wp6_x07_drill",
+  "admission": {
+    "query": "ResourcePoolRepository.listServableResources (ae506fe:428)",
+    "servableIds": [
+      "686fec49-066b-4b9b-b8f7-b4a7927fa4e6"
+    ],
+    "freshResource_noFinanceRow": {
+      "resourceId": "686fec49-066b-4b9b-b8f7-b4a7927fa4e6",
+      "included": true
+    },
+    "legacyResource_pendingRow": {
+      "resourceId": "8fb8f6be-12f1-4e44-b53b-7a6a135a5082",
+      "included": false
+    }
+  },
+  "readPreRollbackSettlement": {
+    "query": "GatewayLedgerRepository.listLedgerLines (ae506fe:261)",
+    "freshRequest": {
+      "requestId": "1362cf84-f25b-4587-8a47-a4d8b32d0ada",
+      "lines": [
+        {
+          "api_cost": "0.00104000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "pendingRequest": {
+      "requestId": "bf8ad5de-fc38-477c-b080-450d35a8c7c7",
+      "lines": [
+        {
+          "api_cost": "0.00052000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE"
+        }
+      ],
+      "amountMatchesSeed": true
+    }
+  },
+  "settleNewConsumption": {
+    "path": "GatewayLedgerRepository.createRequest/createAttempt/createUsageAndLedgerLineIfAbsent (ae506fe)",
+    "requestStatus": "IN_PROGRESS",
+    "created": true,
+    "newLine": {
+      "api_cost": "0.00052000",
+      "api_cost_currency": "CNY",
+      "api_cost_status": "PRICED_USAGE"
+    },
+    "readableAfterSettle": [
+      "0.00052000"
+    ]
+  },
+  "windowOperatingFinance": {
+    "path": "loadWindowOperatingFinance (ae506fe dashboard-home-costs:36)",
+    "totalSpends": [
+      {
+        "currency": "CNY",
+        "amount": "0.00208000"
+      }
+    ],
+    "incompleteReason": "OPENING_BALANCE_MISSING:2",
+    "expectedLedgerSumCny": "0.00208000"
+  },
+  "employeeQuotaPeriods": {
+    "path": "readQuotaPeriodsInTransaction (ae506fe employee-quota-read-repository:65)",
+    "periods": [
+      {
+        "period_key": "2026-11",
+        "provider": "deepseek",
+        "limit_value": "1000000",
+        "used_value": "1200",
+        "quota_basis": "RAW_TOKEN",
+        "allow_overage": true
+      }
+    ]
+  }
+}

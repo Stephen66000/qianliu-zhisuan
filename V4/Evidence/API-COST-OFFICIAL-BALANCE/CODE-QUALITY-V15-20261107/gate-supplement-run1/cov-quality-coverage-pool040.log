@@ -1,0 +1,19 @@
+$ corepack pnpm@11.11.0 --dir apps/gateway exec vitest run --config vitest.pool040.mutation.config.ts --coverage
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+      Coverage enabled with v8
+
+ ✓ src/pipeline/revoked-attempt-settlement.mutation.test.ts (12 tests) 12ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  11:30:48
+   Duration  1.81s (transform 937ms, setup 0ms, collect 1.54s, tests 12ms, environment 0ms, prepare 49ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ ...-settlement.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------

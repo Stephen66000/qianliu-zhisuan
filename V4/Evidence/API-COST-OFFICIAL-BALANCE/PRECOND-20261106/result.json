@@ -1,0 +1,136 @@
+{
+  "drill": "precond4-isolated-drill: production recovery loop (backup script + rollback.sh end-to-end)",
+  "date": "2026-11-06",
+  "repo": "/Users/mac/Projects/仟流智算-api-decouple",
+  "branch": "codex/simplify-api-cost-and-official-balance",
+  "head_expected": "7d28c4a",
+  "head_actual": "7d28c4a1a684528a0df43a5c260e150a96406579",
+  "drill_env": {
+    "dir": "/tmp/precond4-drill",
+    "compose_project": "precond4",
+    "container": "ic-postgres (postgres:17-alpine, port 55435->5432)",
+    "docker_host": "unix:///Users/mac/.colima/default/docker.sock",
+    "database": "drilldb",
+    "note": "scripts under test are faithful copies of repo deploy/scripts (repo originals untouched, uncommitted changes preserved)"
+  },
+  "steps": [
+    {
+      "step": "1-setup",
+      "command": "docker compose -p precond4 up -d postgres; docker exec ic-postgres pg_isready -U postgres -d drilldb",
+      "expected": "container up, pg_isready accepting",
+      "actual": "container up; pg_isready accepting connections; port 55435 mapped",
+      "result": "PASS",
+      "note": "first build lacked compose.yaml 'name:' field; rollback.sh resolves compose project from deploy dir files (no -p), dir basename 'precond4-drill' != '-p precond4' -> container name conflict. Fixed drill-side by adding 'name: precond4' to /tmp/precond4-drill/compose.yaml, mirroring repo deploy/compose.yaml:12 'name: qianliu-zhisuan'. .env kept to exactly the 3 contracted variables."
+    },
+    {
+      "step": "2-migrate-to-0091",
+      "command": "cd packages/database && DATABASE_URL=postgres://postgres:drillpw@127.0.0.1:55435/drilldb tsx /tmp/precond4-drill/migrate-drill.mts",
+      "expected": "migrateToLatest -> 97 migrations to 0096; migrateDown x5 -> 0096,0095,0094,0093,0092; head=0091_recorded_cost_accounting_policy",
+      "actual": "migrateToLatest executed 97 (latest=0096_official_balance_refresh_request); rolled 0096,0095,0094,0093,0092; migration_head=0091_recorded_cost_accounting_policy; kysely_migration rows=92",
+      "result": "PASS"
+    },
+    {
+      "step": "3-seed",
+      "command": "psql insert enterprise(11111111-1111-4111-8111-111111111111, 'DrillEnt-1'); insert provider(22222222-2222-4222-8222-222222222222 -> enterprise FK, code drill-prov, adapter openai)",
+      "expected": "enterprise=1, provider=1",
+      "actual": "enterprise=1, provider=1",
+      "result": "PASS"
+    },
+    {
+      "step": "4-backup",
+      "command": "API_DECOUPLE_BACKUP_STATE_DIR=/tmp/precond4-drill/state bash scripts/backup-pre-api-decouple-20261106.sh --backup",
+      "expected": "exit 0; non-empty .dump; TOC echoed; migration_head=0091...",
+      "actual": "exit 0; backup_file=/tmp/precond4-drill/state/database-before-api-decouple-20261106-095041.dump; bytes=623780; TOC printed (Archive created at 2026-11-06 01:50:43 UTC, dbname drilldb); migration_head=0091_recorded_cost_accounting_policy",
+      "result": "PASS"
+    },
+    {
+      "step": "5-post-backup-write",
+      "command": "psql insert enterprise(33333333-3333-4333-8333-333333333333, 'DrillEnt-2-after-backup')",
+      "expected": "enterprise=2, provider=1 (simulated write after backup point)",
+      "actual": "enterprise=2, provider=1",
+      "result": "PASS"
+    },
+    {
+      "step": "6-rollback-YES",
+      "command": "printf 'YES\\n' | bash scripts/rollback.sh /tmp/precond4-drill/state/database-before-api-decouple-20261106-095041.dump",
+      "expected": "exit 0; output ends '迁移头已恢复到 0091_recorded_cost_accounting_policy' + result=PASS; enterprise=1 (post-backup row wiped, DESTRUCTIVE semantics); provider=1",
+      "actual": "FAIL at rollback.sh:112-115. Integrity gate, postgres-ready wait, dropdb+createdb (line 105-109) and docker cp all succeeded; pg_restore then failed: 'pg_restore: error: connection to server on socket /var/run/postgresql/.s.PGSQL.5432 failed: FATAL: role \"root\" does not exist' -> script exit 2. DB left EMPTY (dropped, restore failed). Cause: compose exec lands as uid=0(root) (postgres:17-alpine sets no USER; verified docker exec id = uid=0). pg_restore in rollback.sh:114 lacks -U \"$POSTGRES_USER\", so it connects over the socket as OS user root, which has no role. Production impact: repo deploy/compose.yaml postgres service also sets no 'user:' -> identical failure expected on the real host, AFTER dropdb already destroyed the live DB (empty-DB window; data only recoverable from the backup file itself).",
+      "result": "FAIL",
+      "root_cause_proof": "diagnostic replay [diag2]: same chain dropdb+createdb then pg_restore --no-owner --no-privileges -U \"$POSTGRES_USER\" -j 4 -d \"$POSTGRES_DB\" -> exit 0, DB fully restored: enterprise=1, provider=1, head=0091_recorded_cost_accounting_policy. Sole delta = -U. DESTRUCTIVE semantics (post-backup row wiped) demonstrated by this successful restore.",
+      "minimal_fix_suggestion": "rollback.sh line 114: pg_restore --no-owner --no-privileges -U \"$POSTGRES_USER\" -j 4 -d \"$TARGET_DB\" /tmp/rollback-restore.dump (or run compose exec with --user). NOT applied in this drill: contract forbids modifying the two scripts (originals or copies under test).",
+      "resolution": "发现 -U 缺陷 → 修复（rollback.sh:114 加 -U \"$POSTGRES_USER\"，注释补根因）→ ROUND 2 复演 PASS（见 round2.steps）。本条为历史记录，保留不抹。"
+    },
+    {
+      "step": "7a-negative-corrupt-backup",
+      "command": "head -c 1024 <dump> > corrupt.dump; printf 'YES\\n' | bash scripts/rollback.sh corrupt.dump",
+      "expected": "container-internal integrity gate exit 1; DB untouched (counts and head unchanged)",
+      "actual": "gate: 'pg_restore: error: could not read from input file: end of file' -> 'ERROR: 备份文件损坏（pg_restore 无法列出归档目录）' -> exit 1, before dropdb; DB state after: enterprise=1, provider=1, head=0091_recorded_cost_accounting_policy (unchanged)",
+      "result": "PASS"
+    },
+    {
+      "step": "7b-negative-refuse-confirm",
+      "command": "printf 'NO\\n' | bash scripts/rollback.sh <good dump>",
+      "expected": "early cancel exit 0; DB untouched",
+      "actual": "'已取消。' -> exit 0 before any stop/drop/restore; DB state after: enterprise=1, provider=1, head=0091_recorded_cost_accounting_policy (unchanged)",
+      "result": "PASS"
+    },
+    {
+      "step": "9-cleanup",
+      "command": "docker compose -p precond4 down -v; verify port 55435 released; remove stray precond4-drill_default network",
+      "expected": "all drill resources removed",
+      "actual": "docker compose -p precond4 down -v exit 0 (container ic-postgres removed, network precond4_default removed, volume removed); stray precond4-drill_default removed earlier; port 55435 released (lsof: none); no ic-* containers remain; real containers qianliu-pg/wp6-r7-restore untouched (Up 16 hours throughout)",
+      "result": "PASS"
+    }
+  ],
+  "verdict": "PASS — 修复后端到端闭环成立：备份(--backup, TOC+head 门) → 备份后写入 → YES 回退(exit 0, head=0091, 备份后写入被清) → 坏备份门(exit 1, 库未动) → 拒绝确认(提前退出, 库未动)。仓库改动仅 deploy/scripts/rollback.sh 一处最小修复；未 commit。",
+  "evidence_files": [
+    "/tmp/precond4-drill/drill.log",
+    "/tmp/precond4-drill/result.json"
+  ],
+  "final_verdict_note": "Round 1 step 6 FAIL root cause (rollback.sh:114 pg_restore missing -U \"$POSTGRES_USER\"; exec user uid=0(root) has no DB role; failure window AFTER dropdb) was confirmed as production-grade defect, fixed minimally, and round 2 replayed end-to-end: all assertions PASS.",
+  "round2": {
+    "trigger": "总指挥裁定：确认为生产级缺陷，授权最小修复＋重演",
+    "fix": {
+      "file": "deploy/scripts/rollback.sh",
+      "scope": "唯一一处：pg_restore 行加 -U \"$POSTGRES_USER\" + 行内注释 2 行补根因",
+      "diff_vs_prefix_snapshot": [
+        "+ # pg_restore 必须显式 -U \"$POSTGRES_USER\"：镜像未设 USER，exec 以 uid=0(root) 落地，",
+        "+ # 走 socket 会按 OS 用户连不存在的 role \"root\"（先例：上方 dropdb/createdb 均带 -U）。",
+        "-   pg_restore --no-owner --no-privileges -j 4 -d \"$TARGET_DB\" /tmp/rollback-restore.dump",
+        "+   pg_restore --no-owner --no-privileges -U \"$POSTGRES_USER\" -j 4 -d \"$TARGET_DB\" /tmp/rollback-restore.dump"
+      ],
+      "syntax_check": "bash -n OK",
+      "backup_script": "未改动（本轮与上轮一致）"
+    },
+    "env_rebuild": "compose name: precond4 / ic-postgres / 55435->5432; migrate up 97 -> 0096, down x5 -> 0091 (kysely_migration rows=92); seed enterprise=1 provider=1; backup 095748.dump bytes=623786, TOC OK, migration_head=0091",
+    "steps": [
+      {
+        "step": "r2-5-post-backup-write",
+        "actual": "enterprise=2, provider=1",
+        "result": "PASS"
+      },
+      {
+        "step": "r2-6-rollback-YES (FIXED script)",
+        "command": "printf 'YES\\n' | bash scripts/rollback.sh /tmp/precond4-drill/state/database-before-api-decouple-20261106-095748.dump",
+        "expected": "exit 0; 迁移头已恢复到 0091_recorded_cost_accounting_policy; enterprise=1; provider=1; 备份后写入被清",
+        "actual": "exit 0; script output: '✓ 数据库已恢复' / '✓ 迁移头已恢复到 0091_recorded_cost_accounting_policy' / 'migration_head_after_restore=0091_recorded_cost_accounting_policy' / 'result=PASS'; post-state: enterprise=1, provider=1, head=0091_recorded_cost_accounting_policy; enterprise rows: only 11111111-… DrillEnt-1 (DrillEnt-2-after-backup wiped = DESTRUCTIVE semantics correct)",
+        "result": "PASS"
+      },
+      {
+        "step": "r2-7a-negative-corrupt-backup (fresh corrupt2.dump from 095748)",
+        "actual": "gate: 'could not read from input file: end of file' -> 'ERROR: 备份文件损坏（pg_restore 无法列出归档目录）' -> exit 1 before dropdb; DB untouched (enterprise=1, provider=1, head=0091)",
+        "result": "PASS"
+      },
+      {
+        "step": "r2-7b-negative-refuse-confirm (NO with 095748 dump)",
+        "actual": "'已取消。' exit 0 before any stop/drop/restore; DB untouched (enterprise=1, provider=1, head=0091)",
+        "result": "PASS"
+      },
+      {
+        "step": "r2-9-cleanup",
+        "actual": "docker compose -p precond4 down -v exit 0 (ic-postgres removed, network/volume removed); port 55435 released (lsof none); no ic-* containers remain; real containers qianliu-pg/wp6-r7-restore untouched; drill.log contains the cleanup output (synced after)",
+        "result": "PASS"
+      }
+    ]
+  }
+}

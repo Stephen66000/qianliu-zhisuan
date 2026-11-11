@@ -76,7 +76,7 @@ describe("POOL-043 经营账单壳层", () => {
     );
   });
 
-  it("隐藏结账状态，非法月份回退当前月", () => {
+  it("CLOSED 渲染历史口径横幅（含版本号），DRAFT／未传不渲染（WP4-S4 / AFR-06）", () => {
     const first = render(
       <MemoryRouter>
         <OperatingBillShell active="projects" month="2026-08" status="CLOSED" version={2}>
@@ -84,7 +84,7 @@ describe("POOL-043 经营账单壳层", () => {
         </OperatingBillShell>
       </MemoryRouter>,
     );
-    expect(screen.queryByText("已结账 v2")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("已关账版本（历史口径，只读） · v2");
     first.unmount();
 
     const second = render(
@@ -94,7 +94,8 @@ describe("POOL-043 经营账单壳层", () => {
         </OperatingBillShell>
       </MemoryRouter>,
     );
-    expect(screen.queryByText("已结账")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("已关账版本（历史口径，只读）");
+    expect(screen.queryByText(/v\d/)).toBeNull();
     second.unmount();
 
     render(
@@ -104,7 +105,7 @@ describe("POOL-043 经营账单壳层", () => {
         </OperatingBillShell>
       </MemoryRouter>,
     );
-    expect(screen.queryByText("已结账")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByText("待结账")).toBeNull();
     const currentMonth = operatingBillMonth("not-a-month");
     expect(currentMonth).toMatch(/^\d{4}-\d{2}$/);

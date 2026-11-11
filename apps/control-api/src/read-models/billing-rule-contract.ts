@@ -40,6 +40,8 @@ const BillingRuleSchema = z.object({
   currency: z.string().length(3).optional(),
   priority: z.number().int().min(0).optional(),
   source: z.string().max(255).nullable().optional(),
+  // ACE-02 场景 3：价格依据核实状态；缺省落库 UNVERIFIED（不得宣称为已核实官方价）。
+  source_status: z.enum(["VERIFIED", "UNVERIFIED"]).optional(),
 });
 
 type BillingRuleInput = z.infer<typeof BillingRuleSchema>;

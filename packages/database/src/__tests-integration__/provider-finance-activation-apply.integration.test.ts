@@ -12,6 +12,7 @@ import {
   createKysely,
   GatewayLedgerRepository,
   insertCarryoverPeriodTx,
+  insertHistoricalUsageCostTx,
   insertOpeningBalanceTx,
   insertRechargeTx,
   insertSubscriptionTx,
@@ -128,18 +129,27 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       principalId, principalKeyId };
   }
 
-  /** 只补期初的最小草稿：足以得到 GO_CANDIDATE。 */
-  function draftFor(apiResourceId: string): ActivationDraft {
+  /**
+   * 纯套餐最小草稿：足以得到 GO_CANDIDATE。
+   * 断言迁移（WP2-S4 / AFR-01 场景3 / AT-AFR-03）：原“只补期初”的混合草稿在 CA
+   * 预检合同处即被拒绝；初始化合同切分为套餐所需范围后，夹具改用纯套餐形态，
+   * CP 可独立初始化，不再依赖任何 API 资金事实。
+   */
+  function draftFor(planResourceId: string): ActivationDraft {
     return {
       schema_version: "1",
-      api_opening_balances: [{
-        resource_id: apiResourceId, account_currency: "CNY", account_amount: "100",
-        occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
-        evidence_ref: "evidence://opening", source_record_id: null,
-      }],
+      api_opening_balances: [],
       historical_api_recharges: [],
       historical_api_costs: [],
-      coding_plan_purchases: [],
+      coding_plan_purchases: [{
+        resource_id: planResourceId, kind: "PURCHASE", product_name: "合成套餐",
+        account_amount: "100", account_currency: "CNY", cash_paid_cny: "100.00",
+        service_period_start: "2026-09-05", service_period_end: null,
+        occurred_at: "2026-09-05T02:00:00.000Z", external_reference: "ORD-PLAN-S4",
+        auto_renew: false, description: "套餐购买", evidence_ref: "evidence://plan-purchase",
+        source_record_id: null, carryover_snapshot_id: null,
+        record_idempotency_key: "plan-purchase-s4-apply",
+      }],
       coding_plan_carryovers: [],
       legacy_purchase_resolutions: [],
     };
@@ -261,7 +271,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
   // 1. 成功路径与同键同候选重放
   // =====================================================================
 
-  it("零 Token 但费用未知的失败与成功 API 行都使资金预检 NO_GO", async () => {
+  it("零 Token 但费用未知的失败与成功 API 行仅构成视图层缺口，不再阻塞预检（WP2-S4 / R5）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
@@ -285,16 +295,19 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       await startLease(db, seeded);
       const preview = await new ProviderFinanceActivationPreviewRepository(db).previewActivation({
         enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
-        draft: draftFor(seeded.apiResourceId),
+        draft: draftFor(seeded.planResourceId),
       });
-      expect(preview.decision).toBe("NO_GO");
-      expect(preview.gaps.some((gap) => gap.code === "UNKNOWN_COST")).toBe(true);
+      // 断言迁移（WP2-S4 / AFR-01 场景3 / plan §4a-R5）：UNKNOWN_COST 激活缺口随 API
+      // 资金管理退役——纯套餐预检不再被 API 用量分类残留阻塞（AFR-04）；真实分类状态
+      // 仍由视图层 countFinanceGaps 保留（上方断言不变，S5 口径）。
+      expect(preview.decision).toBe("GO_CANDIDATE");
+      expect(preview.gaps.some((gap) => gap.code === "UNKNOWN_COST")).toBe(false);
     } finally {
       await db.destroy();
     }
   });
 
-  it("CONFIRMED_ZERO_NO_UPSTREAM 合法零费用行不计缺口、预检不报 MISSING_API_CURRENCY；真实已计价缺币种仍计", async () => {
+  it("CONFIRMED_ZERO_NO_UPSTREAM 合法零费用行不计缺口；已计价缺币种仅留视图层缺口、不再阻塞预检（WP2-S4 / R5）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
@@ -314,7 +327,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       const previewRepo = new ProviderFinanceActivationPreviewRepository(db);
       const before = await previewRepo.previewActivation({
         enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
-        draft: draftFor(seeded.apiResourceId),
+        draft: draftFor(seeded.planResourceId),
       });
       expect(before.gaps.some((gap) => gap.code === "MISSING_API_CURRENCY")).toBe(false);
 
@@ -343,25 +356,27 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(after.find((gap) => gap.code === "API_COST_CURRENCY_MISSING")?.count).toBe("1");
       const preview = await previewRepo.previewActivation({
         enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
-        draft: draftFor(seeded.apiResourceId),
+        draft: draftFor(seeded.planResourceId),
       });
-      expect(preview.gaps.some((gap) => gap.code === "MISSING_API_CURRENCY")).toBe(true);
+      // 断言迁移（WP2-S4 / R5）：MISSING_API_CURRENCY 激活缺口随 API 资金管理退役；
+      // 真实缺币种状态仍由视图层 countFinanceGaps 保留（上方断言不变，S5 口径）。
+      expect(preview.gaps.some((gap) => gap.code === "MISSING_API_CURRENCY")).toBe(false);
     } finally {
       await db.destroy();
     }
   });
 
-  it("激活成功：事实落库、严格写开启、范围资源 READY、候选 ACTIVATED 与不可变回执；同键同候选重放", async () => {
+  it("激活成功：纯套餐事实落库、严格写开启、候选 ACTIVATED 与不可变回执；同键同候选重放（WP2-S4 / AT-AFR-03）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_success");
-      const draft = draftFor(seeded.apiResourceId);
-      // 一条切换时点前采集、切换后结算、但始终未定价的 API 用量行
-      // → 固定修复行（api_cost_currency + api_cost_status）。
+      const draft = draftFor(seeded.planResourceId);
+      // 一条切换时点前采集、切换后结算、但始终未定价的 API 用量行（金额 0：余额守恒
+      // 不受影响）→ 固定修复行（api_cost_currency + api_cost_status）。
       const lineId = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: LEGACY_USAGE_SETTLED_AT,
-        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "1.5", snapshotCurrency: "CNY",
+        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "0", snapshotCurrency: "CNY",
       });
       await startLease(db, seeded);
       const preview = await previewGo(db, seeded, draft);
@@ -373,31 +388,37 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(outcome.replayed).toBe(false);
       expect(outcome.receipt.conservationPassed).toBe(true);
       expect(outcome.receipt.conservationFailures).toEqual([]);
-      expect(outcome.receipt.factCounts.openings).toBe(1);
+      // 断言迁移（WP2-S4 / R5）：纯套餐激活只写购买事实——期初/充值/历史消耗计数为 0。
+      expect(outcome.receipt.factCounts.purchases).toBe(1);
+      expect(outcome.receipt.factCounts.openings).toBe(0);
+      expect(outcome.receipt.factCounts.recharges).toBe(0);
+      expect(outcome.receipt.factCounts.historicalUsageCosts).toBe(0);
       expect(outcome.receipt.factCounts.usageRepairs).toBe(1);
       expect(outcome.receipt.monthsChecked).toEqual(preview.projection.monthsChecked);
       expect(await candidateStatus(db, preview.candidateId)).toBe("ACTIVATED");
       await assertNoActivating(db, seeded.enterpriseId);
 
-      // 初始化事实与严格写。
-      const opening = await db.selectFrom("provider_finance_event").selectAll()
+      // 初始化事实与严格写：唯一资金事件是 CODING_PLAN_PURCHASE。
+      const purchaseEvent = await db.selectFrom("provider_finance_event").selectAll()
         .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("event_type", "=", "API_OPENING_BALANCE").executeTakeFirstOrThrow();
-      expect(opening.account_amount).toBe("100.00000000");
-      expect(opening.occurred_at.toISOString()).toBe(CUTOVER_ISO);
+        .where("event_type", "=", "CODING_PLAN_PURCHASE").executeTakeFirstOrThrow();
+      expect(purchaseEvent.account_amount).toBe("100.00000000");
+      const apiEvents = await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId)
+        .where("event_type", "like", "API_%").execute();
+      expect(apiEvents).toHaveLength(0);
       const runtime = await sql<{ strict_writes_enabled: boolean; activated_at: Date | null }>`
         SELECT strict_writes_enabled, activated_at FROM provider_finance_runtime_state
          WHERE enterprise_id=${seeded.enterpriseId}::uuid`.execute(db);
       expect(runtime.rows[0]?.strict_writes_enabled).toBe(true);
       expect(runtime.rows[0]?.activated_at).not.toBeNull();
 
-      // 范围资源 READY 且登记必要币种；只覆盖 API 资源。
+      // 断言迁移（WP2-S4 / plan §4a-R5）：资源级资金就绪随 API 资金管理退役——激活
+      // 不再对 scope 内 API 资源 promote READY（promoteResourceFinanceReady repo 方法
+      // 保留存档）；strict_writes 置位不受影响。
       const states = await db.selectFrom("provider_resource_finance_state").selectAll()
         .where("enterprise_id", "=", seeded.enterpriseId).execute();
-      expect(states.map((row) => row.provider_resource_id)).toEqual([seeded.apiResourceId]);
-      expect(states[0]!.state).toBe("READY");
-      expect(states[0]!.required_currencies).toEqual(["CNY"]);
-      expect(states[0]!.ready_by_admin_user_id).toBe(seeded.adminId);
+      expect(states).toEqual([]);
 
       // 四字段修复生效，且非目标字段（Token）未变。
       const line = await db.selectFrom("ledger_line").selectAll().where("id", "=", lineId)
@@ -420,11 +441,11 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       const replay = await repo.activate(activateInput(seeded, preview, draft, "activate-happy"));
       expect(replay.replayed).toBe(true);
       expect(replay.receipt).toEqual(outcome.receipt);
-      const openings = await db.selectFrom("provider_finance_event")
+      const purchases = await db.selectFrom("provider_finance_event")
         .select(({ fn }) => fn.countAll<string>().as("count"))
         .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("event_type", "=", "API_OPENING_BALANCE").executeTakeFirstOrThrow();
-      expect(openings.count).toBe("1");
+        .where("event_type", "=", "CODING_PLAN_PURCHASE").executeTakeFirstOrThrow();
+      expect(purchases.count).toBe("1");
       await assertNoActivating(db, seeded.enterpriseId);
     } finally {
       await db.destroy();
@@ -440,7 +461,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_conflict");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
@@ -460,7 +481,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       // 已激活企业不得再产出可激活候选：严格写已开启，预检直接拒绝。
       const second = new ProviderFinanceActivationPreviewRepository(db);
       await expect(second.previewActivation({
-        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft: draftFor(seeded.apiResourceId),
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft: draftFor(seeded.planResourceId),
       })).rejects.toMatchObject({ code: "ALREADY_ACTIVATED" });
       await expect(repo.activate(activateInput(seeded, preview, draft, "key-beta")))
         .rejects.toMatchObject({ code: "ALREADY_ACTIVATED" });
@@ -481,7 +502,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_locks");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
@@ -514,7 +535,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_race");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
@@ -533,12 +554,12 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         expect(["ACTIVATION_IN_PROGRESS", "ALREADY_ACTIVATED", "ACTIVATION_RETRY_REQUIRED"])
           .toContain(code);
       }
-      // 唯一性：一组期初、一行激活结果。
-      const openings = await db.selectFrom("provider_finance_event")
+      // 唯一性：一组套餐购买事实、一行激活结果（WP2-S4 / R5：纯套餐激活无期初写入）。
+      const purchases = await db.selectFrom("provider_finance_event")
         .select(({ fn }) => fn.countAll<string>().as("count"))
         .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("event_type", "=", "API_OPENING_BALANCE").executeTakeFirstOrThrow();
-      expect(openings.count).toBe("1");
+        .where("event_type", "=", "CODING_PLAN_PURCHASE").executeTakeFirstOrThrow();
+      expect(purchases.count).toBe("1");
       const activated = await db.selectFrom("provider_finance_activation_attempt").select("id")
         .where("enterprise_id", "=", seeded.enterpriseId).where("status", "=", "ACTIVATED").execute();
       expect(activated).toHaveLength(1);
@@ -557,7 +578,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_quiescence");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       const repo = new ProviderFinanceActivationCoordinator(db);
 
       // 无租约：先预检（预检本身不要求门禁通过），再尝试激活。
@@ -576,20 +597,23 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       // 重新建立有效租约，使后续失败可确切归因到"排空未完成"。
       await startLease(db, seeded);
 
-      // 排空：切换时点之后仍存在「未结算/未分类」的 API 用量行，且它不在任何候选的固定修复行集内。
-      // 该行刻意用零 Token、已知费用构造：它不构成费用未知缺口（仍能预检出 GO 候选），
-      // 但确实是切换时点之后未定价、且现有规则无法确定修复的行 → 必须被排空门禁拦下。
-      const unfrozenLine = await insertLedgerLine(db, seeded, {
+      // 断言迁移（WP2-S4 / AFR-04 / plan §4a-R3）：切换时点之后仍存在「未结算/未分类」
+      // 的 API 用量行（不在任何候选的固定修复行集内）不再计入排空——API 用量分类状态
+      // 与激活完整性无关（AFR-01 场景3），激活不再被 API 残留阻塞；在途工作的阻断
+      // 证据由下方在途请求分支承担，“activate 成功”路径由新增 R3 专用用例覆盖。
+      const unclassifiedLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId,
         settledAt: new Date("2026-09-08T04:00:00.000Z"),
         createdAt: new Date("2026-09-08T04:00:00.000Z"),
         apiCost: "6", apiCostCurrency: "CNY", tokens: 0, outputTokens: 0,
       });
-      // 重新预检，让候选水位包含该行——失败必须归因到排空门禁本身，而不是候选漂移。
+      // 重新预检，让候选水位包含该行；排空报告必须仍为已排空（unpaired 恒 0）。
       const blocked = await previewGo(db, seeded, draft);
-      expect(blocked.usageRepairBaseline.map((row) => row.ledgerLineId)).not.toContain(unfrozenLine);
-      await expect(repo.activate(activateInput(seeded, blocked, draft, "key-unpaired")))
-        .rejects.toMatchObject({ code: "ACTIVATION_NOT_QUIESCENT" });
+      expect(blocked.usageRepairBaseline.map((row) => row.ledgerLineId)).not.toContain(unclassifiedLine);
+      const drain = await repo.collectDrainReport(seeded.enterpriseId);
+      expect(drain.unpairedUsageLines).toBe(0);
+      expect(drain.exoneratedUsageLines).toBe(0);
+      expect(drain.drained).toBe(true);
 
       // 在途请求：这不是"等待确定性修复的历史事实"，任何情况下都不豁免。
       await sql`
@@ -601,7 +625,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       await expect(repo.activate(activateInput(seeded, blocked, draft, "key-not-drained")))
         .rejects.toMatchObject({ code: "ACTIVATION_NOT_QUIESCENT" });
 
-      // 四种拒绝都不得留下任何事实写入。
+      // 三种拒绝（无租约/短租约/在途请求）都不得留下任何事实写入。
       const after = await financeCounts(db, seeded.enterpriseId);
       expect(after.provider_finance_event).toBe(before.provider_finance_event);
       expect(after.provider_subscription_period).toBe(before.provider_subscription_period);
@@ -624,34 +648,35 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_drain_scope");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       const repo = new ProviderFinanceActivationCoordinator(db);
       await startLease(db, seeded);
 
       // 生产口径的终态行：**切换时点之后创建**、`settled_at` 仍为 NULL，
-      // 但已由候选判定为确定性可修复（定价规则快照币种为 CNY 且 api_cost 已知）。
-      // 修复会把它标成 PRICED_USAGE，因此它不构成经营账单缺口，候选仍为 GO_CANDIDATE。
+      // 但已由候选判定为确定性可修复（定价规则快照币种为 CNY 且 api_cost 已知；
+      // 金额 0 使余额守恒不受影响）。修复会把它标成 PRICED_USAGE，候选仍为 GO_CANDIDATE。
       const frozenLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: null,
-        createdAt: new Date("2026-09-03T04:00:00.000Z"), apiCost: "2.5", snapshotCurrency: "CNY",
+        createdAt: new Date("2026-09-03T04:00:00.000Z"), apiCost: "0", snapshotCurrency: "CNY",
       });
       const preview = await previewGo(db, seeded, draft);
       expect(preview.usageRepairBaseline.map((row) => row.ledgerLineId)).toEqual([frozenLine]);
       expect(preview.usageRepairBaseline[0]!.eligibleRepairs).toContain("settled_at");
 
-      // 回归护栏：不传豁免集时，这一行确实被计入"未结算/未分类"并判定未排空——
-      // 也就是说没有这个豁免出口，四字段修复的主路径在生产上不可达。
+      // 断言迁移（WP2-S4 / AFR-04 / plan §4a-R3）：排空不再统计 API 未分类行
+      // （unpaired 恒 0），原豁免出口随之恒 0——纯套餐激活不得被 API 残留阻塞；
+      // 固定修复行集的一致性改由候选复验（assertSameBaseline）与逐行非目标哈希保护。
       const strict = await repo.collectDrainReport(seeded.enterpriseId);
-      expect(strict.unpairedUsageLines).toBe(1);
+      expect(strict.unpairedUsageLines).toBe(0);
       expect(strict.exoneratedUsageLines).toBe(0);
-      expect(strict.drained).toBe(false);
+      expect(strict.drained).toBe(true);
 
-      // 传入候选固定行集后：该行恰好被排除，其余计数不变，豁免数可审计。
+      // 传入候选固定行集后：计数语义不变（恒 0），豁免参数仅为调用点签名兼容保留。
       const scoped = await repo.collectDrainReport(seeded.enterpriseId, undefined, {
         excludeLedgerLineIds: preview.usageRepairBaseline.map((row) => row.ledgerLineId),
       });
       expect(scoped.unpairedUsageLines).toBe(0);
-      expect(scoped.exoneratedUsageLines).toBe(1);
+      expect(scoped.exoneratedUsageLines).toBe(0);
       expect(scoped.drained).toBe(true);
 
       // 在途请求即使企业里已存在候选固定行，也绝不进入豁免。
@@ -712,14 +737,15 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_drain_freeze");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       const repo = new ProviderFinanceActivationCoordinator(db);
       await startLease(db, seeded);
 
-      // 候选冻结的固定行：与上一个用例同形状（切换后创建、未结算、确定性可修复）。
+      // 候选冻结的固定行：与上一个用例同形状（切换后创建、未结算、确定性可修复；
+      // 金额 0 使余额守恒不受影响）。
       const frozenLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: null,
-        createdAt: new Date("2026-09-02T04:00:00.000Z"), apiCost: "1", snapshotCurrency: "CNY",
+        createdAt: new Date("2026-09-02T04:00:00.000Z"), apiCost: "0", snapshotCurrency: "CNY",
       });
       const preview = await previewGo(db, seeded, draft);
       expect(preview.usageRepairBaseline.map((row) => row.ledgerLineId)).toEqual([frozenLine]);
@@ -777,7 +803,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_stale");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
@@ -800,8 +826,8 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(await candidateStatus(db, preview.candidateId)).toBe("PREVIEWED");
 
       // 草稿与候选不一致（改了金额）也必须是 CANDIDATE_STALE，不能静默按新草稿写入。
-      const tampered = draftFor(seeded.apiResourceId);
-      tampered.api_opening_balances[0]!.account_amount = "999";
+      const tampered = draftFor(seeded.planResourceId);
+      tampered.coding_plan_purchases[0]!.account_amount = "999";
       await expect(repo.activate(activateInput(seeded, preview, tampered, "key-tampered")))
         .rejects.toMatchObject({ code: "CANDIDATE_STALE" });
       expect(await financeCounts(db, seeded.enterpriseId)).toEqual(before);
@@ -820,12 +846,12 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_repair_guard");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
-      // 历史修复行：切换前采集、切换后结算、未定价。
+      // 历史修复行：切换前采集、切换后结算、未定价（金额 0：余额守恒不受影响）。
       const fixedLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: LEGACY_USAGE_SETTLED_AT,
-        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "3", snapshotCurrency: "CNY",
+        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "0", snapshotCurrency: "CNY",
       });
       const preview = await previewGo(db, seeded, draft);
       const storedRow = preview.usageRepairBaseline.find((row) => row.ledgerLineId === fixedLine);
@@ -862,12 +888,12 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_repair_primitive");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       // 本行只用于**直测 3.2 原语**、不经过协调器，因此不必满足 PFA-09 排空门禁，
       // 可以保留"切换时点后仍未结算"的形态，用以覆盖 settled_at 这一允许字段。
       const settledLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: null,
-        createdAt: new Date("2026-09-12T04:00:00.000Z"), apiCost: "3", snapshotCurrency: "CNY",
+        createdAt: new Date("2026-09-12T04:00:00.000Z"), apiCost: "0", snapshotCurrency: "CNY",
       });
       const preview = await previewGo(db, seeded, draft);
       const storedRow = preview.usageRepairBaseline.find((row) => row.ledgerLineId === settledLine);
@@ -907,11 +933,11 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_rollback");
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
       await startLease(db, seeded);
       const fixedLine = await insertLedgerLine(db, seeded, {
         mode: "API", resourceId: seeded.apiResourceId, settledAt: LEGACY_USAGE_SETTLED_AT,
-        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "5", snapshotCurrency: "CNY",
+        createdAt: LEGACY_USAGE_CREATED_AT, apiCost: "0", snapshotCurrency: "CNY",
       });
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
@@ -1101,7 +1127,8 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
 
       const draft: ActivationDraft = {
         schema_version: "1",
-        api_opening_balances: draftFor(seeded.apiResourceId).api_opening_balances,
+        // WP2-S4 / R5：纯套餐草稿不再携带 API 期初（原引用 draftFor 的期初行）。
+        api_opening_balances: [],
         historical_api_recharges: [],
         historical_api_costs: [],
         coding_plan_purchases: [{
@@ -1194,7 +1221,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
   // 10. 迁移的历史 API 充值：同类重复计入防线（WP07 缺陷 D-1 的充值侧覆盖）
   // =====================================================================
 
-  it("迁移的历史 API 充值：写入来源标记使旧账本不再重复认领，订单引用保留在关闭审计", async () => {
+  it("迁移的历史 API 充值叙事已退役：预检产出退役缺口、激活 CANDIDATE_CONTAINS_RETIRED_API_FACTS 零写入（WP2-S4 / AFR-01 场景3 / R4）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
@@ -1215,7 +1242,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         RETURNING id`.execute(db).then((result) => result.rows[0]!);
 
       const draft: ActivationDraft = {
-        ...draftFor(seeded.apiResourceId),
+        ...draftFor(seeded.planResourceId),
         historical_api_recharges: [{
           resource_id: seeded.apiResourceId, account_currency: "CNY",
           account_amount: "50", cash_paid_cny: "50", occurred_at: purchasedAt.toISOString(),
@@ -1230,34 +1257,26 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         }],
       };
       await startLease(db, seeded);
-      const preview = await previewGo(db, seeded, draft);
+      // 断言迁移（WP2-S4 / AFR-01 场景3 / plan §4a-R4）：API 充值迁移激活叙事已退役。
+      // 预检侧（DB 层无 CA schema 门禁）对显式引用 API_RECHARGE 旧记录产出退役缺口
+      // （R4 反静默，NO_GO）；激活侧 validateCandidate 以 CANDIDATE_CONTAINS_RETIRED_API_FACTS
+      // 硬拒绝且零写入，候选保持 PREVIEWED。`legacy-purchase:` 来源标记合同保留于
+      // 套餐购买路径（pf03_plan 用例）与 Tx 原语层存档。
+      const previewRepo = new ProviderFinanceActivationPreviewRepository(db);
+      const preview = await previewRepo.previewActivation({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft,
+      });
+      expect(preview.decision).toBe("NO_GO");
+      const retiredGap = preview.gaps.find((gap) => gap.legacyRecordId === legacyRecharge.id);
+      expect(retiredGap).toBeDefined();
+      expect(retiredGap!.message).toContain("API 内部资金管理退役");
       const repo = new ProviderFinanceActivationCoordinator(db);
-      const outcome = await repo.activate(activateInput(seeded, preview, draft, "key-recharge"));
-      expect(outcome.receipt.factCounts.recharges).toBe(1);
-      expect(outcome.receipt.factCounts.legacyResolutions).toBe(1);
-
-      // 充值事件的 `external_reference` 与购买路径同口径：来源标记，而非业务订单引用。
-      const event = await db.selectFrom("provider_finance_event")
-        .select(["external_reference", "account_amount", "source"])
-        .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("event_type", "=", "API_RECHARGE").executeTakeFirstOrThrow();
-      expect(event).toMatchObject({ external_reference: `legacy-purchase:${legacyRecharge.id}`,
-        account_amount: "50.00000000", source: "MIGRATION" });
-      const orphaned = await sql<{ count: string }>`
-        SELECT COUNT(*)::text AS count FROM resource_purchase_record purchase
-         WHERE purchase.id=${legacyRecharge.id}::uuid
-           AND NOT EXISTS (
-             SELECT 1 FROM provider_finance_event event
-              WHERE event.enterprise_id=purchase.enterprise_id
-                AND event.provider_resource_id=purchase.provider_resource_id
-                AND event.external_reference=('legacy-purchase:'||purchase.id::text))`
-        .execute(db);
-      expect(Number(orphaned.rows[0]!.count)).toBe(0);
-      const closure = await db.selectFrom("operation_log").select("change_summary")
-        .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("action", "=", "provider_finance.legacy_purchase.close").executeTakeFirstOrThrow();
-      expect((closure.change_summary as Record<string, unknown>).external_reference)
-        .toBe("ORD-RECHARGE-1");
+      await expect(repo.activate(activateInput(seeded, preview, draft, "key-recharge")))
+        .rejects.toMatchObject({ code: "CANDIDATE_CONTAINS_RETIRED_API_FACTS" });
+      expect(await candidateStatus(db, preview.candidateId)).toBe("PREVIEWED");
+      const events = await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute();
+      expect(events).toHaveLength(0);
       await assertNoActivating(db, seeded.enterpriseId);
     } finally {
       await db.destroy();
@@ -1268,7 +1287,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
   // 9. 无旧购买记录的历史充值（充值表单最小修复 2026-09-27）
   // =====================================================================
 
-  it("无旧记录的历史充值：仅凭订单号落库；同候选重放与重复订单号都不重复入账", async () => {
+  it("无旧记录的历史充值激活叙事已退役：激活硬拒绝零写入；订单号唯一性保留为 Tx 原语合同（WP2-S4 / AFR-01 场景3 / R4）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
@@ -1287,33 +1306,40 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
         record_idempotency_key: rechargeRecordIdempotencyKey(seeded.apiResourceId, ORDER),
       };
       const draft: ActivationDraft = {
-        ...draftFor(seeded.apiResourceId), historical_api_recharges: [recharge],
+        ...draftFor(seeded.planResourceId), historical_api_recharges: [recharge],
       };
       await startLease(db, seeded);
+      // 断言迁移（WP2-S4）：DB 层预检仍可出 GO（CA 合同层会先行 400 拒绝该草稿），
+      // 激活侧 validateCandidate 以 CANDIDATE_CONTAINS_RETIRED_API_FACTS 硬拒绝且零写入。
       const preview = await previewGo(db, seeded, draft);
       const repo = new ProviderFinanceActivationCoordinator(db);
-      const outcome = await repo.activate(activateInput(seeded, preview, draft, "key-no-source"));
-      expect(outcome.replayed).toBe(false);
-      expect(outcome.receipt.factCounts.recharges).toBe(1);
+      await expect(repo.activate(activateInput(seeded, preview, draft, "key-no-source")))
+        .rejects.toMatchObject({ code: "CANDIDATE_CONTAINS_RETIRED_API_FACTS" });
+      expect(await candidateStatus(db, preview.candidateId)).toBe("PREVIEWED");
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
 
-      // 无旧记录：来源标识回退为真实厂商充值订单号，不生成虚假旧记录 UUID。
-      const event = await db.selectFrom("provider_finance_event")
-        .select(["external_reference", "description", "evidence_ref", "source"])
-        .where("enterprise_id", "=", seeded.enterpriseId)
-        .where("event_type", "=", "API_RECHARGE").executeTakeFirstOrThrow();
-      expect(event).toMatchObject({
-        external_reference: ORDER,
-        description: `历史 API 充值:${ORDER}`,
-        evidence_ref: `provider-order:${ORDER}`,
-        source: "MIGRATION",
+      // 订单号唯一性保留为 Tx 原语级合同（R6 边界：原语不设退役守卫；0083 要求
+      // MIGRATION 充值前须有同币种期初，故先直写 MIGRATION 期初 0）：
+      // 同订单不同幂等键 → external_reference 唯一索引兜底，不得重复入账。
+      await db.transaction().execute(async (trx) => {
+        await insertOpeningBalanceTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+          adminId: seeded.adminId, accountAmount: "0", accountCurrency: "CNY",
+          description: "唯一索引合同前置期初（直插）",
+          evidenceRef: "evidence://s4-unique-opening",
+          idempotencyKey: "s4-unique-opening",
+          source: "MIGRATION",
+        });
+        await insertRechargeTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+          adminId: seeded.adminId, accountAmount: "50", accountCurrency: "CNY",
+          cashPaidCny: "50.00", occurredAt: new Date("2026-09-05T02:00:00.000Z"),
+          externalReference: ORDER, description: `历史 API 充值:${ORDER}`,
+          evidenceRef: `provider-order:${ORDER}`,
+          idempotencyKey: rechargeRecordIdempotencyKey(seeded.apiResourceId, ORDER),
+        }, { source: "MIGRATION" });
       });
-
-      // 同一请求重放：同键同候选 → replayed=true，仍只有一条充值事件。
-      const replay = await repo.activate(activateInput(seeded, preview, draft, "key-no-source"));
-      expect(replay.replayed).toBe(true);
-      expect(replay.receipt.factCounts.recharges).toBe(1);
-
-      // 重复订单号（不同幂等键）：external_reference 唯一索引兜底，不得重复入账。
       let duplicateError: { code?: string } | null = null;
       try {
         await db.transaction().execute(async (trx) => {
@@ -1345,13 +1371,13 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
   // 历史 API 消耗（0084，2026-09-27 最小增量·功能 B）
   // =====================================================================
 
-  it("历史 API 消耗与期初/充值在同一 SERIALIZABLE 事务一次写入；重放不重复；余额满足 0+100+500-40.4572", async () => {
+  it("历史 API 消耗激活叙事已退役：激活硬拒绝零写入；0084 落账形状合同保留为 Tx 原语直测（WP2-S4 / AFR-01 场景3 / R4）", async () => {
     const db = createKysely(pg.connectionString);
     try {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pf03_hist_cost");
       const draft: ActivationDraft = {
-        ...draftFor(seeded.apiResourceId),
+        ...draftFor(seeded.planResourceId),
         historical_api_recharges: [{
           resource_id: seeded.apiResourceId, account_currency: "CNY", account_amount: "500",
           cash_paid_cny: "500.00", occurred_at: "2026-09-05T02:00:00.000Z",
@@ -1364,47 +1390,63 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
           cost_amount: "40.4572", cost_until_at: "2026-09-10T04:00:00.000Z",
         }],
       };
+      // 断言迁移（WP2-S4）：DB 层预检仍可出 GO（CA 合同层会先行 400 拒绝该草稿），
+      // 激活侧 validateCandidate 以 CANDIDATE_CONTAINS_RETIRED_API_FACTS 硬拒绝且零写入；
+      // 0084 负向金额/确定性幂等键的落账形状合同保留在 Tx 原语层（下方直测）。
       const preview = await previewGo(db, seeded, draft);
-      // 激活前必须建立有效静默租约（PFA-09；其他激活用例同口径）。
       await startLease(db, seeded);
       const coordinator = new ProviderFinanceActivationCoordinator(db);
-      const outcome = await coordinator.activate(
-        activateInput(seeded, preview, draft, "activate-hist-cost-1"));
-      expect(outcome.replayed).toBe(false);
-      expect(outcome.receipt.factCounts.historicalUsageCosts).toBe(1);
+      await expect(coordinator.activate(
+        activateInput(seeded, preview, draft, "activate-hist-cost-1")))
+        .rejects.toMatchObject({ code: "CANDIDATE_CONTAINS_RETIRED_API_FACTS" });
+      expect(await candidateStatus(db, preview.candidateId)).toBe("PREVIEWED");
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      await assertNoActivating(db, seeded.enterpriseId);
 
-      // 落账形状：负向资金事实、cash_paid_cny 为空、MIGRATION 来源、确定性幂等键。
-      const event = await db.selectFrom("provider_finance_event").select([
-        "event_type", "account_amount", "account_currency", "cash_paid_cny", "occurred_at",
-        "description", "evidence_ref", "source", "idempotency_key",
-      ])
+      // Tx 原语直测（R6 边界）：0084 落账形状——负向资金事实、cash_paid_cny 为空、
+      // MIGRATION 来源、确定性幂等键（historicalCostFactDescription/EvidenceRef/
+      // IdempotencyKey 由 domain 纯函数合同钉死，见 activation-contracts 单测）。
+      // 0083 要求 MIGRATION 充值前须有同币种期初，先直写期初。
+      await db.transaction().execute(async (trx) => {
+        await insertOpeningBalanceTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+          adminId: seeded.adminId, accountAmount: "100", accountCurrency: "CNY",
+          description: "历史消耗形状直测前置期初（直插）",
+          evidenceRef: "evidence://s4-shape-opening",
+          idempotencyKey: "s4-shape-opening",
+          source: "MIGRATION",
+        });
+        await insertRechargeTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+          adminId: seeded.adminId, accountAmount: "500", accountCurrency: "CNY",
+          cashPaidCny: "500.00", occurredAt: new Date("2026-09-05T02:00:00.000Z"),
+          externalReference: "DS-ORDER-HC-1", description: "历史 API 充值:DS-ORDER-HC-1",
+          evidenceRef: "provider-order:DS-ORDER-HC-1",
+          idempotencyKey: rechargeRecordIdempotencyKey(seeded.apiResourceId, "DS-ORDER-HC-1"),
+        }, { source: "MIGRATION" });
+      });
+      await db.transaction().execute(async (trx) => {
+        const event = await insertHistoricalUsageCostTx(trx, {
+          enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId,
+          adminId: seeded.adminId, accountCurrency: "CNY",
+          costAmount: "40.4572", occurredAt: new Date("2026-09-10T04:00:00.000Z"),
+          description: historicalCostFactDescription(
+            "2026-09-10T04:00:00.000Z", "CNY", "40.45720000"),
+          evidenceRef: `admin-declared:${"x".repeat(8)}`,
+          idempotencyKey: `activation:shape-test:${
+            historicalCostIdempotencyKey(seeded.apiResourceId, "CNY", "2026-09-10T04:00:00.000Z", "40.45720000")}`,
+        });
+        expect(event.accountAmount).toBe("-40.45720000");
+        expect(event.eventType).toBe("API_HISTORICAL_USAGE_COST");
+      });
+      const costRows = await db.selectFrom("provider_finance_event")
+        .select(["event_type", "account_amount", "cash_paid_cny", "source"])
         .where("enterprise_id", "=", seeded.enterpriseId)
         .where("event_type", "=", "API_HISTORICAL_USAGE_COST")
         .executeTakeFirstOrThrow();
-      expect(event.account_amount).toBe("-40.45720000");
-      expect(event.account_currency).toBe("CNY");
-      expect(event.cash_paid_cny).toBeNull();
-      expect(event.occurred_at.toISOString()).toBe("2026-09-10T04:00:00.000Z");
-      expect(event.description).toBe(historicalCostFactDescription(
-        "2026-09-10T04:00:00.000Z", "CNY", "40.45720000"));
-      expect(event.description).toContain("管理员确认的旧库计价汇总");
-      expect(event.evidence_ref).toMatch(/^admin-declared:legacy-db-api-cost:[0-9a-f]{32}$/);
-      expect(event.source).toBe("MIGRATION");
-      expect(event.idempotency_key).toBe(`activation:${preview.candidateId}:${
-        historicalCostIdempotencyKey(seeded.apiResourceId, "CNY", "2026-09-10T04:00:00.000Z", "40.45720000")}`);
-
-      // 同键同候选重放：replayed=true，事件不重复入账。
-      const replay = await coordinator.activate(
-        activateInput(seeded, preview, draft, "activate-hist-cost-1"));
-      expect(replay.replayed).toBe(true);
-      const costCount = await sql<{ count: string }>`
-        SELECT count(*)::text AS count FROM provider_finance_event
-         WHERE enterprise_id=${seeded.enterpriseId}::uuid
-           AND event_type='API_HISTORICAL_USAGE_COST'`.execute(db);
-      expect(Number(costCount.rows[0]!.count)).toBe(1);
-
-      // 余额口径：0 + 100（期初）+ 500（充值）- 40.4572（历史消耗负项）= 559.5428。
-      // 历史消耗计入 legacyCostAdjustments（历史 API 成本）分量，与数据库聚合同一口径。
+      expect(costRows).toMatchObject({ account_amount: "-40.45720000",
+        cash_paid_cny: null, source: "MIGRATION" });
       const totals = await loadBalanceFactTotals(db, {
         enterpriseId: seeded.enterpriseId, resourceId: seeded.apiResourceId, currency: "CNY",
         eventsFrom: null, eventsTo: new Date("2026-09-30T00:00:00.000Z"),
@@ -1416,8 +1458,6 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(components.legacyCostAdjustments).toBe("-40.45720000");
       expect(components.usageDebits).toBe("0.00000000");
       expect(components.reversals).toBe("0.00000000");
-
-      await assertNoActivating(db, seeded.enterpriseId);
     } finally {
       await db.destroy();
     }
@@ -1439,7 +1479,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       // 先证明：无覆盖周期时该用量行产生缺口（NO_GO）。
       const previewRepo = new ProviderFinanceActivationPreviewRepository(db);
       const before = await previewRepo.previewActivation({
-        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft: draftFor(seeded.apiResourceId),
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId, draft: draftFor(seeded.planResourceId),
       });
       expect(before.decision).toBe("NO_GO");
       expect(before.gaps.some((entry) => entry.code === "UNATTRIBUTED_PLAN_USAGE")).toBe(true);
@@ -1448,7 +1488,7 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       // 开始日固定在切换前（2026-08-26，真实业务口径）；结束日在当前上海日之后 3 天。
       const periodEndDay = shanghaiDay(new Date(Date.now() + 3 * DAY_MS));
       const draft: ActivationDraft = {
-        ...draftFor(seeded.apiResourceId),
+        ...draftFor(seeded.planResourceId),
         coding_plan_carryovers: [{
           resource_id: seeded.planResourceId, product_name: "GLM Coding Plan",
           period_start: "2026-08-26", period_end: periodEndDay,
@@ -1466,13 +1506,16 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       expect(outcome.replayed).toBe(false);
       expect(outcome.receipt.factCounts.carryovers).toBe(1);
 
-      // 只写订阅周期，不写资金事件、不创建伪快照。
+      // 断言迁移（WP2-S4 / R5）：原随混合草稿写入的 API_OPENING_BALANCE 期初已随退役
+      // 消失；唯一资金事件是纯套餐草稿自带的 CODING_PLAN_PURCHASE（跨切换周期本身
+      // 仍只写订阅周期、不写资金事件）。
       const events = await db.selectFrom("provider_finance_event")
         .select(["event_type", "account_amount"])
         .where("enterprise_id", "=", seeded.enterpriseId)
         .execute();
       expect(events).toHaveLength(1);
-      expect(events[0]!.event_type).toBe("API_OPENING_BALANCE");
+      expect(events[0]!.event_type).toBe("CODING_PLAN_PURCHASE");
+      expect(events[0]!.account_amount).toBe("100.00000000");
       const periodRow = await db.selectFrom("provider_subscription_period").selectAll()
         .where("enterprise_id", "=", seeded.enterpriseId)
         .where("source", "=", "MIGRATED_CARRYOVER")
@@ -1555,6 +1598,149 @@ describe.sequential("PF-INIT WP03：企业级原子激活", () => {
       await db.destroy();
     }
   }, 120_000);
+
+  // =====================================================================
+  // 11. 过时候选拒绝（WP2-S4 / AFR-01 场景3 / plan §4.4、§4a-R4）
+  // =====================================================================
+
+  it("直插持久化旧候选（candidate_draft 携带 API 资金事实）激活被 CANDIDATE_CONTAINS_RETIRED_API_FACTS 拒绝且零写入", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_retired_candidate");
+      // 直插构造 0079 时代的含 API 期初候选（绕过 CA 预检合同，模拟存量旧候选）。
+      const candidateId = randomUUID();
+      const hash = "a".repeat(64);
+      const staleDraft = JSON.stringify({
+        schema_version: "1",
+        api_opening_balances: [{
+          resource_id: seeded.apiResourceId, account_currency: "CNY", account_amount: "100",
+          occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
+          evidence_ref: "evidence://legacy-opening", source_record_id: null,
+        }],
+        historical_api_recharges: [], historical_api_costs: [],
+        coding_plan_purchases: [], coding_plan_carryovers: [], legacy_purchase_resolutions: [],
+      });
+      await sql`
+        INSERT INTO provider_finance_activation_attempt
+          (id, enterprise_id, candidate_hash, fact_watermark_hash, decision, status,
+           gap_summary, projection_summary, usage_repair_baseline, candidate_draft,
+           created_by_admin_user_id, created_at, expires_at)
+        VALUES (${candidateId}::uuid, ${seeded.enterpriseId}::uuid, ${hash}, ${hash},
+                'GO_CANDIDATE', 'PREVIEWED', '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,
+                ${staleDraft}::jsonb, ${seeded.adminId}::uuid, now(), now() + interval '30 minutes')
+      `.execute(db);
+
+      const repo = new ProviderFinanceActivationCoordinator(db);
+      await expect(repo.activate({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
+        candidateId, candidateHash: hash,
+        idempotencyKey: "key-retired-api-facts", confirmEnterpriseId: seeded.enterpriseId,
+      })).rejects.toMatchObject({ code: "CANDIDATE_CONTAINS_RETIRED_API_FACTS" });
+
+      // 零写入：无资金事件、无严格写、无资源就绪行，候选保持 PREVIEWED。
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      expect(await db.selectFrom("provider_finance_runtime_state").select("enterprise_id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      expect(await db.selectFrom("provider_resource_finance_state").select("provider_resource_id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      expect(await candidateStatus(db, candidateId)).toBe("PREVIEWED");
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("纯套餐候选引用 API_RECHARGE 旧记录（无三类 API 数组）同样被 A2 硬拒绝且零写入", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_retired_legacy_ref");
+      // 窗口内的 API_RECHARGE 旧购买记录（无任何资金事件）。
+      const legacyRecharge = await sql<{ id: string }>`
+        INSERT INTO resource_purchase_record
+          (enterprise_id, provider_resource_id, purchase_type, amount, currency, purchased_at,
+           service_period_start, service_period_end, source, created_by, description, evidence_ref)
+        VALUES (${seeded.enterpriseId}::uuid, ${seeded.apiResourceId}::uuid, 'API_RECHARGE',
+                50, 'CNY', now() - interval '1 hour',
+                NULL, NULL, 'ADMIN', ${seeded.adminId}::uuid,
+                '旧充值', 'evidence://legacy-recharge-retired')
+        RETURNING id`.execute(db).then((result) => result.rows[0]!);
+      // 纯套餐草稿 + 显式引用该 API 充值旧记录的关闭决定（预检侧已出退役缺口，
+      // 见 pf03_recharge 用例；此处证明即使绕过预检直插候选，激活也失败关闭）。
+      const candidateId = randomUUID();
+      const hash = "b".repeat(64);
+      const draftPayload = JSON.stringify({
+        schema_version: "1",
+        api_opening_balances: [], historical_api_recharges: [], historical_api_costs: [],
+        coding_plan_purchases: [], coding_plan_carryovers: [],
+        legacy_purchase_resolutions: [{
+          legacy_record_id: legacyRecharge.id, resource_id: seeded.apiResourceId,
+          resolution: "REJECTED_WITH_EVIDENCE", finance_event_id: null,
+          migrated_external_reference: null, reason: "退役说明", evidence_ref: "evidence://retired",
+        }],
+      });
+      await sql`
+        INSERT INTO provider_finance_activation_attempt
+          (id, enterprise_id, candidate_hash, fact_watermark_hash, decision, status,
+           gap_summary, projection_summary, usage_repair_baseline, candidate_draft,
+           created_by_admin_user_id, created_at, expires_at)
+        VALUES (${candidateId}::uuid, ${seeded.enterpriseId}::uuid, ${hash}, ${hash},
+                'GO_CANDIDATE', 'PREVIEWED', '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,
+                ${draftPayload}::jsonb, ${seeded.adminId}::uuid, now(), now() + interval '30 minutes')
+      `.execute(db);
+
+      const repo = new ProviderFinanceActivationCoordinator(db);
+      await expect(repo.activate({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
+        candidateId, candidateHash: hash,
+        idempotencyKey: "key-retired-legacy-ref", confirmEnterpriseId: seeded.enterpriseId,
+      })).rejects.toMatchObject({ code: "CANDIDATE_CONTAINS_RETIRED_API_FACTS" });
+      expect(await db.selectFrom("provider_finance_event").select("id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      expect(await db.selectFrom("provider_finance_runtime_state").select("enterprise_id")
+        .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+      expect(await candidateStatus(db, candidateId)).toBe("PREVIEWED");
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("R3：企业存在 api_cost_status IS NULL 的 API 用量行时，纯套餐草稿 preview/activate 不再被排空阻塞（AFR-04 / plan §4a-R3）", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pf03_r3_drain");
+      const draft = draftFor(seeded.planResourceId);
+      // 切换时点之后创建、始终未分类（api_cost_status IS NULL）且不在任何候选修复行集内的 API 行。
+      const unpairedLine = await insertLedgerLine(db, seeded, {
+        mode: "API", resourceId: seeded.apiResourceId,
+        settledAt: new Date("2026-09-08T04:00:00.000Z"),
+        createdAt: new Date("2026-09-08T04:00:00.000Z"),
+        apiCost: "6", apiCostCurrency: "CNY", tokens: 0, outputTokens: 0,
+      });
+      await startLease(db, seeded);
+      const repo = new ProviderFinanceActivationCoordinator(db);
+      // 排空报告不再统计 API 残留（unpaired 恒 0）。
+      const drain = await repo.collectDrainReport(seeded.enterpriseId);
+      expect(drain.unpairedUsageLines).toBe(0);
+      expect(drain.drained).toBe(true);
+      const preview = await previewGo(db, seeded, draft);
+      const outcome = await repo.activate(activateInput(seeded, preview, draft, "key-r3-drain"));
+      expect(outcome.replayed).toBe(false);
+      expect(outcome.receipt.conservationPassed).toBe(true);
+      expect(await candidateStatus(db, preview.candidateId)).toBe("ACTIVATED");
+      // 该 API 行不在固定行集内、未被修复：分类状态原样保留（视图层口径由 S5 承接）。
+      const line = await db.selectFrom("ledger_line").select("api_cost_status")
+        .where("id", "=", unpairedLine).executeTakeFirstOrThrow();
+      expect(line.api_cost_status).toBeNull();
+      await assertNoActivating(db, seeded.enterpriseId);
+    } finally {
+      await db.destroy();
+    }
+  });
 });
 
 /** 在独立连接/事务里持有一把咨询锁，供锁互斥用例使用。 */

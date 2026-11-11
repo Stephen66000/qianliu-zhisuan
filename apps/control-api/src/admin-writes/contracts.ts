@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OperatingSnapshotSchema } from "../providers/contracts.js";
+import { ClientOperatingSnapshotSchema } from "../providers/contracts.js";
 import type { ResourceViewInput } from "./types.js";
 
 const ExpectedVersion = z.number().int().positive();
@@ -12,7 +12,8 @@ export const UpdateResourceSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   concurrency_limit: z.number().int().positive().nullable().optional(),
   upstream_models: z.array(z.string().min(1).max(128)).max(100).nullable().optional(),
-  operating_snapshot: OperatingSnapshotSchema.optional(),
+  // F1 返修（R2）：编辑入口客户端合同收紧——source 只接受字面 "ADMIN"。
+  operating_snapshot: ClientOperatingSnapshotSchema.optional(),
 }).strict();
 
 export const UpdateUnifiedModelSchema = z.object({

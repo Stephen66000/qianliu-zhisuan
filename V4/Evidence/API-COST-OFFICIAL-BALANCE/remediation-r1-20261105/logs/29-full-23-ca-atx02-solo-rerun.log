@@ -1,0 +1,74 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+{"level":30,"time":1793870442134,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/provider-resources/47466028-431e-4474-8320-c504ed0d8e6a/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442174,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":39.24674999999843,"msg":"request completed"}
+{"level":30,"time":1793870442234,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"POST","url":"/provider-resources/2f850b9f-2d3c-4c8e-a52c-28ebbf6e40fa/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442266,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":31.587916999998924,"msg":"request completed"}
+{"level":30,"time":1793870442266,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"POST","url":"/provider-resources/2f850b9f-2d3c-4c8e-a52c-28ebbf6e40fa/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442285,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":19.167124999999942,"msg":"request completed"}
+{"level":30,"time":1793870442326,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"POST","url":"/provider-resources/c009186a-04c1-4373-9e01-ef1a63f89e01/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442335,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":9.216833999998926,"msg":"request completed"}
+{"level":30,"time":1793870442490,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"POST","url":"/provider-resources/c009186a-04c1-4373-9e01-ef1a63f89e01/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442509,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":17.982749999999214,"msg":"request completed"}
+{"level":30,"time":1793870442567,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"POST","url":"/provider-resources/1d20b028-5e39-4b69-b29e-ea5d8b53e5d5/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442572,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":403},"responseTime":5.6304999999993015,"msg":"request completed"}
+{"level":30,"time":1793870442573,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442638,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":200},"responseTime":65.26291599999968,"msg":"request completed"}
+{"level":30,"time":1793870442639,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"POST","url":"/provider-resources/ec471ec9-f507-4d27-aed1-68cc9e3f7408/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442650,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":422},"responseTime":11.400458000000071,"msg":"request completed"}
+{"level":30,"time":1793870442655,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"POST","url":"/provider-resources/fa183ec5-eb0a-41ea-925a-78ce19384ab3/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442663,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":409},"responseTime":6.866125000000466,"msg":"request completed"}
+{"level":30,"time":1793870442664,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"POST","url":"/provider-resources/a1ca0b55-c5e1-4b8a-9c47-62019a456865/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442674,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":404},"responseTime":9.727124999999432,"msg":"request completed"}
+{"level":30,"time":1793870442717,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"POST","url":"/provider-resources/c4ace63e-f161-47f6-881c-3029160e7ce1/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442739,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":200},"responseTime":22.587375000000975,"msg":"request completed"}
+{"level":30,"time":1793870442929,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"POST","url":"/provider-resources/c4ace63e-f161-47f6-881c-3029160e7ce1/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870442948,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":200},"responseTime":18.8956249999992,"msg":"request completed"}
+{"level":30,"time":1793870443106,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"POST","url":"/provider-resources/c4ace63e-f161-47f6-881c-3029160e7ce1/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870443147,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":200},"responseTime":40.15045800000007,"msg":"request completed"}
+{"level":30,"time":1793870443196,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"POST","url":"/provider-resources/7075a95f-d4f9-48ec-8601-c883a26146b4/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870443214,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":200},"responseTime":18.303125000000364,"msg":"request completed"}
+{"level":30,"time":1793870443214,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"GET","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870443237,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":200},"responseTime":22.75495899999987,"msg":"request completed"}
+{"level":30,"time":1793870443238,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"GET","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870443282,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":200},"responseTime":43.45874999999978,"msg":"request completed"}
+{"level":30,"time":1793870443322,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"POST","url":"/provider-resources/43c4d769-fed1-490e-8668-fef7bd2d6c9c/official-balance/refresh","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793870443328,"pid":96245,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":400},"responseTime":5.0537919999987935,"msg":"request completed"}
+ ❯ src/__tests-integration__/official-balance-refresh.http.test.ts (7 tests | 1 failed) 10252ms
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-OAB-05 成功刷新：ACCEPTED＋快照/attempt 落库＋审计行，响应与审计不含凭证明文 127ms
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-X02 冷却：最近 attempt 的 P3 窗口内二次请求 COOLDOWN，不查上游、不留刷新行 104ms
+   × POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-X02 在途：RUNNING 行存在 → IN_PROGRESS；租约过期由下次 begin 收敛为 FAILED，冷却外可再刷成功 228ms
+     → expected 'IN_PROGRESS' to be 'ACCEPTED' // Object.is equality
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-OAB-06 view-only：POST 刷新 403，GET 列表余额可读；不支持厂商 422 零写入；缺凭证 409；未知资源 404 160ms
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-X02 上游失败：失败 attempt 留痕、旧快照保留、失败态返回；冷却到期后可再次刷新成功  475ms
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > C2 列表字段：GET 列表附 official_balance（结构与合同一致），view-only 可读，响应不含凭证 132ms
+   ✓ POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > 请求体校验：非法 idempotency_key → 400 invalid_request 46ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/official-balance-refresh.http.test.ts > POST /provider-resources/:id/official-balance/refresh（OAB-03 task 3.2） > AT-X02 在途：RUNNING 行存在 → IN_PROGRESS；租约过期由下次 begin 收敛为 FAILED，冷却外可再刷成功
+AssertionError: expected 'IN_PROGRESS' to be 'ACCEPTED' // Object.is equality
+
+Expected: "ACCEPTED"
+Received: "IN_PROGRESS"
+
+ ❯ src/__tests-integration__/official-balance-refresh.http.test.ts:255:90
+    253|       const recovered = await refresh(seed.superCookie, seed.deepseekR…
+    254|       expect(recovered.statusCode).toBe(200);
+    255|       expect((recovered.json() as { state: string; result: { outcome: …
+       |                                                                                          ^
+    256|       expect((recovered.json() as { result: { outcome: string } }).res…
+    257|     });
+ ❯ withShortCooldown src/__tests-integration__/official-balance-refresh.http.test.ts:141:5
+ ❯ src/__tests-integration__/official-balance-refresh.http.test.ts:252:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  17:20:30
+   Duration  13.17s (transform 1.71s, setup 0ms, collect 2.69s, tests 10.25s, environment 0ms, prepare 58ms)
+
+EXIT_CODE=1

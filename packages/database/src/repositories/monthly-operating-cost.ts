@@ -10,10 +10,20 @@ export { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 
+/**
+ * 余额桥接可算性状态（快照桥接读模型；总指挥 S5 中途裁定后的成员集）。
+ * WP2-S5（AFR-07＋WP2 plan §4.5/§4.6，WP1 合同 §4 裁定 1）：
+ *   - OPENING_BALANCE_MISSING 停产——期初缺口随 API 内部资金管理退役，不再产生；
+ *     该成员仅为消费方（web 展示映射、历史冻结快照）形状保留。
+ *   - BRIDGE_UNAVAILABLE（新增，AFR-07/WP2 plan §4.5 依据）：期初事实缺席时桥接
+ *     不可算的诚实表达——apiSpend 恒 null、无资金"待补"含义（不产任何资金提示/
+ *     缺口），供 WP4 处置展示；不冒充 CALCULABLE，也不转嫁为币种冲突/负桥接。
+ */
 export type ApiSpendStatus =
   | "CALCULABLE"
   | "NOT_APPLICABLE"
   | "OPENING_BALANCE_MISSING"
+  | "BRIDGE_UNAVAILABLE"
   | "ENDING_BALANCE_MISSING"
   | "CURRENCY_MISMATCH"
   | "NEGATIVE_BALANCE_BRIDGE";
@@ -117,7 +127,8 @@ function money(value: Decimal.Value): string {
 }
 
 function reasonFor(status: ApiSpendStatus): string | null {
-  if (status === "OPENING_BALANCE_MISSING") return "待补期初余额";
+  // WP2-S5（AFR-07）：OPENING_BALANCE_MISSING/"待补期初余额" 已随资金管理退役停产；
+  // 其余桥接状态文案照旧（WP4 处置展示）。
   if (status === "ENDING_BALANCE_MISSING") return "待补期末余额";
   if (status === "CURRENCY_MISMATCH") return "期初余额、本月充值与期末余额币种不一致";
   if (status === "NEGATIVE_BALANCE_BRIDGE") return "余额桥接结果为负，请核对快照与充值记录";
@@ -178,9 +189,18 @@ export function calculateMonthlyOperatingCostResource(input: {
     currency: item.currency, amount: money(item.amount),
   }));
   const endingAtMs = row.ending_at?.getTime();
+  // WP2-S5（AFR-07／裁定 2）：期初事实（balance/currency/at 任一缺席）不再产生
+  // OPENING_BALANCE_MISSING 状态与"待补期初余额"提示——资金管理退役后新资源不再
+  // 登记期初，期初缺席不是完整性缺口，也不得转嫁为币种冲突/负桥接等误导状态；
+  // 桥接金额字段（opening/recharge/ending）照常产出（WP4 处置展示），但桥接值
+  // apiSpend 仅在期初+期末事实齐全时计算（不冒充可计算、不伪造金额）。
+  const openingMissing = row.opening_balance === null || row.opening_currency === null
+    || row.opening_at === null;
   let status: ApiSpendStatus = "CALCULABLE";
-  if (row.opening_balance === null || row.opening_currency === null || row.opening_at === null) {
-    status = "OPENING_BALANCE_MISSING";
+  if (openingMissing) {
+    // 期初事实缺席（AFR-07）：桥接不可算且无资金待补含义——apiSpend 恒 null、
+    // apiSpendReason null、不产任何资金缺口/提示；不得转嫁为币种冲突/负桥接。
+    status = "BRIDGE_UNAVAILABLE";
   } else if (
     row.ending_balance === null
     || row.ending_currency === null
@@ -221,6 +241,8 @@ export function calculateMonthlyOperatingCostResource(input: {
 /**
  * POOL20-043 月度经营唯一口径：API 花费 = 期初余额 + 本月充值 - 期末余额。
  * ledger_line.api_cost 只作为核对证据返回，不代替缺失的期初余额。
+ * WP2-S5（AFR-07）：期初缺席不再产生"待补期初"缺口/提示（见
+ * calculateMonthlyOperatingCostResource 内注）。
  */
 export async function loadMonthlyOperatingCosts(
   db: Kysely<Database>,

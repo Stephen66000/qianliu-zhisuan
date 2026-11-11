@@ -1,0 +1,170 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-PERIOD-ROW-PRE: "168b7d56-8d04-48a3-9246-2272cf2a39f3" string
+J-FINAL-SQL: insert into "ledger_line" ("enterprise_id", "ai_request_id", "upstream_attempt_id", "usage_event_id", "provider_resource_id", "principal_id", "resource_mode", "raw_input_tokens", "raw_output_tokens", "raw_cache_tokens", "raw_reasoning_tokens", "api_cost", "api_cost_currency", "api_cost_status", "subscription_period_id", "usage_quality", "settled_at", "created_at") values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+J-FINAL-SPID-IN-SQL: true SPID-PARAM: 168b7d56-8d04-48a3-9246-2272cf2a39f3
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-LL-ROWS: [{"ai_request_id":"1e4c4aaf-da5c-4c3b-bc85-1ba0047f9582","subscription_period_id":null},{"ai_request_id":"ee366cbf-4f0c-4a20-8d76-9ce9c32c8ba5","subscription_period_id":"168b7d56-8d04-48a3-9246-2272cf2a39f3"}] requestJ: ee366cbf-4f0c-4a20-8d76-9ce9c32c8ba5
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-STRICT: {"strict":true}
+
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts (11 tests | 7 failed) 39123ms
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 A：check-contract＋全行比对增量导出——inserted/updated/rows/sha256 与期望逐表一致（缺口①） 7929ms
+     → 清单缺表 quota_counter: expected undefined to be defined
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 B（负向）：导出失败中止——exit 非 0、live 不动、既有清单不受污染；restore 确认门拒绝 166ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 C：影子恢复——live 物理未动（缺口②），影子＝备份点逐字，0092 域不存在  947ms
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 D：重放 0092＋增量回放（DO UPDATE）——16 表影子摘要＝live 摘要（含 in-flight 更新逐字） 1633ms
+     → 表 quota_counter 回放输出缺失: expected null not to be null
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 E：幂等回放——二次回放 applied＝清单行数、16 表摘要不变（DO UPDATE 结果不变） 1487ms
+     → 表 quota_counter 二次回放输出缺失: expected null not to be null
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 F：retire-threshold（缺口④）——触发器/函数退役、API PENDING 控制行清零且留档、额度域与 READY 事实原样 129ms
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②） 2516ms
+     → expected 16 to be 17 // Object.is equality
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 H：门槛退役保持（缺口④）——回退后新建资源无 PENDING；触发器与函数不存在 0ms
+     → this query cannot be compiled to SQL
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 I：旧栈（ae506fe）真实路径——准入可服务、消费逐字、窗口聚合、额度门 REJECT_EXHAUSTED、结算累计 used（缺口③④） 729ms
+     → expected false to be true // Object.is equality
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好  10896ms
+   × AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 K（R5-C）：影子计数摘要篡改→verify fail-closed＝删影子、live 水位/消费/计数不变；回放重复执行计数不重复累计 9038ms
+     → expected '900' to be '1000' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 A：check-contract＋全行比对增量导出——inserted/updated/rows/sha256 与期望逐表一致（缺口①）
+AssertionError: 清单缺表 quota_counter: expected undefined to be defined
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:684:36
+    682|     for (const table of WHITELIST) {
+    683|       const row = manifest.tables.find((t) => t.table === table);
+    684|       expect(row, `清单缺表 ${table}`).toBeDefined();
+       |                                    ^
+    685|       const expected = EXPECTED_DELTA[table];
+    686|       expect(row!.rows, `表 ${table} 增量行数`).toBe(expected.rows);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 D：重放 0092＋增量回放（DO UPDATE）——16 表影子摘要＝live 摘要（含 in-flight 更新逐字）
+AssertionError: 表 quota_counter 回放输出缺失: expected null not to be null
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:769:46
+    767|       }
+    768|       const match = replayResult.stdout.match(new RegExp(`REPLAY_RESUL…
+    769|       expect(match, `表 ${table} 回放输出缺失`).not.toBeNull();
+       |                                              ^
+    770|       expect(Number(match![1]!)).toBe(expected);
+    771|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 E：幂等回放——二次回放 applied＝清单行数、16 表摘要不变（DO UPDATE 结果不变）
+AssertionError: 表 quota_counter 二次回放输出缺失: expected null not to be null
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:811:48
+    809|       if (EXPECTED_DELTA[table].rows === 0) continue;
+    810|       const match = second.stdout.match(new RegExp(`REPLAY_RESULT tabl…
+    811|       expect(match, `表 ${table} 二次回放输出缺失`).not.toBeNull();
+       |                                                ^
+    812|       expect(Number(match![1]!)).toBe(EXPECTED_DELTA[table].rows);
+    813|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②）
+AssertionError: expected 16 to be 17 // Object.is equality
+
+- Expected
++ Received
+
+- 17
++ 16
+
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:894:68
+    892|     expectScriptOk(verify);
+    893|     expect(verify.stdout).toContain("verify: OK");
+    894|     expect(verify.stdout.match(/table=\S+ digest=match/g)?.length).toB…
+       |                                                                    ^
+    895|     // 改名前断开既有池（旧连接绑定被改名库对象，避免误读）。
+    896|     await shadowDb!.destroy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 H：门槛退役保持（缺口④）——回退后新建资源无 PENDING；触发器与函数不存在
+Error: this query cannot be compiled to SQL
+ ❯ NoopQueryExecutor.compileQuery ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/noop-query-executor.js:13:15
+ ❯ RawBuilderImpl.#compile ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/raw-builder/raw-builder.js:57:25
+ ❯ RawBuilderImpl.execute ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/raw-builder/raw-builder.js:43:51
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:918:112
+    916|   it("断言 H：门槛退役保持（缺口④）——回退后新建资源无 PENDING；触发器与函数不存在", async () => {
+    917|     const trg = await sql<{ present: boolean }>`
+    918|       SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = ${SEED_TR…
+       |                                                                                                                ^
+    919|     expect(trg.rows[0]!.present).toBe(false);
+    920|     const fun = await sql<{ present: boolean }>`
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 I：旧栈（ae506fe）真实路径——准入可服务、消费逐字、窗口聚合、额度门 REJECT_EXHAUSTED、结算累计 used（缺口③④）
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:1002:66
+    1000|     expect(admission.readyResource_included).toBe(true);
+    1001|     expect(admission.cutoverResource_noFinanceRow_included).toBe(true);
+    1002|     expect(admission.formerPendingResource_nowServable_included).toBe(…
+       |                                                                  ^
+    1003|     expect(admission.postRollbackNewResource_noPending_included).toBe(…
+    1004|     // 可读（缺口①）：备份点＋切换后＋in-flight 结算金额逐字。
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 K（R5-C）：影子计数摘要篡改→verify fail-closed＝删影子、live 水位/消费/计数不变；回放重复执行计数不重复累计
+AssertionError: expected '900' to be '1000' // Object.is equality
+
+Expected: "1000"
+Received: "900"
+
+ ❯ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts:1209:55
+    1207|         SELECT used_value::text AS used_value FROM quota_counter
+    1208|          WHERE grant_id = ${kFx.grant2Id}::uuid`.execute(kShadow);
+    1209|       expect(counterAfterReplays.rows[0]!.used_value).toBe(QUOTA_R5A_U…
+       |                                                       ^
+    1210|       await kShadow.destroy();
+    1211|       // 影子中制造计数摘要不一致。
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+error: terminating connection due to administrator command
+ ❯ parseErrorMessage ../../node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/src/parser.ts:394:9
+ ❯ Parser.handlePacket ../../node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/src/parser.ts:212:19
+ ❯ Parser.parse ../../node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/src/parser.ts:105:30
+ ❯ Socket.<anonymous> ../../node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/src/index.ts:7:48
+ ❯ Socket.emit node:events:518:28
+ ❯ addChunk node:internal/streams/readable:561:12
+ ❯ readableAddChunkPushByteMode node:internal/streams/readable:512:3
+ ❯ Socket.Readable.push node:internal/streams/readable:392:5
+ ❯ TCP.onStreamRead node:internal/stream_base_commons:189:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 116, severity: 'FATAL', code: '57P01', detail: undefined, hint: undefined, position: undefined, internalPosition: undefined, internalQuery: undefined, where: undefined, schema: undefined, table: undefined, dataType: undefined, constraint: undefined, file: 'postgres.c', routine: 'ProcessInterrupts', client: { _events: { error: 'Function<anonymous>' }, _eventsCount: 1, _maxListeners: undefined, connectionParameters: { user: 'qianliu_test', database: 'wp6_r4_k_shadow', port: 33151, host: 'localhost', password: 'qianliu_test_only', binary: false, options: undefined, ssl: false, client_encoding: '', replication: undefined, isDomainSocket: false, application_name: undefined, fallback_application_name: undefined, statement_timeout: false, lock_timeout: false, idle_in_transaction_session_timeout: false, query_timeout: false, connect_timeout: +0, constructor: 'Function<ConnectionParameters>', getLibpqConnectionString: 'Function<getLibpqConnectionString>' }, user: 'qianliu_test', database: 'wp6_r4_k_shadow', port: 33151, host: 'localhost', password: 'qianliu_test_only', replication: undefined, _Promise: 'Function<Promise>', _types: { _types: { getTypeParser: 'Function<getTypeParser>', setTypeParser: 'Function<setTypeParser>', arrayParser: { create: 'Function<create>' }, builtins: { BOOL: 16, BYTEA: 17, CHAR: 18, INT8: 20, INT2: 21, INT4: 23, REGPROC: 24, TEXT: 25, OID: 26, TID: 27, XID: 28, CID: 29, JSON: 114, XML: 142, PG_NODE_TREE: 194, SMGR: 210, PATH: 602, POLYGON: 604, CIDR: 650, FLOAT4: 700, FLOAT8: 701, ABSTIME: 702, RELTIME: 703, TINTERVAL: 704, CIRCLE: 718, MACADDR8: 774, MONEY: 790, MACADDR: 829, INET: 869, ACLITEM: 1033, BPCHAR: 1042, VARCHAR: 1043, DATE: 1082, TIME: 1083, TIMESTAMP: 1114, TIMESTAMPTZ: 1184, INTERVAL: 1186, TIMETZ: 1266, BIT: 1560, VARBIT: 1562, NUMERIC: 1700, REFCURSOR: 1790, REGPROCEDURE: 2202, REGOPER: 2203, REGOPERATOR: 2204, REGCLASS: 2205, REGTYPE: 2206, UUID: 2950, TXID_SNAPSHOT: 2970, PG_LSN: 3220, PG_NDISTINCT: 3361, PG_DEPENDENCIES: 3402, TSVECTOR: 3614, TSQUERY: 3615, GTSVECTOR: 3642, REGCONFIG: 3734, REGDICTIONARY: 3769, JSONB: 3802, REGNAMESPACE: 4089, REGROLE: 4096 } }, text: {}, binary: {}, constructor: 'Function<TypeOverrides>', getOverrides: 'Function<anonymous>', setTypeParser: 'Function<anonymous>', getTypeParser: 'Function<anonymous>' }, _ending: true, _ended: false, _connecting: false, _connected: true, _connectionError: false, _queryable: false, enableChannelBinding: false, connection: { _events: { newListener: 'Function<anonymous>', connect: 'Function<anonymous>', sslconnect: 'Function<anonymous>', authenticationCleartextPassword: 'Function<bound _handleAuthCleartextPassword>', authenticationMD5Password: 'Function<bound _handleAuthMD5Password>', authenticationSASL: 'Function<bound _handleAuthSASL>', authenticationSASLContinue: 'Function<bound _handleAuthSASLContinue>', authenticationSASLFinal: 'Function<bound _handleAuthSASLFinal>', backendKeyData: 'Function<bound _handleBackendKeyData>', error: 'Function<bound _handleErrorEvent>', errorMessage: 'Function<bound _handleErrorMessage>', readyForQuery: 'Function<bound _handleReadyForQuery>', notice: 'Function<bound _handleNotice>', rowDescription: 'Function<bound _handleRowDescription>', dataRow: 'Function<bound _handleDataRow>', portalSuspended: 'Function<bound _handlePortalSuspended>', emptyQuery: 'Function<bound _handleEmptyQuery>', commandComplete: 'Function<bound _handleCommandComplete>', parseComplete: 'Function<bound _handleParseComplete>', copyInResponse: 'Function<bound _handleCopyInResponse>', copyData: 'Function<bound _handleCopyData>', notification: 'Function<bound _handleNotification>', end: [ 'Function<bound onceWrapper>', 'Function<bound onceWrapper>' ] }, _eventsCount: 23, _maxListeners: undefined, stream: { connecting: false, _hadError: false, _parent: null, _host: 'localhost', _closeAfterHandlingError: false, _events: { close: 'Function<anonymous>', error: 'Function<reportStreamError>', prefinish: undefined, finish: undefined, drain: undefined, data: 'Function<anonymous>', end: [ 'Function<onReadableStreamEnd>', 'Function<anonymous>' ], readable: undefined, connect: undefined }, _readableState: { highWaterMark: 65536, buffer: [], bufferIndex: +0, length: +0, pipes: [], awaitDrainWriters: null, constructor: 'Function<ReadableState>', objectMode: false, ended: false, endEmitted: false, reading: false, constructed: true, sync: false, needReadable: true, emittedReadable: false, readableListening: false, resumeScheduled: false, errorEmitted: false, emitClose: false, autoDestroy: true, destroyed: true, closed: true, closeEmitted: false, multiAwaitDrain: false, readingMore: false, dataEmitted: true, errored: null, defaultEncoding: 'utf8', decoder: null, encoding: null, flowing: true, pipesCount: +0, paused: false }, _writableState: { highWaterMark: 65536, length: +0, corked: +0, onwrite: 'Function<bound onwrite>', writelen: +0, bufferedIndex: +0, pendingcb: +0, constructor: 'Function<WritableState>', objectMode: false, finalCalled: false, needDrain: false, ending: false, ended: false, finished: false, destroyed: true, decodeStrings: false, writing: false, sync: false, bufferProcessing: false, constructed: true, prefinished: false, errorEmitted: false, emitClose: false, autoDestroy: true, closed: true, closeEmitted: false, allBuffers: true, allNoop: true, errored: null, writable: undefined, defaultEncoding: 'utf8', writecb: 'Function<nop>', afterWriteTickInfo: null, buffered: [], getBuffer: 'Function<getBuffer>', bufferedRequestCount: +0 }, allowHalfOpen: false, _maxListeners: undefined, _eventsCount: 4, _sockname: null, _pendingData: null, _pendingEncoding: '', server: null, _server: null, autoSelectFamilyAttemptedAddresses: [ '::1:33151', '127.0.0.1:33151' ], constructor: 'Function<Socket>', _unrefTimer: 'Function<_unrefTimer>', _final: 'Function<anonymous>', setTimeout: 'Function<setStreamTimeout>', _onTimeout: 'Function<anonymous>', setNoDelay: 'Function<anonymous>', setKeepAlive: 'Function<anonymous>', address: 'Function<anonymous>', _connecting: false, pending: true, readyState: 'closed', bufferSize: undefined, _read: 'Function<anonymous>', end: 'Function<anonymous>', resetAndDestroy: 'Function<anonymous>', pause: 'Function<anonymous>', resume: 'Function<anonymous>', read: 'Function<anonymous>', destroySoon: 'Function<anonymous>', _destroy: 'Function<anonymous>', _reset: 'Function<anonymous>', _getpeername: 'Function<anonymous>', bytesRead: 337483, remoteAddress: undefined, remoteFamily: undefined, remotePort: undefined, _getsockname: 'Function<anonymous>', localAddress: undefined, localPort: undefined, localFamily: undefined, _writeGeneric: 'Function<anonymous>', _writev: 'Function<anonymous>', _write: 'Function<anonymous>', _bytesDispatched: 6340, bytesWritten: 6340, connect: 'Function<anonymous>', ref: 'Function<anonymous>', unref: 'Function<anonymous>', _handle: null, write: 'Function<anonymous>', cork: 'Function<anonymous>', uncork: 'Function<anonymous>', setDefaultEncoding: 'Function<setDefaultEncoding>', destroy: 'Function<anonymous>', writable: false, writableHighWaterMark: 65536, writableObjectMode: false, writableBuffer: [], writableLength: +0, writableFinished: false, writableCorked: +0, writableEnded: false, writableNeedDrain: false, destroyed: true, _undestroy: 'Function<undestroy>', push: 'Function<anonymous>', unshift: 'Function<anonymous>', isPaused: 'Function<anonymous>', setEncoding: 'Function<anonymous>', pipe: 'Function<anonymous>', unpipe: 'Function<anonymous>', on: 'Function<anonymous>', addListener: 'Function<anonymous>', removeListener: 'Function<anonymous>', off: 'Function<anonymous>', removeAllListeners: 'Function<anonymous>', wrap: 'Function<anonymous>', iterator: 'Function<anonymous>', readable: false, readableDidRead: true, readableAborted: true, readableHighWaterMark: 65536, readableBuffer: [], readableFlowing: true, readableLength: +0, readableObjectMode: false, readableEncoding: null, errored: null, closed: true, readableEnded: false, drop: 'Function<drop>', filter: 'Function<filter>', flatMap: 'Function<flatMap>', map: 'Function<map>', take: 'Function<take>', compose: 'Function<compose>', every: 'Function<every>', forEach: 'Function<forEach>', reduce: 'Function<reduce>', toArray: 'Function<toArray>', some: 'Function<some>', find: 'Function<find>', eventNames: 'Function<eventNames>', setMaxListeners: 'Function<setMaxListeners>', getMaxListeners: 'Function<getMaxListeners>', emit: 'Function<emit>', prependListener: 'Function<prependListener>', once: 'Function<once>', prependOnceListener: 'Function<prependOnceListener>', listeners: 'Function<listeners>', rawListeners: 'Function<rawListeners>', listenerCount: 'Function<listenerCount>' }, _keepAlive: false, _keepAliveInitialDelayMillis: +0, lastBuffer: false, parsedStatements: {}, ssl: false, _ending: true, _emitMessage: false, _connecting: true, constructor: 'Function<Connection>', connect: 'Function<connect>', attachListeners: 'Function<attachListeners>', requestSsl: 'Function<requestSsl>', startup: 'Function<startup>', cancel: 'Function<cancel>', password: 'Function<password>', sendSASLInitialResponseMessage: 'Function<sendSASLInitialResponseMessage>', sendSCRAMClientFinalMessage: 'Function<sendSCRAMClientFinalMessage>', _send: 'Function<_send>', query: 'Function<query>', parse: 'Function<parse>', bind: 'Function<bind>', execute: 'Function<execute>', flush: 'Function<flush>', sync: 'Function<sync>', ref: 'Function<ref>', unref: 'Function<unref>', end: 'Function<end>', close: 'Function<close>', describe: 'Function<describe>', sendCopyFromChunk: 'Function<sendCopyFromChunk>', endCopyFrom: 'Function<endCopyFrom>', sendCopyFail: 'Function<sendCopyFail>', setMaxListeners: 'Function<setMaxListeners>', getMaxListeners: 'Function<getMaxListeners>', emit: 'Function<emit>', addListener: 'Function<addListener>', on: 'Function<addListener>', prependListener: 'Function<prependListener>', once: 'Function<once>', prependOnceListener: 'Function<prependOnceListener>', removeListener: 'Function<removeListener>', off: 'Function<removeListener>', removeAllListeners: 'Function<removeAllListeners>', listeners: 'Function<listeners>', rawListeners: 'Function<rawListeners>', listenerCount: 'Function<listenerCount>', eventNames: 'Function<eventNames>' }, queryQueue: [], binary: false, processID: 4404, secretKey: 1163756144, ssl: false, _connectionTimeoutMillis: +0, _connectionCallback: null, saslSession: null, release: 'Function<anonymous>', activeQuery: null, readyForQuery: true, hasExecuted: true, _poolUseCount: 5, constructor: 'Function<Client>', _errorAllQueries: 'Function<_errorAllQueries>', _connect: 'Function<_connect>', connect: 'Function<connect>', _attachListeners: 'Function<_attachListeners>', _checkPgPass: 'Function<_checkPgPass>', _handleAuthCleartextPassword: 'Function<_handleAuthCleartextPassword>', _handleAuthMD5Password: 'Function<_handleAuthMD5Password>', _handleAuthSASL: 'Function<_handleAuthSASL>', _handleAuthSASLContinue: 'Function<_handleAuthSASLContinue>', _handleAuthSASLFinal: 'Function<_handleAuthSASLFinal>', _handleBackendKeyData: 'Function<_handleBackendKeyData>', _handleReadyForQuery: 'Function<_handleReadyForQuery>', _handleErrorWhileConnecting: 'Function<_handleErrorWhileConnecting>', _handleErrorEvent: 'Function<_handleErrorEvent>', _handleErrorMessage: 'Function<_handleErrorMessage>', _handleRowDescription: 'Function<_handleRowDescription>', _handleDataRow: 'Function<_handleDataRow>', _handlePortalSuspended: 'Function<_handlePortalSuspended>', _handleEmptyQuery: 'Function<_handleEmptyQuery>', _handleCommandComplete: 'Function<_handleCommandComplete>', _handleParseComplete: 'Function<_handleParseComplete>', _handleCopyInResponse: 'Function<_handleCopyInResponse>', _handleCopyData: 'Function<_handleCopyData>', _handleNotification: 'Function<_handleNotification>', _handleNotice: 'Function<_handleNotice>', getStartupConf: 'Function<getStartupConf>', cancel: 'Function<cancel>', setTypeParser: 'Function<setTypeParser>', getTypeParser: 'Function<getTypeParser>', escapeIdentifier: 'Function<escapeIdentifier>', escapeLiteral: 'Function<escapeLiteral>', _pulseQueryQueue: 'Function<_pulseQueryQueue>', query: 'Function<query>', ref: 'Function<ref>', unref: 'Function<unref>', end: 'Function<end>', setMaxListeners: 'Function<setMaxListeners>', getMaxListeners: 'Function<getMaxListeners>', emit: 'Function<emit>', addListener: 'Function<addListener>', on: 'Function<addListener>', prependListener: 'Function<prependListener>', once: 'Function<once>', prependOnceListener: 'Function<prependOnceListener>', removeListener: 'Function<removeListener>', off: 'Function<removeListener>', removeAllListeners: 'Function<removeAllListeners>', listeners: 'Function<listeners>', rawListeners: 'Function<rawListeners>', listenerCount: 'Function<listenerCount>', eventNames: 'Function<eventNames>' } }
+This error originated in "src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 4 passed (11)
+     Errors  1 error
+   Start at  20:02:01
+   Duration  41.17s (transform 871ms, setup 0ms, collect 1.81s, tests 39.12s, environment 0ms, prepare 49ms)
+

@@ -1,0 +1,12 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$db" "$@"
+sh
+shadow1
+-Atq
+-c
+SET timezone TO 'UTC'
+-c
+SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1

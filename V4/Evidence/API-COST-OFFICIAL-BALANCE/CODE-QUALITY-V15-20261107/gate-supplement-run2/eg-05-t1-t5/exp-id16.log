@@ -1,0 +1,45 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ❯ src/__tests-integration__/api-cost-estimation.integration.test.ts (15 tests | 1 failed | 14 skipped) 3854ms
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > a) 无资金表数据的企业：已计价行正常产出 amounts（ACE-03/AT-ACE-05）
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > b) 1 CNY + 2 USD 分列，两桶分别正确、绝不混币相加（ACE-07）
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > b2) resourceIds 过滤：scope 原样回显且只聚合所选资源
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > c) 已计价 1+2 元 + 用量已知缺价格行 → [3 CNY] + KNOWN_PARTIAL + PRICE_MISSING=1（F02/ACE-04）
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > c2/F2 缺适用分项价行（UNKNOWN_COST＋快照冻结缺失价）→ PRICE_MISSING、金额不含该行、不进 priceBasis
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > d) 仅 CONFIRMED_ZERO_NO_UPSTREAM → ZERO_CONFIRMED、无缺口（ACE-04 场景 2）
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > e) 处置排除行 → excludedNoRecordedCost=1、无该缺口、金额不变（ACE-05 场景 2）
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > f) priceBasis 含 ruleId/ruleVersion/sourceStatus；UNVERIFIED 计价行触发 PRICE_BASIS_UNVERIFIED 且不影响 completeness
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > i-a/F3 历史追溯：改 billing_rule.source_status 后重查，依据仍按快照 VERIFIED、金额逐字不变
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > i-b/F3 旧行回退：快照无 sourceStatus 键 → 依据归 UNVERIFIED（不读当前规则 VERIFIED 值）
+   × loadApiCostEstimation（同源费用估算，不依赖资金数据） > EG-02 T1：已计价但币种 NULL 的遗留行 → KNOWN_PARTIAL＋CURRENCY_MISSING=1（不误归 NOT_MIGRATED） 57ms
+     → expected 'KNOWN_COMPLETE' to be 'KNOWN_PARTIAL' // Object.is equality
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > s1§3.3 语义记录：期间无任何 API 行 → KNOWN_COMPLETE + 空 amounts
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > s1§3.3 语义记录：NOT_MIGRATED/USAGE_UNKNOWN 各自成缺口
+   ↓ loadApiCostEstimation（同源费用估算，不依赖资金数据） > h) G3/F11 价格生效点 A/B：生效点前后各按当时版本计价，刷新重读逐字不变、旧行保留版本 A（AT-ACE-03）
+   ↓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/api-cost-estimation.integration.test.ts > loadApiCostEstimation（同源费用估算，不依赖资金数据） > EG-02 T1：已计价但币种 NULL 的遗留行 → KNOWN_PARTIAL＋CURRENCY_MISSING=1（不误归 NOT_MIGRATED）
+AssertionError: expected 'KNOWN_COMPLETE' to be 'KNOWN_PARTIAL' // Object.is equality
+
+Expected: "KNOWN_PARTIAL"
+Received: "KNOWN_COMPLETE"
+
+ ❯ src/__tests-integration__/api-cost-estimation.integration.test.ts:437:33
+    435|     const result = await loadApiCostEstimation(db, f.enterpriseId, { s…
+    436|     expect(result.amounts).toEqual([]); // 币种缺失行不入任何金额桶
+    437|     expect(result.completeness).toBe("KNOWN_PARTIAL"); // 缺口计数聚合含 CURR…
+       |                                 ^
+    438|     // 缺口唯一且原因明确＝CURRENCY_MISSING；NOT_MIGRATED 未出现（不误归）。
+    439|     expect(result.gaps).toEqual([{ reason: "CURRENCY_MISSING", count: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 skipped (15)
+   Start at  15:23:29
+   Duration  6.66s (transform 1.27s, setup 0ms, collect 2.58s, tests 3.85s, environment 0ms, prepare 65ms)
+

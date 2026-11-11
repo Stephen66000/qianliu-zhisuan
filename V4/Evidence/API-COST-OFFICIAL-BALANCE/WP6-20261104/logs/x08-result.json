@@ -1,0 +1,120 @@
+{
+  "allPass": true,
+  "assertions": [
+    {
+      "id": "A1_finance_event_zero_after_switch",
+      "pass": true,
+      "detail": "切换窗口起点 C1=1 终点 live=1 C4=1（资金事件全程仅 T0 旧栈订阅登记 1 行，切换窗口内零新增）"
+    },
+    {
+      "id": "A2_subscription_period_zero_after_switch",
+      "pass": true,
+      "detail": "C1=1 live=1（周期行全程仅 T0 订阅登记，切换窗口内零新增）"
+    },
+    {
+      "id": "A3_activation_attempt_zero_all_drill",
+      "pass": true,
+      "detail": "C1=0 C4=0 live=0（全程零激活尝试行）"
+    },
+    {
+      "id": "A4_ledger_only_planned_consumption",
+      "pass": true,
+      "detail": "C1=2 live=3；切换窗口内仅 +1＝T1 在途消费收尾；请求总数=3（3 笔计划消费，无旁路账本行）"
+    },
+    {
+      "id": "A5_retired_endpoints_410",
+      "pass": true,
+      "detail": "七退役端点在候选栈全部 410＋固定错误码（HTTP 层证据：[{\"endpoint\":\"/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/opening-balances\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/readiness\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/opening-balance-corrections\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/recharges\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-resources/d67938d6-4832-4b6f-8a54-4cb01c370124/finance/reconciliation-cases\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-finance-reconciliation-cases/00000000-0000-0000-0000-000000000000/confirm\",\"status\":410,\"error\":\"api_funding_management_retired\"},{\"endpoint\":\"/provider-finance-reconciliation-cases/00000000-0000-0000-0000-000000000000/reject\",\"status\":410,\"error\":\"api_funding_management_retired\"}]）"
+    },
+    {
+      "id": "B1_inflight_admitted_under_lease",
+      "pass": true,
+      "detail": "静默租约启动时在途请求已 admitted=true（租约 {\"lease\":{\"status\":\"ACTIVE\",\"started_at\":\"2026-11-04T16:46:43.133Z\",\"expires_at\":\"2026-11-04T16:56:43.133Z\",\"started_by_admin_user_id\":\"9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc\",\"released_at\":null,\"release_reason\":null}}）"
+    },
+    {
+      "id": "B2_gate_blocked_new_requests",
+      "pass": true,
+      "detail": "租约内新请求被门禁拒绝（{\"error\":{\"message\":\"该企业正在进行资金账本初始化静默期，暂时停止新的模型调用，请稍后重试\",\"type\":\"service_unavailable_error\",\"code\":\"enterprise_maintenance\",\"param\":null,\"retryable\":true,\"request_id\":\"b74db162-b79f-41e6-b802-599816cfa584\",\"maintenance_until\":\"2026-11-04T16:56:43.133Z\"}}）"
+    },
+    {
+      "id": "B3_drain_report_reached_zero",
+      "pass": true,
+      "detail": "收尾报告 drained=true；live IN_PROGRESS=0 openAttempts=0 pendingTx=0"
+    },
+    {
+      "id": "B4_inflight_settled_amount_readable",
+      "pass": true,
+      "detail": "在途请求 f6604bcf-4621-4b6a-9ce4-e6c18bd9edea：status=SUCCEEDED api_cost=0.00040000 tx=SETTLED/0.00040000"
+    },
+    {
+      "id": "B5_quiescence_released",
+      "pass": true,
+      "detail": "租约终态=RELEASED released_at=2026-11-04 16:46:46.247+00"
+    },
+    {
+      "id": "C1_old_worker_stopped_new_started",
+      "pass": true,
+      "detail": "旧 worker PID \"3592\" 已停；新 worker PID \"4112\" 运行"
+    },
+    {
+      "id": "C2_official_refresh_runner_snapshot",
+      "pass": true,
+      "detail": "快照 C1=2 → live=4（T4 新 worker runner 路径新快照落库）；tick 输出 {\"event\":\"provider_operating_sync_tick_completed\",\"resourcesScanned\":4,\"snapshotsCreated\":1,\"failed\":0,\"notSupported\":0,\"skippedQuiescentResources\":0}"
+    },
+    {
+      "id": "C3_official_refresh_manual_success",
+      "pass": true,
+      "detail": "provider_resource_balance_refresh 行数=1；HTTP 结果 {\"outcome\":\"SUCCEEDED\",\"collected_at\":\"2026-11-04T16:46:56.824Z\",\"balance\":{\"currency\":\"CNY\",\"total_balance\":\"110.50\",\"granted_balance\":\"10.50\",\"topped_up_balance\":\"100.00\",\"available\":true}}"
+    },
+    {
+      "id": "C4_renewal_tick_runs_both_workers",
+      "pass": true,
+      "detail": "旧 worker tick {\"event\":\"subscription_auto_renewal_tick\",\"scanned\":0,\"created\":0,\"failures\":[],\"skippedQuiescentEnterprises\":[]}；新 worker tick {\"event\":\"subscription_auto_renewal_tick\",\"scanned\":0,\"created\":0,\"failures\":[],\"skippedQuiescentEnterprises\":[]}"
+    },
+    {
+      "id": "D1_auto_renew_enabled_unchanged",
+      "pass": true,
+      "detail": "DB enabled=true；HTTP 新旧栈视图一致=true"
+    },
+    {
+      "id": "D2_subscription_period_unchanged",
+      "pass": true,
+      "detail": "live 周期行=[{\"periodStart\":\"2026-10-31 16:00:00+00\",\"periodEndExclusive\":\"2026-12-31 16:00:00+00\"}]；T0 基线=[{\"periodStart\":\"2026-10-31 16:00:00+00\",\"periodEndExclusive\":\"2026-12-31 16:00:00+00\"}]"
+    },
+    {
+      "id": "D3_http_views_unchanged",
+      "pass": true,
+      "detail": "GET subscription-periods 新旧栈响应一致=true"
+    },
+    {
+      "id": "E1_no_blocked_or_nonlocal_outbound",
+      "pass": true,
+      "detail": "fetch 守卫日志共 7 行：BLOCKED=0，非本地 finalUrl=0（守卫 fail-closed：非本地主机的调用不会发出）"
+    },
+    {
+      "id": "E2_mock_upstream_counts_match_plan",
+      "pass": true,
+      "detail": "mock 权威终值（SIGTERM 落盘 x08-mock-stats.json）：chat=3（T0 正常＋T1 在途＋T4 新消费；503 被拒请求未触达上游） balance=4（T0 旧 worker 同步 A/B 共 2 次＋T4 新 worker runner 同步资源C 1 次＋T4 手动刷新资源A 1 次） other=0（无未知端点）；T4 时点快照 balance=3"
+    },
+    {
+      "id": "E3_no_unplanned_requests",
+      "pass": true,
+      "detail": "ai_request=3（全部 SUCCEEDED）；SETTLED 事务=3"
+    },
+    {
+      "id": "E4_zero_real_payment_proxy",
+      "pass": true,
+      "detail": "无任何外部主机外呼；资金事件全程仅 T0 订阅登记（充值/付款凭证写路径零触达）；方法局限：进程网络层以 fetch 守卫日志＋mock 计数＋配置审查（capability_set.base_url 指向本地）为证"
+    },
+    {
+      "id": "X1_t0_consumption_readable_same_amount",
+      "pass": true,
+      "detail": "T0 请求 bb78c944-e3f1-4953-8f1a-52402c1bfb9e 旧栈 /usage=0.00100000 新栈 /usage=0.00100000 DB=0.00100000"
+    },
+    {
+      "id": "X2_new_consumption_no_opening_settleable",
+      "pass": true,
+      "detail": "T4 新消费 0c484bf6-c87e-40b7-85a1-8860ef91615f（无期初资源A）：SUCCEEDED 0.00060000 tx=SETTLED"
+    }
+  ]
+}

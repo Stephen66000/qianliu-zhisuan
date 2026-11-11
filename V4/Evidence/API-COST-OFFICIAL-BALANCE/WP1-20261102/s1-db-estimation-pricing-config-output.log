@@ -1,0 +1,13 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/quota-pricing-configuration.test.ts (23 tests) 2737ms
+ ✓ src/__tests-integration__/api-cost-estimation.integration.test.ts (10 tests) 5307ms
+   ✓ 0093 billing_rule.source_status 迁移与回滚（S1 §5g） > 存量默认 UNVERIFIED、CHECK 拒绝非法值、down 可回滚、重放保留 UNVERIFIED  2724ms
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+   Start at  22:12:03
+   Duration  6.98s (transform 902ms, setup 0ms, collect 3.08s, tests 8.04s, environment 0ms, prepare 99ms)
+

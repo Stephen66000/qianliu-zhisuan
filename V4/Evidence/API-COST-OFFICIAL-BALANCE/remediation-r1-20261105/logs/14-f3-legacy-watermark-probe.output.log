@@ -1,0 +1,17 @@
+## F3 0091 水位探针输出（脚本：scripts/f3-legacy-watermark-probe.ts）
+
+$ DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true corepack pnpm@11.11.0 exec tsx V4/Evidence/API-COST-OFFICIAL-BALANCE/remediation-r1-20261105/scripts/f3-legacy-watermark-probe.ts
+
+[probe] watermark <= 0091_recorded_cost_accounting_policy
+[probe] billing_rule.source_status column present at 0091 == false
+[probe] seeded priced line with-key (snapshot.sourceStatus=VERIFIED)
+[probe] seeded priced line missing-key (snapshot.sourceStatus=(absent))
+[probe] 0091 loadApiCostEstimation OK: amounts=[{"currency":"CNY","amount":"2.00000000"}] completeness=KNOWN_COMPLETE
+[probe] 0091 priceBasis=[{"ruleId":"441b49e7-3c9d-487f-a88b-b7e012845e5c","ruleVersion":"f3-legacy-v1","sourceStatus":"UNVERIFIED"},{"ruleId":"441b49e7-3c9d-487f-a88b-b7e012845e5c","ruleVersion":"f3-legacy-v1","sourceStatus":"VERIFIED"}]
+[probe] 0091 gaps=[{"reason":"PRICE_BASIS_UNVERIFIED","count":1}]
+[probe] 0091 metrics.priceBasisUnverified present=false value=undefined
+[probe] migrated to latest: last=0096_official_balance_refresh_request (0093 in chain=true)
+[probe] latest metrics.priceBasisUnverified present=true value=true
+[probe] done
+
+EXIT=0

@@ -6,6 +6,12 @@
 
 ## 正在进行中的变更方案 (In-Flight Changes)
 
+### 📁 `simplify-api-cost-and-official-balance`
+* **目标**：取消 API 内部余额管理，统一“API费用估算”，保留独立的官方账户余额同步及 Coding Plan 套餐管理。
+* **状态**：2026-11-02 需求与设计整理；尚未实施、迁移或部署。
+* **阅读入口**：[`proposal.md`](changes/simplify-api-cost-and-official-balance/proposal.md)、[`design.md`](changes/simplify-api-cost-and-official-balance/design.md)、[`specs/`](changes/simplify-api-cost-and-official-balance/specs/)、[`tasks.md`](changes/simplify-api-cost-and-official-balance/tasks.md)。
+* **兼容关系**：本方案在新口径中替代旧 API 资金初始化要求，保留员工月度额度和 Coding Plan 合同；具体关系见 design。下方其他方案的专属流程不自动适用于本方案。
+
 ### 📁 `wecom-contact-activation`
 * **目标**：企业微信通讯录候选库与 AI 员工开通解耦方案（A/B/C 三合一开通）。
 * **工件文档清单**：

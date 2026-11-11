@@ -1,0 +1,1 @@
+{"event":"provider_operating_sync_tick_completed","resourcesScanned":4,"snapshotsCreated":1,"failed":0,"notSupported":0,"skippedQuiescentResources":0}

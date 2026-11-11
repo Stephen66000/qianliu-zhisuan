@@ -51,13 +51,17 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
   async function addLine(input: {
     resourceId: string; modelId: string | null; historicalAlias: string; upstreamModel: string;
     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
-    cost: string | null; quality: string; at: Date;
+    cost: string | null; quality: string; at: Date; currency?: string;
     deductedQuota?: bigint | null;
     mode?: "API" | "CODING_PLAN";
     requestStatus?: "SUCCEEDED" | "FAILED";
     responseCommitted?: boolean;
     httpStatus?: number;
     errorCode?: string | null;
+    billingRuleId?: string;
+    ruleVersion?: string;
+    /** F3：生产结算链自 9bf1560 起冻结含 sourceStatus 的规则快照；S2B 用例按生产形态补齐。 */
+    billingRuleSnapshot?: Record<string, unknown>;
   }) {
     const requestId = randomUUID();
     await db.insertInto("ai_request").values({
@@ -87,7 +91,21 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       raw_output_tokens: input.output, raw_cache_tokens: input.cache,
       raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
       api_cost: input.cost,
+      billing_rule_id: input.billingRuleId ?? null,
+      rule_version: input.ruleVersion ?? null,
+      billing_rule_snapshot: input.billingRuleSnapshot ?? null,
       usage_quality: input.quality, created_at: input.at,
+      // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
+      // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
+      // S3b：queryUsageRows 期间过滤统一 settled_at 半开窗口（合同 §1.2），因此所有已结算
+      // 夹具行（含 cost=null 与 CODING_PLAN）一律补 settled_at——生产结算链对每条已结算
+      // 账本行都写 settled_at（gateway-ledger-settlement.ts:197 / attempt-usage-settlement.ts:109，
+      // 见 s1-settled-at-null-investigation.md §3），NULL settled_at 仅存在于 seed 工具。
+      settled_at: input.at,
+      ...(input.cost !== null && (input.mode ?? "API") === "API" ? {
+        api_cost_status: "PRICED_USAGE" as const,
+        api_cost_currency: input.currency ?? "CNY",
+      } : {}),
     }).execute();
   }
 
@@ -220,6 +238,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
             resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
             upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
             cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
+            currency: input.currencies[index]!,
             at: new Date(now.getTime() - 30 * 60 * 1000),
           });
         }
@@ -261,7 +280,10 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     });
     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
       currentBalance: null, monthlyCost: null, estimatedBalanceTokens: null,
-      monthlyCostReason: expect.stringMatching(/multi-currency-0 CNY.*multi-currency-1 USD/),
+      // S3a 断言迁移（依据：S3a §1.2 用量总览 API 汇总行费用由 loadApiCostEstimation 同源
+      // 供给＋ACE-07 混币不合并）：混币拒绝语义保留，理由文案改为估算缺口口径的明确币种
+      // 列表（原为逐资源余额桥接行列表）。
+      monthlyCostReason: "币种不一致：CNY、USD",
       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
     });
   });
@@ -542,5 +564,64 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
       monthlyTotalTokens: "12", consumptionRate24h: "0.50",
       consumptionRateUnit: "QUOTA_PER_HOUR",
     });
+  });
+
+  // S2B（R7 裁定）：资源组级"价格依据待核实"透出——判定源＝loadApiCostEstimation().priceBasis
+  // 任一 sourceStatus='UNVERIFIED'；仅 API 汇总行透出（兄弟布尔），套餐行不透出，金额/口径不变。
+  it("S2B：API 资源组级透出 priceBasisUnverified，全 VERIFIED 为 false，套餐行不透出", async () => {
+    async function createRuleFor(resourceId: string, upstreamModel: string, version: string, sourceStatus: "VERIFIED" | "UNVERIFIED") {
+      return db.insertInto("billing_rule").values({
+        enterprise_id: enterpriseId, provider_resource_id: resourceId,
+        upstream_model: upstreamModel, rule_type: "API_PRICE", rule_version: version,
+        effective_from: new Date("2026-08-01T00:00:00Z"),
+        cache_miss_price: "0.01", output_price: "0.02", enabled: true,
+        source_status: sourceStatus,
+      }).returning("id").executeTakeFirstOrThrow();
+    }
+
+    const unverifiedResource = await createApiResource("pb-unverified", "10");
+    const unverifiedRule = await createRuleFor(
+      unverifiedResource, "pb-unverified", "pb-unverified-v1", "UNVERIFIED",
+    );
+    await addLine({
+      resourceId: unverifiedResource, modelId: null, historicalAlias: "old-pb-unverified",
+      upstreamModel: "pb-unverified", input: 10n, output: 2n, cache: 0n, reasoning: 0n,
+      cost: "0.1", quality: "PROVIDER_REPORTED",
+      at: new Date(now.getTime() - 30 * 60 * 1000),
+      billingRuleId: unverifiedRule.id, ruleVersion: "pb-unverified-v1",
+      billingRuleSnapshot: { sourceStatus: "UNVERIFIED" },
+    });
+
+    const verifiedResource = await createApiResource("pb-verified", "10");
+    const verifiedRule = await createRuleFor(
+      verifiedResource, "pb-verified", "pb-verified-v1", "VERIFIED",
+    );
+    await addLine({
+      resourceId: verifiedResource, modelId: null, historicalAlias: "old-pb-verified",
+      upstreamModel: "pb-verified", input: 10n, output: 2n, cache: 0n, reasoning: 0n,
+      cost: "0.1", quality: "PROVIDER_REPORTED",
+      at: new Date(now.getTime() - 30 * 60 * 1000),
+      billingRuleId: verifiedRule.id, ruleVersion: "pb-verified-v1",
+      billingRuleSnapshot: { sourceStatus: "VERIFIED" },
+    });
+
+    const planProvider = await db.insertInto("provider").values({
+      enterprise_id: enterpriseId, code: "pb-plan", name: "pb-plan", adapter_type: "openai",
+    }).returning("id").executeTakeFirstOrThrow();
+    // 套餐行只需 provider_resource(mode=CODING_PLAN) 即产生分组行；无需快照/账本行。
+    await db.insertInto("provider_resource").values({
+      enterprise_id: enterpriseId, provider_id: planProvider.id, name: "pb-plan",
+      mode: "CODING_PLAN", credential_type: "API_KEY", status: "ACTIVE",
+    }).execute();
+
+    const items = (await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime()))
+      .providerSummaries;
+    expect(items.find((row) => row.providerCode === "pb-unverified")).toMatchObject({
+      mode: "API", priceBasisUnverified: true, monthlyCost: "0.10000000",
+    });
+    expect(items.find((row) => row.providerCode === "pb-verified")).toMatchObject({
+      mode: "API", priceBasisUnverified: false, monthlyCost: "0.10000000",
+    });
+    expect(items.find((row) => row.providerCode === "pb-plan")?.priceBasisUnverified).toBeUndefined();
   });
 });

@@ -146,7 +146,8 @@ export function registerUsageRoutes(
     const headers = [
       "请求ID", "发起主体", "主体类型", "Agent/工具", "统一模型",
       "最终厂商", "最终资源", "输入Token", "输出Token", "缓存Token",
-      "扣减额度", "API费用", "币种", "状态", "开始时间", "耗时(毫秒)"
+      // WP4-S4（ACE-01/AT-ACE-13）：导出列名与页面一致，API 金额统一"API费用估算"。
+      "扣减额度", "API费用估算", "币种", "状态", "开始时间", "耗时(毫秒)"
     ];
     const rows = result.records.map((r) => [
       escapeCsv(r.requestId),

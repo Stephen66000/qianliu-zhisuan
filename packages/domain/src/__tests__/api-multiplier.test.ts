@@ -43,10 +43,16 @@ it("distinguishes unknown rules, quota multipliers and absolute all-day prices",
   expect(billingPriceMultiplier({ ...base, pricingMode: undefined })).toBe("1");
 });
 
-it("preserves legacy missing-component costs without converting absent prices to invalid decimals", () => {
+// F2/ACE-04（返修轮 R4，重写自 "preserves legacy missing-component costs..."，依据＝
+// 验收阻断 C 裁定：ABSOLUTE 缺「适用分项」（对应用量>0）价不得静默补零计价——原预期
+// 0.00008200/0.00001800 即补零产物，现改为缺价信号 null（结算落 UNKNOWN_COST，
+// 聚合归 PRICE_MISSING）；用例保留不删除，MULTIPLIER 零倍率抛错分支原样保留。
+it("missing applicable component prices yield null instead of a silently priced zero (F2/ACE-04)", () => {
   const legacy = { ...base, pricingMode: "ABSOLUTE" as const };
-  expect(computeApiCostFromRule({ ...legacy, cacheMissPrice: null }, 10, 20, 2)).toBe("0.00008200");
-  expect(computeApiCostFromRule({ ...legacy, outputPrice: null }, 10, 20, 2)).toBe("0.00001800");
+  // input=10, cache=2 → miss=8>0 需 missPrice；缺失 → null。
+  expect(computeApiCostFromRule({ ...legacy, cacheMissPrice: null }, 10, 20, 2)).toBeNull();
+  // output=20>0 需 outputPrice；缺失 → null。
+  expect(computeApiCostFromRule({ ...legacy, outputPrice: null }, 10, 20, 2)).toBeNull();
   expect(() => computeApiCostFromRule({ ...base, multiplier: "0" }, 10, 20, 2)).toThrow("incomplete_multiplier_price");
 });
 

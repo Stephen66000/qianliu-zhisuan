@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/wp6-rollback-drill.integration.test.ts (7 tests) 21343ms
+   ✓ AT-X07 回退半段演练（WP6 task 6.3；down 链 0096→0092＋0095 守卫两态＋0094 边界） > 断言 3：down 链到 0092——水位＝0092、数据逐字保留、约束与幂等仍在、零补期初  992ms
+   ✓ AT-X07 断言 4：0095 守卫两态（演练链语境；手法同 wp3-operating-sync-decouple） > 断言 4a：多行态——同日两条 attempt 后 0095 down 抛「回滚被拒绝」，daily_uq 保持不存在、数据原样  5478ms
+   ✓ AT-X07 断言 4：0095 守卫两态（演练链语境；手法同 wp3-operating-sync-decouple） > 断言 4b：单行态——单行库 down 到 0095 成功，daily_uq 重建且唯一性恢复  8260ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  01:19:19
+   Duration  24.05s (transform 1.16s, setup 0ms, collect 2.43s, tests 21.34s, environment 0ms, prepare 69ms)
+

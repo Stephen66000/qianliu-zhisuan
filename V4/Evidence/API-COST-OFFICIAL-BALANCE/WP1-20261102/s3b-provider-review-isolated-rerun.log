@@ -1,0 +1,32 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+······{"level":30,"time":1788580800000,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788580800000,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":41.55000000000018,"msg":"request completed"}
+{"level":30,"time":1788580800000,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1788580800000,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":66.04916700000012,"msg":"request completed"}
+·{"level":30,"time":1793639244565,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244603,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":37.84766600000057,"msg":"request completed"}
+{"level":30,"time":1793639244604,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244687,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":83.63633299999947,"msg":"request completed"}
+{"level":30,"time":1793639244711,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244749,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":37.01500000000033,"msg":"request completed"}
+{"level":30,"time":1793639244749,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244814,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":65.16991700000017,"msg":"request completed"}
+·{"level":30,"time":1793639244839,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244873,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":34.107874999999694,"msg":"request completed"}
+{"level":30,"time":1793639244874,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":50,"time":1793639244934,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"res":{"statusCode":500},"err":{"type":"Error","message":"Resource missing from utilization snapshot","stack":"Error: Resource missing from utilization snapshot\n    at /Users/mac/Projects/仟流智算-api-decouple/apps/control-api/src/resource-insights/token-utilization.ts:28:36\n    at Array.map (<anonymous>)\n    at /Users/mac/Projects/仟流智算-api-decouple/apps/control-api/src/resource-insights/token-utilization.ts:26:68\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/kysely.js:572:32\n    at DefaultConnectionProvider.provideConnection (file:///Users/mac/Projects/%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/default-connection-provider.js:10:20)\n    at Object.<anonymous> (/Users/mac/Projects/仟流智算-api-decouple/apps/control-api/src/resource-insights/routes.ts:35:40)"},"msg":"Resource missing from utilization snapshot"}
+{"level":30,"time":1793639244938,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":500},"responseTime":64.41104199999972,"msg":"request completed"}
+{"level":30,"time":1793639244958,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"POST","url":"/auth/login","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639244996,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":38.49004200000036,"msg":"request completed"}
+{"level":30,"time":1793639244997,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-09","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793639245063,"pid":83545,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":66.54174999999941,"msg":"request completed"}
+·········
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  01:07:18
+   Duration  8.03s (transform 1.36s, setup 0ms, collect 2.52s, tests 5.23s, environment 0ms, prepare 57ms)
+
+EXIT=0

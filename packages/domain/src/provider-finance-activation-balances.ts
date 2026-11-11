@@ -58,13 +58,25 @@ export function computeUsageDebitDeltas(
   return deltas;
 }
 
-/** 余额投影与守恒（PFH-05，复用共享聚合语义）。 */
+/**
+ * 余额投影与守恒（PFH-05，复用共享聚合语义）。
+ *
+ * WP2-S4 / R8（总指挥复审裁定，AFR-04）：**API 资源的账户不再产出
+ * `NEGATIVE_BALANCE` 与 `BALANCE_FORMULA_MISMATCH` 两类激活缺口**——API 资金守恒已随
+ * 内部资金管理退役；否则「从未激活企业先产生无期初的 API 计价用量 → 纯套餐草稿
+ * preview」会因 API 账户投影余额为负而 NO_GO，套餐初始化被 API 余额缺失阻断，
+ * 直接违反 AFR-04「套餐初始化及续订 MUST NOT 因 API 余额缺失而阻断」。
+ * **CP 资源账户的两项检查原样保留**。`accounts` 证据数组照常产出（含
+ * `formulaMatches` 字段，供读侧观察），仅摘除 gap 发射。
+ */
 export function projectAccountBalances(
   input: ActivationProjectionInput,
   plan: UsageRepairPlan,
   scopeAccounts: Map<string, ActivationScopeAccountInput>,
   gaps: ActivationGap[],
 ): ProjectedAccountBalance[] {
+  const apiResourceIds = new Set(input.resources
+    .filter((resource) => resource.mode === "API").map((resource) => resource.resourceId));
   const accounts: ProjectedAccountBalance[] = [];
   const virtualOpenings = new Map<string, string>();
   for (const opening of input.draft.apiOpeningBalances) {
@@ -105,7 +117,9 @@ export function projectAccountBalances(
       ? true
       : balanceFormulaMatches(real.components, real.reportedBalance);
     accounts.push({ resourceId, currency, ...components, balance: balanceAmount(components), formulaMatches });
-    // 失败关闭：数据库独立算出的余额必须等于用共享公式重算的结果；不一致即缺口，不得返回 GO_CANDIDATE。
+    if (apiResourceIds.has(resourceId)) continue;
+    // 失败关闭（仅 CP 资源账户，见顶部 R8 注）：数据库独立算出的余额必须等于用共享
+    // 公式重算的结果；不一致即缺口，不得返回 GO_CANDIDATE。
     if (!formulaMatches && real !== undefined && real.reportedBalance !== null) {
       gaps.push(gap("BALANCE_FORMULA_MISMATCH", "BALANCE",
         "账户余额与共享公式重算结果不一致，必须先完成对账",

@@ -9,20 +9,19 @@ vi.mock("./SubscriptionAutoRenewal", () => ({ SubscriptionAutoRenewal: () => nul
 vi.mock("../../api/provider-finance", () => ({
   currentShanghaiMonth: () => "2026-10",
   useProviderFinanceSummary: () => ({ data: null, isLoading: false }),
-  useProviderFinanceBalance: () => ({}),
   useProviderFinanceEvents: () => ({ data: { items: [] } }),
   useProviderSubscriptionPeriods: () => ({ data: { periods: [] } }),
   useRecordProviderFinance: () => ({ mutate: mocks.record, reset: mocks.resetRecord }),
   useConfirmProviderFinanceDuplicate: () => ({ mutate: mocks.confirm, reset: mocks.resetConfirm }),
 }));
-const resources = [{ id: "api", provider_id: "provider", name: "验收API", mode: "API" }] as ProviderResourceItem[];
+const resources = [{ id: "plan", provider_id: "provider", name: "验收套餐", mode: "CODING_PLAN" }] as ProviderResourceItem[];
 const providers = [{ id: "provider", name: "验收厂商" }] as Provider[];
 const candidate = { candidateId: "candidate-A", confirmationToken: "token-A", requestHash: "hash-A" };
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
 function open(mode: "ACTIVE" | "DARK" = "ACTIVE") {
   const view = render(<ProviderFinancePanel resources={resources} providers={providers} mode={mode} />);
-  fireEvent.click(screen.getByRole("button", { name: "充值／订阅" }));
-  for (const [label, value] of [["充值金额", "12"], ["人民币实付", "12"], ["说明", "隔离资金事实"], ["证据引用", "receipt-A"]]) {
+  fireEvent.click(screen.getByRole("button", { name: "订阅登记" }));
+  for (const [label, value] of [["订阅金额", "12"], ["人民币实付", "12"], ["服务周期开始日", "2026-10-15"], ["说明", "隔离资金事实"], ["证据引用", "receipt-A"]]) {
     fireEvent.change(screen.getByLabelText(label!), { target: { value } });
   }
   return view;
@@ -47,12 +46,12 @@ it("普通提交在回调返回前阻止连击，失败结束后复用原请求�
 it("普通提交成功清空表单、解除历史选择锁，重新登记生成新请求键", () => {
   open(); submit(); const first = mocks.record.mock.calls[0]!;
   act(() => { first[1].onSuccess(); first[1].onSettled(); });
-  expect(screen.queryByRole("region", { name: "充值登记" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "订阅登记" })).not.toBeInTheDocument();
   expect(screen.getByLabelText("历史记录资源")).not.toBeDisabled();
   expect(mocks.resetRecord).toHaveBeenCalledOnce(); expect(mocks.resetConfirm).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "充值／订阅" }));
-  expect(screen.getByLabelText("充值金额")).toHaveValue("");
-  for (const [label, value] of [["充值金额", "12"], ["人民币实付", "12"], ["说明", "新事实"], ["证据引用", "receipt-B"]]) fireEvent.change(screen.getByLabelText(label!), { target: { value } });
+  fireEvent.click(screen.getByRole("button", { name: "订阅登记" }));
+  expect(screen.getByLabelText("订阅金额")).toHaveValue("");
+  for (const [label, value] of [["订阅金额", "12"], ["人民币实付", "12"], ["服务周期开始日", "2026-10-20"], ["说明", "新事实"], ["证据引用", "receipt-B"]]) fireEvent.change(screen.getByLabelText(label!), { target: { value } });
   submit(); expect(mocks.record.mock.calls[1]![0].payload.idempotency_key).not.toEqual(first[0].payload.idempotency_key);
 });
 it.each([
@@ -63,7 +62,7 @@ it.each([
   open(); submit(); const callbacks = mocks.record.mock.calls[0]![1];
   act(() => { callbacks.onError(error); callbacks.onSettled(); });
   expect(screen.queryByRole("button", { name: "确认重复入账" })).not.toBeInTheDocument();
-  expect(screen.getByLabelText("充值金额")).not.toBeDisabled();
+  expect(screen.getByLabelText("订阅金额")).not.toBeDisabled();
   expect(mocks.confirm).not.toHaveBeenCalled();
 });
 it("取消重复候选不写入，再打开只能普通登记，旧候选不能复用", () => {
@@ -72,7 +71,7 @@ it("取消重复候选不写入，再打开只能普通登记，旧候选不能�
   fireEvent.click(screen.getByRole("button", { name: "取消" }));
   expect(mocks.confirm).not.toHaveBeenCalled();
   expect(mocks.resetConfirm).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "充值／订阅" }));
+  fireEvent.click(screen.getByRole("button", { name: "订阅登记" }));
   expect(screen.getByRole("button", { name: "入账确认" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "确认重复入账" })).not.toBeInTheDocument();
 });
@@ -88,9 +87,9 @@ it("重复确认保留候选/令牌/哈希，失败解锁重试使用同键；�
   fireEvent.click(button); expect(mocks.confirm).toHaveBeenCalledTimes(2);
   expect(mocks.confirm.mock.calls[1]![0]).toEqual(first[0]);
   act(() => { mocks.confirm.mock.calls[1]![1].onSuccess(); mocks.confirm.mock.calls[1]![1].onSettled(); });
-  expect(screen.queryByRole("region", { name: "充值登记" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "订阅登记" })).not.toBeInTheDocument();
   expect(mocks.resetRecord).toHaveBeenCalledOnce(); expect(mocks.resetConfirm).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "充值／订阅" }));
+  fireEvent.click(screen.getByRole("button", { name: "订阅登记" }));
   expect(screen.getByRole("button", { name: "入账确认" })).toBeInTheDocument();
 });
 it("只读模式不能从普通登记进入资金写入", () => {

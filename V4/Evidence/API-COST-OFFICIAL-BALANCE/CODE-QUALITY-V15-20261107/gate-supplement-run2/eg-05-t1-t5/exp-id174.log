@@ -1,0 +1,42 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ❯ src/__tests-integration__/wp3-official-balance-states.integration.test.ts (12 tests | 1 failed | 11 skipped) 4058ms
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > AT-OAB-07：T0 成功 50 → 最新 attempt 失败保鲜旧值；时钟越过 P2 后 FAILED＋expired 叠加
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > AT-OAB-08：从未成功＋401 attempt → FAILED 且余额 null 不显 0；仅 NOT_SUPPORTED 痕迹/从未同步 → NEVER_SYNCED
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > AT-OAB-02：仅 ADMIN 手工快照 → 官方余额 null（暂无官方数据），手工金额不混入
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > 不支持厂商：supported=false → UNSUPPORTED，全部余额字段 null（有 ADMIN 手工快照也不混入）
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > AT-OAB-09/10：同账户两资源各 100 → 两行独立展示，无任何合计字段
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > RUNNING refresh 行 → SYNCING；next_refresh_at = max(attempt+P3, 租约到期)
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > F1 冒充行免疫：source=PROVIDER_SYNC 且 balance_source=NULL 的行不进入官方余额域
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > F4 租约过期：expires_at 已过的 RUNNING 刷新收敛为非 SYNCING；未过期仍 SYNCING
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > P2 可配置：同一数据在不同 expireMs 下 EXPIRED 判定不同
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > EG-02 定向补充：判定/活性边界与排序合同——租约恰等 now 不算 SYNCING、expired 恰等 P2 不算过期、CODING_PLAN 不支持、next_refresh_at 活性与恰等失效、输出按 resource_id 升序
+   × listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > EG-02 T2：冷却候选晚于在途租约（较早候选在后）→ next_refresh_at 取较晚且有效值 53ms
+     → expected '2026-08-18T01:00:20.000Z' to be '2026-08-18T01:00:35.000Z' // Object.is equality
+   ↓ listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > EG-02 T3：输入显式降序插入 → 输出按 provider_resource_id 升序（同一用例双杀 id206/id207）
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/wp3-official-balance-states.integration.test.ts > listOfficialBalanceStates（C2 官方余额状态读取，task 3.3） > EG-02 T2：冷却候选晚于在途租约（较早候选在后）→ next_refresh_at 取较晚且有效值
+AssertionError: expected '2026-08-18T01:00:20.000Z' to be '2026-08-18T01:00:35.000Z' // Object.is equality
+
+Expected: "2026-08-18T01:00:35.000Z"
+Received: "2026-08-18T01:00:20.000Z"
+
+ ❯ src/__tests-integration__/wp3-official-balance-states.integration.test.ts:394:50
+    392|     expect(leaseEnd.getTime()).toBeGreaterThan(now.getTime());
+    393|     // max 语义：取较晚的冷却候选，而非数组末位的较早租约（id174）。
+    394|     expect(state.next_refresh_at?.toISOString()).toBe(laterCandidate.t…
+       |                                                  ^
+    395|   });
+    396| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 skipped (12)
+   Start at  15:23:59
+   Duration  6.78s (transform 1.22s, setup 0ms, collect 2.48s, tests 4.06s, environment 0ms, prepare 75ms)
+

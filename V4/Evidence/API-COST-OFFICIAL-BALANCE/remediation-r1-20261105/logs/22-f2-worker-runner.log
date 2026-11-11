@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/provider-operating-sync/runner.test.ts (4 tests) 4521ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 周期门禁：P1 内重复 tick 跳过零上游调用；到点恢复；同日多次尝试各留一行；P1 可配置且非法值 fail-fast  1844ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  14:05:02
+   Duration  7.31s (transform 1.12s, setup 0ms, collect 2.33s, tests 4.52s, environment 0ms, prepare 66ms)
+

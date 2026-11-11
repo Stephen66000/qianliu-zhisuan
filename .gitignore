@@ -52,3 +52,6 @@ V3/Evidence/**/*.tmp
 .zcode/
 .stryker-tmp/
 .local-runtime/
+
+# R2 证据绑定（R1 复审 C3）：验收证据日志必须随仓库归档，反转全局 *.log 排除
+!V4/Evidence/**/*.log

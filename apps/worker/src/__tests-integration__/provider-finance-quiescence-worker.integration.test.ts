@@ -179,10 +179,13 @@ describe.sequential("PF-INIT WP04：Worker 静默跳过与自动恢复", () => {
     expect(otherAttempts).toBeGreaterThanOrEqual(1);
 
     // 目标企业静默：其资源整企业跳过，且不产生任何 sync attempt / snapshot。
+    // （WP3 P1 周期门禁：第二次 tick 推进 16 分钟越过 next_sync_at，确保
+    // 非静默企业的资源此轮真正进入扫描范围而非被周期门禁跳过。）
     await upsertLease(fixture, { status: "ACTIVE", startedAt: now,
       expiresAt: new Date(now.getTime() + 30 * 60_000) });
     const before = await syncAttempts(fixture.enterpriseId);
-    const tick = await runProviderOperatingSyncTick({ db, kekBase64: KEK, now });
+    const nextTickNow = new Date(now.getTime() + 16 * 60_000);
+    const tick = await runProviderOperatingSyncTick({ db, kekBase64: KEK, now: nextTickNow });
     expect(tick.skippedQuiescentResources).toBeGreaterThanOrEqual(1);
     // 只跳过静默企业：其它企业的资源仍在扫描（不是全局停摆）。
     expect(tick.resourcesScanned).toBeGreaterThanOrEqual(2);
@@ -197,7 +200,8 @@ describe.sequential("PF-INIT WP04：Worker 静默跳过与自动恢复", () => {
     // 租约解除后目标企业重新进入扫描范围。
     await upsertLease(fixture, { status: "RELEASED", startedAt: new Date(now.getTime() - 60_000),
       expiresAt: new Date(now.getTime() + 60_000), releasedAt: new Date(), reason: "结束" });
-    const restored = await runProviderOperatingSyncTick({ db, kekBase64: KEK, now });
+    const restored = await runProviderOperatingSyncTick({ db, kekBase64: KEK,
+      now: new Date(now.getTime() + 32 * 60_000) });
     expect(restored.skippedQuiescentResources).toBe(0);
     expect(await syncAttempts(fixture.enterpriseId)).toBeGreaterThanOrEqual(1);
   });

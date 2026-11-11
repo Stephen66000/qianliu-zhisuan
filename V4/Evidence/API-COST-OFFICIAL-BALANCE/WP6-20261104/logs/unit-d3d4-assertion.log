@@ -1,0 +1,13 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/web
+
+ ✓ src/pages/Resources.test.tsx (26 tests) 2192ms
+   ✓ 厂商资源四 Tab > ACTIVE从订阅登记入口登记Coding Plan并包含自然月周期入口  305ms
+   ✓ POOL-010 厂商经营快照 > 创建套餐只录总额度与重置规则，系统字段不允许手填  360ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  01:14:21
+   Duration  4.08s (transform 455ms, setup 180ms, collect 759ms, tests 2.19s, environment 431ms, prepare 56ms)
+

@@ -1,0 +1,1 @@
+FAIL-CLOSED[9]: swap 清单 container 与本次调用不符（验证对象≠待切换对象）: 清单=pgtest 调用=otherpg

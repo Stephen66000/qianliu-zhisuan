@@ -1,20 +1,31 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
-  ProviderFinanceActivationError, ProviderFinanceError, assessResourceFinanceEnablement,
-  getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal,
+  ProviderFinanceError, getSubscriptionAutoRenewal, cancelSubscriptionAutoRenewal,
 } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 import {
   BalanceQuery, currentShanghaiMonthRange, dayAfterShanghaiDate, defaultServiceEndDate,
   DuplicateConfirmationBody,
-  EventQuery, MonthQuery, OpeningBalanceBody,
-  OpeningCorrectionBody, RechargeBody, ReconciliationCaseBody,
-  ReconciliationDecisionBody, ReconciliationQuery, ResourceParams, ReversalBody, shanghaiDayStart,
+  EventQuery, MonthQuery,
+  ReconciliationQuery, ResourceParams, ReversalBody, shanghaiDayStart,
   SubscriptionBody,
 } from "./contracts.js";
 
 function invalid(reply: FastifyReply, message = "请求参数不合法") {
   return reply.code(400).send({ error: "invalid_request", message });
+}
+
+/**
+ * AFR-01 / P4（WP2-S3）：API 内部资金写入口已整体退役（期初/readiness/期初更正/充值/
+ * 对账创建-确认-拒绝）。已认证客户端一律得到 410＋固定错误码，不再做 body/params 校验、
+ * 不再触达任何资金写路径；与资金模式（OFF/DARK/ACTIVE）和 strict_writes 开关无关。
+ * 响应合同见 handoff/work-packages/WP2/retired-api-funding-contract.md。
+ */
+function retiredApiFunding(reply: FastifyReply) {
+  return reply.code(410).send({
+    error: "api_funding_management_retired",
+    message: "API 内部资金管理已退出，请使用官方账户余额与 API费用估算",
+  });
 }
 
 function financeFailure(error: unknown, reply: FastifyReply) {
@@ -29,23 +40,18 @@ function financeFailure(error: unknown, reply: FastifyReply) {
     }
     throw error;
   }
+  // AFR-01 / P4：repo 层守卫抛出的退役码映射同一 410 合同响应
+  //（ProviderFinanceError 小写化产出 "api_funding_retired" ≠ 合同错误码，故特判）。
+  if (error.code === "API_FUNDING_RETIRED") {
+    return reply.code(410).send({ error: "api_funding_management_retired", message: error.message,
+      ...(error.detail ? { detail: error.detail } : {}) });
+  }
   const status = error.code === "NOT_FOUND" ? 404
     : error.code === "INVALID_MODE" || error.code === "CONFLICT"
       || error.code === "IDEMPOTENCY_CONFLICT"
       || error.code === "DUPLICATE_CONFIRMATION_REQUIRED" ? 409 : 400;
   return reply.code(status).send({ error: error.code.toLowerCase(), message: error.message,
     ...(error.detail ? { detail: error.detail } : {}) });
-}
-
-/** 资源级资金启用的失败映射（`ProviderFinanceActivationError`）：冲突类 409，其余 400。 */
-function activationFailure(error: unknown, reply: FastifyReply) {
-  if (!(error instanceof ProviderFinanceActivationError)) throw error;
-  const conflict = error.code === "RESOURCE_FINANCE_CONFLICT"
-    || error.code === "RESOURCE_FINANCE_NOT_READY";
-  return reply.code(conflict ? 409 : 400).send({
-    error: error.code.toLowerCase(), message: error.message,
-    ...(error.detail ? { detail: error.detail } : {}),
-  });
 }
 
 export function registerProviderFinanceRoutes(
@@ -64,106 +70,25 @@ export function registerProviderFinanceRoutes(
     }
   };
   const writeGuards = [requireAuth, requireActive];
-  app.post("/provider-resources/:id/finance/opening-balances", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = OpeningBalanceBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        const enterpriseId = req.admin!.enterpriseId;
-        // PFH-06/PFH-07：期初只能通过“资源级资金启用”登记。
-        // 企业已激活严格写后，存量资源属于企业初始化范围，禁止用兼容期初接口绕过候选补写；
-        // 只有激活后新建、仍处于 PENDING 的资源才可在此完成资源级期初登记。
-        const financeState = await app.providerFinanceActivationRepo
-          .loadResourceFinanceState(enterpriseId, params.data.id);
-        if (!financeState) {
-          return reply.code(409).send({
-            error: "resource_finance_scope_conflict",
-            message: "该资源属于企业初始化范围，请通过资金账本初始化候选登记期初余额",
-          });
-        }
-        if (financeState.state !== "PENDING") {
-          return reply.code(409).send({
-            error: "resource_finance_already_ready",
-            message: "该资源资金账户已就绪，如需变更请使用期初更正",
-          });
-        }
-        const event = await app.providerFinanceRepo.recordOpeningBalance({
-          enterpriseId, resourceId: params.data.id,
-          adminId: req.admin!.adminUserId, accountAmount: body.data.account_amount,
-          accountCurrency: body.data.account_currency, occurredAt: new Date(body.data.occurred_at),
-          description: body.data.description, evidenceRef: body.data.evidence_ref,
-          idempotencyKey: body.data.idempotency_key,
-        });
-        return reply.code(event.replayed ? 200 : 201).send({ event });
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  // AFR-01 / P4（WP2-S3）：以下七个 API 资金写入口退役——保留 requireAuth
+  //（认证＋resources.operate 权限照旧），移除 requireActive（退役是既成事实，与
+  // 模式/strict 开关无关），不做 body/params 校验、不调任何 repo。OFF 模式路由
+  // 整体不注册的现状不变（server.ts）。
+  app.post("/provider-resources/:id/finance/opening-balances", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
-  // 激活后的**资源级资金启用**（PFH-07 / 计划 §6.3-3）：新 API 资源由 0078 触发器种入
-  // PENDING 并调度拦截；登记完必要币种期初后，在此完成资源级守恒检查并提升 READY。
-  // 这是 PENDING → READY 的唯一生产入口（`markResourceFinanceReady` 的另一调用方只在测试中）。
-  app.post("/provider-resources/:id/finance/readiness", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params);
-      if (!params.success) return invalid(reply);
-      try {
-        const enterpriseId = req.admin!.enterpriseId;
-        const resourceId = params.data.id;
-        const state = await app.providerFinanceActivationRepo
-          .loadResourceFinanceState(enterpriseId, resourceId);
-        if (!state) {
-          return reply.code(409).send({
-            error: "resource_finance_scope_conflict",
-            message: "该资源属于企业初始化范围，请通过资金账本初始化候选登记期初余额",
-          });
-        }
-        const assessment = await assessResourceFinanceEnablement(app.db, { enterpriseId, resourceId });
-        // 已在 READY：幂等返回当前状态与守恒证据，不重复写版本。
-        // 守恒未通过：返回阻断项（资源保持 PENDING，继续被调度拦截），由运维补齐后重试。
-        if (state.state === "READY" || !assessment.ready) {
-          return reply.code(200).send({ state, ...assessment });
-        }
-        // 守恒通过：带乐观版本校验提升 READY；并发改动时失败关闭为 409。
-        const promoted = await app.providerFinanceActivationRepo.markResourceFinanceReady({
-          enterpriseId, resourceId, adminId: req.admin!.adminUserId,
-          requiredCurrencies: assessment.requiredCurrencies, now: new Date(),
-          expectedVersion: state.version,
-        });
-        return reply.code(200).send({ state: promoted, ...assessment });
-      } catch (error) { return activationFailure(error, reply); }
-    });
+  // AFR-01 / P4（WP2-S3）：资源级 readiness 随 API 资金管理退役；PENDING 存量的调度
+  // 拦截已由迁移 0094＋准入解除（resource-pool-repository）移除，不再需要该提升入口。
+  // `assessResourceFinanceEnablement`/`markResourceFinanceReady` 无生产调用方，
+  // 模块按 plan §4a-R7 保留存档。
+  app.post("/provider-resources/:id/finance/readiness", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
-  app.post("/provider-resources/:id/finance/opening-balance-corrections", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = OpeningCorrectionBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        const event = await app.providerFinanceRepo.recordOpeningCorrection({
-          enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
-          adminId: req.admin!.adminUserId, openingEventId: body.data.opening_event_id,
-          accountAmount: body.data.account_amount, accountCurrency: body.data.account_currency,
-          occurredAt: new Date(body.data.occurred_at), description: body.data.description,
-          evidenceRef: body.data.evidence_ref, idempotencyKey: body.data.idempotency_key,
-        });
-        return reply.code(event.replayed ? 200 : 201).send({ event });
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  app.post("/provider-resources/:id/finance/opening-balance-corrections", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
-  app.post("/provider-resources/:id/finance/recharges", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = RechargeBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        const event = await app.providerFinanceRepo.recordRecharge({
-          enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
-          adminId: req.admin!.adminUserId, accountAmount: body.data.account_amount,
-          accountCurrency: body.data.account_currency, cashPaidCny: body.data.cash_paid_cny,
-          occurredAt: new Date(body.data.occurred_at), externalReference: body.data.external_reference ?? null,
-          description: body.data.description, evidenceRef: body.data.evidence_ref,
-          idempotencyKey: body.data.idempotency_key,
-        });
-        return reply.code(event.replayed ? 200 : 201).send({ event });
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  app.post("/provider-resources/:id/finance/recharges", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
   app.post("/provider-resources/:id/finance/subscriptions", { preHandler: writeGuards },
     async (req, reply) => {
@@ -285,47 +210,14 @@ export function registerProviderFinanceRoutes(
       } catch (error) { return financeFailure(error, reply); }
     });
 
-  app.post("/provider-resources/:id/finance/reconciliation-cases", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = ReconciliationCaseBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        const financeCase = await app.providerFinanceRepo.createReconciliationCase({
-          enterpriseId: req.admin!.enterpriseId, resourceId: params.data.id,
-          adminId: req.admin!.adminUserId, accountCurrency: body.data.account_currency,
-          providerConfirmedBalance: body.data.provider_confirmed_balance,
-          balanceAsOf: new Date(body.data.balance_as_of), evidenceRef: body.data.evidence_ref,
-        });
-        return reply.code(201).send({ case: financeCase });
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  app.post("/provider-resources/:id/finance/reconciliation-cases", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
-  app.post("/provider-finance-reconciliation-cases/:id/confirm", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = ReconciliationDecisionBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        const event = await app.providerFinanceRepo.confirmReconciliationCase({
-          enterpriseId: req.admin!.enterpriseId, caseId: params.data.id,
-          adminId: req.admin!.adminUserId, note: body.data.note,
-          expectedVersion: body.data.expected_version, idempotencyKey: body.data.idempotency_key,
-        });
-        return { event };
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  app.post("/provider-finance-reconciliation-cases/:id/confirm", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
-  app.post("/provider-finance-reconciliation-cases/:id/reject", { preHandler: writeGuards },
-    async (req, reply) => {
-      const params = ResourceParams.safeParse(req.params); const body = ReconciliationDecisionBody.safeParse(req.body);
-      if (!params.success || !body.success) return invalid(reply, body.success ? undefined : body.error.issues[0]?.message);
-      try {
-        return { case: await app.providerFinanceRepo.rejectReconciliationCase({
-          enterpriseId: req.admin!.enterpriseId, caseId: params.data.id,
-          adminId: req.admin!.adminUserId, note: body.data.note,
-          expectedVersion: body.data.expected_version, idempotencyKey: body.data.idempotency_key,
-        }) };
-      } catch (error) { return financeFailure(error, reply); }
-    });
+  app.post("/provider-finance-reconciliation-cases/:id/reject", { preHandler: [requireAuth] },
+    async (_req, reply) => retiredApiFunding(reply));
 
   app.get("/provider-finance/summary", { preHandler: [requireAuth] }, async (req, reply) => {
     const query = MonthQuery.safeParse(req.query);

@@ -1,0 +1,4 @@
+=== typecheck: tsc -p tsconfig.json --noEmit ===
+typecheck exit=0
+=== lint: eslint src --max-warnings=0 ===
+lint exit=0

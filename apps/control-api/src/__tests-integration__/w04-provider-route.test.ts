@@ -60,6 +60,9 @@ beforeAll(async () => {
 afterAll(async () => {
   if (app) await app.close();
   if (db) await db.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1。
+  await new Promise((resolve) => setTimeout(resolve, 200));
   if (pg) await pg.stop();
 }, 60_000);
 
@@ -141,7 +144,15 @@ describe("W04 Provider/Resource/Model/Route", () => {
     });
   });
 
-  it("POOL-010：编辑追加经营快照，不覆盖历史版本", async () => {
+  // F1 返修（R2，2026-11-05）改预期依据：development-summary §6 验收意见 1——资源
+  // 编辑入口必须拒绝客户端提交的非 ADMIN 来源（拒绝且零落库），不再接受
+  // BILL_RECONCILIATION/PROVIDER_SYNC 冒充官方来源落库。原用例断言 200＋落库 v2，
+  // 现改为负向回归：400＋快照历史零新增。
+  it("F1 负向：编辑入口提交非 ADMIN 来源（BILL_RECONCILIATION）被 400 拒绝且零落库", async () => {
+    const before = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("provider_resource_id", "=", resourceId)
+      .executeTakeFirstOrThrow();
     const list = await app.inject({
       method: "GET",
       url: "/provider-resources",
@@ -165,21 +176,16 @@ describe("W04 Provider/Resource/Model/Route", () => {
         },
       },
     });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().resource.operating_snapshot).toMatchObject({
-      version: 2,
-      source: "BILL_RECONCILIATION",
-      current_balance: "750.00000000",
-    });
-    const history = await db.selectFrom("provider_resource_operating_snapshot")
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("invalid_request");
+    const after = await db.selectFrom("provider_resource_operating_snapshot")
       .select(["version", "current_balance"])
       .where("provider_resource_id", "=", resourceId)
       .orderBy("version")
       .execute();
-    expect(history).toEqual([
-      { version: 1, current_balance: "800.00000000" },
-      { version: 2, current_balance: "750.00000000" },
-    ]);
+    // 拒绝且零落库：历史仍只有创建时的 v1。
+    expect(after).toEqual([{ version: 1, current_balance: "800.00000000" }]);
+    expect(after).toHaveLength(Number(before.count));
     const historyResponse = await app.inject({
       method: "GET",
       url: `/provider-resources/${resourceId}/operating-snapshots?limit=10`,
@@ -187,7 +193,85 @@ describe("W04 Provider/Resource/Model/Route", () => {
     });
     expect(historyResponse.statusCode).toBe(200);
     expect(historyResponse.json().snapshots.map((item: { version: number }) => item.version))
-      .toEqual([2, 1]);
+      .toEqual([1]);
+  });
+
+  // F1 返修（R2）负向回归 a-1：合法认证下创建入口提交 source=PROVIDER_SYNC＋
+  // current_balance → 400 且零落库（development-summary §6 验收意见 1）。
+  it("F1 负向：创建入口提交 PROVIDER_SYNC 来源＋余额金额被 400 拒绝且零落库", async () => {
+    const before = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", ENT_ID)
+      .executeTakeFirstOrThrow();
+    const res = await app.inject({
+      method: "POST",
+      url: "/provider-resources",
+      headers: { cookie: adminCookie },
+      payload: {
+        provider_id: providerId,
+        name: "F1 写旁路拒绝测试资源",
+        mode: "API",
+        credential_type: "API_KEY",
+        credential_plaintext: "f1-bypass-secret",
+        operating_snapshot: {
+          source: "PROVIDER_SYNC",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          current_balance: "123",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("invalid_request");
+    // 拒绝且零落库：资源与快照都不新增。
+    const created = await db.selectFrom("provider_resource")
+      .select("id")
+      .where("enterprise_id", "=", ENT_ID)
+      .where("name", "=", "F1 写旁路拒绝测试资源")
+      .execute();
+    expect(created).toHaveLength(0);
+    const after = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", ENT_ID)
+      .executeTakeFirstOrThrow();
+    expect(Number(after.count)).toBe(Number(before.count));
+  });
+
+  // F1 返修（R2）负向回归 a-3：onboarding 入口提交 source=PROVIDER_SYNC＋余额金额
+  // → 400 且零落库（development-summary §6 验收意见 1）。safeParse 是 onboard
+  // 处理器第一步，校验失败在厂商发现/探针之前返回。
+  it("F1 负向：onboarding 入口提交 PROVIDER_SYNC 来源＋余额金额被 400 拒绝且零落库", async () => {
+    const before = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", ENT_ID)
+      .executeTakeFirstOrThrow();
+    const res = await app.inject({
+      method: "POST",
+      url: "/provider-resources/onboard",
+      headers: { cookie: adminCookie },
+      payload: {
+        idempotency_key: "f1-bypass-onboard-0001",
+        provider_id: providerId,
+        name: "F1 写旁路 onboarding 拒绝资源",
+        mode: "API",
+        credential_type: "API_KEY",
+        credential_plaintext: "f1-onboard-secret",
+        selected_model_ids: ["deepseek-chat"],
+        operating_snapshot: {
+          source: "PROVIDER_SYNC",
+          collected_at: new Date().toISOString(),
+          currency: "CNY",
+          current_balance: "123",
+        },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("invalid_request");
+    const after = await db.selectFrom("provider_resource_operating_snapshot")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("enterprise_id", "=", ENT_ID)
+      .executeTakeFirstOrThrow();
+    expect(Number(after.count)).toBe(Number(before.count));
   });
 
   it("创建 unified_model", async () => {

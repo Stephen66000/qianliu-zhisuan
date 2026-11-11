@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-11-04T16:46:35.882Z",
+  "legacyRoot": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+  "t0MigrationHead": "0092_employee_monthly_quota",
+  "databaseUrlHost": "127.0.0.1:55434",
+  "databaseName": "/wp6_x08_drill",
+  "enterpriseId": "6e759353-6880-42bf-b852-6023a9838473",
+  "adminId": "9f5bc4ce-bdfc-41f9-bf04-8945ca6af0fc",
+  "principalId": "4af38efb-b676-4565-89b7-3a02a52034b1",
+  "keyId": "a9503c0e-a083-44f8-89e4-4126d49759ae",
+  "adminUsername": "x08admin",
+  "adminPassword": "X08-Drill-2026!",
+  "apiKey": "sk-qianliu-mH5zz0VfgMqB3A5E8_XU9QY5kbFWy-Br-nhuFNTWB5A",
+  "gatewayKeyPepper": "x08-drill-pepper-32bytes-length-ok",
+  "credentialKekBase64": "ZGV2LW9ubHkta2VrLXJlcGxhY2UtaW4tcGlsb3QAAAA=",
+  "unifiedModelAlias": "qianliu-x08-deepseek",
+  "unifiedModelId": "22fcea18-61a7-4c98-9925-f8a1bf5483f8",
+  "providerId": "38b442e7-06e5-4a40-90e4-5a8ec9d06bcb",
+  "resourceA": "d67938d6-4832-4b6f-8a54-4cb01c370124",
+  "resourceB": "ec625c07-22b8-4e2e-84da-3a9ff9db4b0d",
+  "resourceP": "79bb1a3f-bde7-4b08-b0d5-3e914afde38f",
+  "mockOrigin": "http://127.0.0.1:19191",
+  "expectedCosts": {
+    "X08-T0-NORMAL": "0.00100000",
+    "X08-T1-INFLIGHT": "0.00040000",
+    "X08-T4-NEW": "0.00060000"
+  },
+  "resourceC": "009866e7-2a6d-4723-acb5-33f1f5eab039"
+}

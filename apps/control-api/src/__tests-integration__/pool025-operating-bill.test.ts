@@ -54,6 +54,14 @@ async function addUsage(input: {
     raw_output_tokens: BigInt(input.output), raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
     deducted_quota: input.deducted === null ? null : BigInt(input.deducted),
     api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: occurredAt,
+    // S3b：经营账单当前期 API 费用主口径切同源估算（合同 §1.3，settled_at 半开窗口 +
+    // 币种分桶），夹具补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts /
+    // 0085 shape；NULL settled_at 仅存在于 seed 工具，见 s1-settled-at-null-investigation.md §3）。
+    settled_at: occurredAt,
+    ...(input.mode === "API" ? {
+      api_cost_status: input.cost === null ? "UNKNOWN_COST" as const : "PRICED_USAGE" as const,
+      api_cost_currency: input.cost === null ? null : "CNY",
+    } : {}),
   }).returningAll().executeTakeFirstOrThrow();
   await db.insertInto("ledger_transaction").values({
     ai_request_id: requestId,
@@ -136,6 +144,9 @@ beforeAll(async () => {
 afterAll(async () => {
   if (app) await app.close();
   if (db) await db.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1。
+  await new Promise((resolve) => setTimeout(resolve, 200));
   if (pg) await pg.stop();
 }, 60_000);
 
@@ -205,7 +216,10 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(draft.json().providers.find((row: { providerResourceId: string }) => row.providerResourceId === apiResource.id))
       .toMatchObject({
         purchases: [{ type: "API_RECHARGE", amount: "50.00000000", currency: "CNY", source: "ADMIN" }],
-        apiCost: null, apiSpendReason: "待补期末余额",
+        // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2 / AFR-07）：API 费用主口径切估算后，
+        // 无账本行的期间估算为精确 0（不再由余额差/资金缺口补造费用或置 null）；
+        // apiSpendReason 仍为余额桥接机制状态（桥接字段保留产出，WP2/WP4 处置）。
+        apiCost: "0.00000000", apiSpendReason: "待补期末余额",
         confirmation: { status: "PENDING", matchesCurrentFacts: false },
       });
     for (const resource of resources) {
@@ -268,8 +282,12 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     );
     expect(beforeProvider).toMatchObject({
       openingBalance: null, endingBalance: "70.00000000",
-      apiCost: null, apiSpendReason: "待补期初余额",
+      // 断言迁移（S3b 合同 §1.3；WP2-S5 / AFR-07＋总指挥 S5 裁定）：无账本行 → 估算
+      // 精确 0；补录前期初事实缺席 → 桥接状态位 BRIDGE_UNAVAILABLE（无"待补期初"文案、
+      // apiSpendReason 恒 null），不再产生资金待补提示。
+      apiCost: "0.00000000", apiSpendReason: null,
     });
+    expect(beforeProvider.apiSpendStatus).toBe("BRIDGE_UNAVAILABLE");
 
     const recorded = await app.inject({
       method: "POST", url: "/operating-bills/2026-06/opening-balances", headers: { cookie: openingCookie },
@@ -283,7 +301,11 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
     )).toMatchObject({
       openingBalance: "100.00000000", rechargeAmount: "0.00000000",
-      endingBalance: "70.00000000", apiCost: "30.00000000",
+      endingBalance: "70.00000000",
+      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2“不以余额差补造用量或费用”）：
+      // 期初 100 + 充值 0 − 期末 70 的桥接值 30 不再冒充 API 费用主口径；
+      // 无账本行时估算为精确 0。桥接值仍经 balanceBridgeFacts/opening/ending/recharge 保留。
+      apiCost: "0.00000000",
     });
     expect(await db.selectFrom("provider_resource_operating_snapshot")
       .select(({ fn }) => fn.countAll().as("count"))
@@ -374,7 +396,8 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(corrected.statusCode).toBe(201);
     expect(corrected.json().providers.find(
       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
-    )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "20.00000000" });
+    // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：同上，桥接差 20 不再作为 API 费用主口径。
+    )).toMatchObject({ openingBalance: "90.00000000", endingBalance: "70.00000000", apiCost: "0.00000000" });
     expect(await db.selectFrom("operating_bill_opening_balance").select("version")
       .where("provider_resource_id", "=", resource.id).where("reason", "is not", null)
       .orderBy("version").execute())
@@ -407,7 +430,10 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(july.json().providers.find(
       (row: { providerResourceId: string }) => row.providerResourceId === resource.id,
     )).toMatchObject({
-      openingBalance: "70.00000000", endingBalance: "50.00000000", apiCost: "20.00000000",
+      openingBalance: "70.00000000", endingBalance: "50.00000000",
+      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：上月关账→本月期初链路保留（桥接字段
+      // 照常产出 70/50），但 API 费用主口径为估算：无账本行 → 精确 0。
+      apiCost: "0.00000000",
     });
     expect(july.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -481,7 +507,9 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     )).toMatchObject({
       openingBalance: "100.00000000", openingBalanceCurrency: "CNY",
       endingBalance: "90.00000000",
-      apiCost: "10.00000000",
+      // 断言迁移（S3b 合同 §1.3 / ACE-03 场景2）：8 月无账本行 → 估算精确 0；
+      // 快照回退链（OPERATING_SNAPSHOT 期初）保留在桥接字段与 balanceBridgeFacts。
+      apiCost: "0.00000000",
     });
     expect(augustFallback.json().sourceFacts.balanceBridgeFacts).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -546,12 +574,19 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     ]);
     const apiResource = await db.selectFrom("provider_resource").select("id")
       .where("enterprise_id", "=", enterpriseId).where("mode", "=", "API").executeTakeFirstOrThrow();
+    // 断言迁移（WP2-S3 / AFR-01 / R1）：原用例给 API 资源手填导入资金快照字段
+    //（current_balance/current_period_cost/cost_period_start/cost_period_end），期望 201；
+    // O1a 守卫落地后此类行一律 400 invalid_import_row 且零写入（资金字段不再接受手填导入）。
     const imported = await app.inject({
       method: "POST", url: "/operating-bill-snapshot-imports", headers: { cookie },
       payload: { rows: [{ provider_resource_id: apiResource.id, snapshot: { collected_at: "2026-08-03T04:00:00.000Z", currency: "CNY", current_balance: "87.66", current_period_cost: "12.34", cost_period_start: "2026-07-31T16:00:00.000Z", cost_period_end: "2026-08-31T16:00:00.000Z" } }] },
     });
-    expect(imported.statusCode).toBe(201);
-    expect(imported.json()).toMatchObject({ imported_count: 1, snapshots: [{ source: "BILL_RECONCILIATION" }] });
+    expect(imported.statusCode).toBe(400);
+    expect(imported.json()).toMatchObject({ error: "invalid_import_row" });
+    expect(imported.json().message).toContain("API 内部资金管理已退役");
+    expect(await db.selectFrom("provider_resource_operating_snapshot").select("id")
+      .where("provider_resource_id", "=", apiResource.id)
+      .where("source", "=", "BILL_RECONCILIATION").execute()).toHaveLength(0);
     expect(draft.json().subjects[0]).toMatchObject({
       principalName: "员工甲", totalTokens: "350", apiCost: "12.34000000",
       packageAllocatedCost: "300.00000000", totalAllocatedCost: "312.34000000",
@@ -601,12 +636,17 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
 
     const reopen = await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "对账修正" } });
     expect(reopen.statusCode).toBe(200);
+    // 断言迁移（S3b 合同 §1.3）：draft API 费用主口径为估算——reopen 后按当前账本
+    // 计价事实（已改为 99.99）重算 99.99+300=399.99；上一断言已证明已关账版本 1 的
+    // 快照内容不变（AFR-06）。原断言的 12.34 来自余额桥接（冻结于快照的 100−87.66），
+    // 新口径下不再作为 draft 主值。
     expect(reopen.json()).toMatchObject({ status: "DRAFT", version: 1, summary: {
-      totalCost: "312.34000000", apiCost: "12.34000000", ledgerApiCost: "99.99000000",
+      totalCost: "399.99000000", apiCost: "99.99000000", ledgerApiCost: "99.99000000",
     } });
     const reclose = await app.inject({ method: "POST", url: "/operating-bills/2026-08/close", headers: { cookie }, payload: { allow_incomplete: false, note: "修正后结账" } });
     expect(reclose.statusCode).toBe(200);
-    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "312.34000000" } });
+    // 断言迁移（S3b 合同 §1.3）：v2 冻结当前 draft 估算口径（99.99+300=399.99）。
+    expect(reclose.json()).toMatchObject({ status: "CLOSED", version: 2, summary: { totalCost: "399.99000000" } });
     expect(reclose.json().versions).toHaveLength(2);
 
     await app.inject({ method: "POST", url: "/operating-bills/2026-08/reopen", headers: { cookie }, payload: { reason: "并发验收" } });
@@ -617,21 +657,80 @@ describe("POOL-025 企业 AI 算力月度经营账单", () => {
     expect(concurrent.map((response) => response.statusCode).sort()).toEqual([200, 409]);
   }, 120_000);
 
+  // AT-AFR-02 / O1a 守卫（WP2-S3 / R1）：手填快照导入是 API 资金字段的最后旁路——
+  // BILL_RECONCILIATION 源不经 ADMIN 校验，需专用判定（retiredApiFundingSnapshotFieldsError）。
+  it("O1a 快照导入拒绝 API 资源携带资金字段；CP 资源套餐字段照常导入", async () => {
+    const resources = await db.selectFrom("provider_resource").select(["id", "mode"])
+      .where("enterprise_id", "=", enterpriseId).execute();
+    const apiResource = resources.find((row) => row.mode === "API")!;
+    const planResource = resources.find((row) => row.mode === "CODING_PLAN")!;
+    const snapshotsBefore = await db.selectFrom("provider_resource_operating_snapshot").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length);
+
+    // 7 个资金字段逐一组合：任一非空即 400 invalid_import_row（不论快照日期）。
+    const fundingFields = [
+      ["recharge_amount", "50"],
+      ["current_balance", "87.66"],
+      ["cumulative_cost", "120.00"],
+      ["current_period_cost", "12.34"],
+      ["cost_period_start", "2026-07-31T16:00:00.000Z"],
+      ["cost_period_end", "2026-08-31T16:00:00.000Z"],
+      ["balance_updated_at", "2026-08-03T04:00:00.000Z"],
+    ] as const;
+    for (const [field, value] of fundingFields) {
+      const response = await app.inject({
+        method: "POST", url: "/operating-bill-snapshot-imports", headers: { cookie },
+        payload: { rows: [{ provider_resource_id: apiResource.id, snapshot: {
+          collected_at: "2026-08-06T04:00:00.000Z", currency: "CNY", [field]: value } }] },
+      });
+      expect(response.statusCode, `${field} -> ${response.body}`).toBe(400);
+      expect(response.json()).toMatchObject({ error: "invalid_import_row" });
+      expect(response.json().message).toContain("API 内部资金管理已退役");
+      expect(response.json().message).toContain("资金字段不再接受手填导入");
+    }
+    expect(await db.selectFrom("provider_resource_operating_snapshot").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length))
+      .toBe(snapshotsBefore);
+
+    // CP 资源套餐字段（package 域）不经该守卫：导入照常成功。
+    const planImport = await app.inject({
+      method: "POST", url: "/operating-bill-snapshot-imports", headers: { cookie },
+      payload: { rows: [{ provider_resource_id: planResource.id, snapshot: {
+        collected_at: "2026-08-06T04:00:00.000Z", currency: "CNY", package_cost: "300",
+        total_quota: "10000", quota_unit: "TOKEN", used_quota: "5000", remaining_quota: "5000",
+        effective_from: "2026-08-01T00:00:00.000Z", effective_until: "2026-09-01T00:00:00.000Z" } }] },
+    });
+    expect(planImport.statusCode, planImport.body).toBe(201);
+    expect(planImport.json()).toMatchObject({ imported_count: 1,
+      snapshots: [{ source: "BILL_RECONCILIATION" }] });
+    expect(await db.selectFrom("provider_resource_operating_snapshot").select("id")
+      .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length))
+      .toBe(snapshotsBefore + 1);
+  });
+
   it("数据缺口禁止静默结账，授权例外必须填写说明", async () => {
     const draft = await app.inject({
       method: "GET", url: "/operating-bills/2026-07", headers: { cookie },
     });
     expect(draft.json().summary).toMatchObject({
-      apiCost: null, apiSpendStatus: "OPENING_BALANCE_MISSING",
-      apiSpendReason: "待补期初余额",
+      // 断言迁移（S3b 合同 §1.3；WP2-S5 / AFR-07＋WP2 plan §4.5）：7 月无账本行 →
+      // 估算精确 0（资金缺口不再驱动费用缺失语义）；apiSpendStatus 为余额桥接机制
+      // 字段——OPENING_BALANCE_MISSING/"待补期初余额" 已随资金管理退役停产，期初与
+      // 期末事实均缺席的桥接位为 BRIDGE_UNAVAILABLE（总指挥 S5 裁定：桥接不可算、
+      // 无资金待补含义、apiSpendReason 恒 null）。
+      apiCost: "0.00000000", apiSpendStatus: "BRIDGE_UNAVAILABLE",
+      apiSpendReason: null,
       packageCost: null,
       apiSpends: [], totalSpends: [],
       packageCosts: [],
     });
+    // 断言迁移（WP2-S5 / AFR-07）：API_OPENING_BALANCE_MISSING（opening_balance 映射）
+    // 恒空——月度缺口与桥接缺口均不再由缺期初产生；7 月关账阻断改由无经营快照的
+    // OPERATING_SNAPSHOT_MISSING 等数据缺口承担（下方 409 断言不变）。
+    expect(draft.json().gaps.map((gap: { code: string }) => gap.code))
+      .not.toContain("API_OPENING_BALANCE_MISSING");
     expect(draft.json().gaps).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: "API_OPENING_BALANCE_MISSING", field: "opening_balance",
-      }),
+      expect.objectContaining({ code: "OPERATING_SNAPSHOT_MISSING" }),
     ]));
     const rejected = await app.inject({
       method: "POST", url: "/operating-bills/2026-07/close", headers: { cookie },

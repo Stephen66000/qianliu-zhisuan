@@ -1,0 +1,31 @@
+## F3 typecheck + lint（R3 实施合同第 4 项）
+
+$ corepack pnpm@11.11.0 --filter @qianliu/database run typecheck
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT=0
+
+$ corepack pnpm@11.11.0 --filter @qianliu/gateway run typecheck
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT=0
+
+$ corepack pnpm@11.11.0 --filter @qianliu/control-api run typecheck
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT=0
+
+$ corepack pnpm@11.11.0 --filter @qianliu/worker run typecheck
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ tsc -p tsconfig.json --noEmit
+EXIT=0
+
+$ corepack pnpm@11.11.0 --filter @qianliu/database run lint
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT=0
+
+$ corepack pnpm@11.11.0 --filter @qianliu/gateway run lint
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT=0

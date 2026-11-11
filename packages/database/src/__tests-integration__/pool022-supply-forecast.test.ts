@@ -61,9 +61,13 @@ describe("POOL-022 供给预测生产闭环", () => {
       credential_type: "SUBSCRIPTION_SESSION",
     }).returning("id").executeTakeFirstOrThrow();
     const providerRepo = new ProviderRepository(db);
+    // WP3/OAB-07 新口径：API 余额预测仅消费官方来源（PROVIDER_SYNC），
+    // 夹具按新口径调整（断言值不变；CP 套餐夹具保持 ADMIN，W5/W6 域不变）。
     await providerRepo.appendOperatingSnapshot(enterpriseId, apiResource.id, {
-      source: "ADMIN",
-      collected_at: new Date(now.getTime() - 24 * 3_600_000),
+      source: "PROVIDER_SYNC",
+      balance_source: "PROVIDER_API",
+      // OAB-07 P2 时效（默认 30 分钟）：夹具快照必须新鲜，24h 旧快照会被判过期。
+      collected_at: new Date(now.getTime() - 2 * 60_000),
       currency: "CNY",
       current_balance: "100.00",
     });
@@ -148,7 +152,8 @@ describe("POOL-022 供给预测生产闭环", () => {
 
     const refreshedAt = new Date(now.getTime() + 30_000);
     await providerRepo.appendOperatingSnapshot(enterpriseId, apiResource.id, {
-      source: "ADMIN",
+      source: "PROVIDER_SYNC",
+      balance_source: "PROVIDER_API",
       collected_at: refreshedAt,
       currency: "CNY",
       current_balance: "50.00",

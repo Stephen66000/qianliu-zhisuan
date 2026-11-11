@@ -1,0 +1,47 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ❯ src/__tests-integration__/operating-analysis.integration.test.ts (9 tests | 1 failed) 9471ms
+   ✓ 经营分析真实数据链 > 混合未知计量时保留已记录 Token、YTD 与峰值参考值，并标明不完整 134ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  455ms
+   ✓ 经营分析真实数据链 > S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06） 128ms
+   ✓ 经营分析真实数据链 > S3c：多币种估算不混加，apiSpend 为 null 且不完整（ACE-07） 126ms
+   × 经营分析真实数据链 > S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04） 170ms
+     → expected { month: '2026-09', …(6) } to match object { apiSpend: '2.50', …(1) }
+(5 matching properties omitted from actual)
+   ✓ 经营分析真实数据链 > S3c：资金轨迹字段（期初/充值/实付/期末）与估算 apiSpend 并存产出 144ms
+   ✓ 经营分析真实数据链 > 跨企业隔离，未知用量和无人数不伪装为零或人均 237ms
+   ✓ 经营分析真实数据链 > 项目通过负责人归部门，新关系不搬迁旧请求，资料不足必须明确失败 154ms
+   ✓ 经营分析真实数据链 > 手工员工负责人没有 person_id 时，结账后仍保留负责人 140ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/operating-analysis.integration.test.ts > 经营分析真实数据链 > S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）
+AssertionError: expected { month: '2026-09', …(6) } to match object { apiSpend: '2.50', …(1) }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "apiSpend": "2.50",
+-   "apiSpendComplete": false,
++   "apiSpendComplete": true,
+  }
+
+ ❯ src/__tests-integration__/operating-analysis.integration.test.ts:314:7
+    312|     expect(
+    313|       report.apiAccounts.find((row) => row.providerCode === "deepseek"…
+    314|     ).toMatchObject({ apiSpend: "2.50", apiSpendComplete: false });
+       |       ^
+    315|   });
+    316| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  01:29:14
+   Duration  11.75s (transform 972ms, setup 0ms, collect 2.06s, tests 9.47s, environment 0ms, prepare 57ms)
+

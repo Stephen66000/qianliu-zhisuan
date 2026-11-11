@@ -45,8 +45,9 @@ export function getSubjectUsageHeaders(
 ): string[] {
   const providerHeaders = providers.flatMap((p) => [
     `${p.name} Token`,
+    // WP4-S4（ACE-01）：API 厂商列金额与合计同为估算口径（live 行 effectiveReportedApiCostSql）。
     p.code === "deepseek"
-      ? `${p.name} API 消费`
+      ? `${p.name} API 费用估算`
       : p.code === "zhipu"
         ? "智谱订阅金额"
         : `${p.name} 订阅金额`,
@@ -57,7 +58,7 @@ export function getSubjectUsageHeaders(
     "输出 Token",
     "缓存命中 Token",
     ...providerHeaders,
-    "API 消费合计",
+    "API 费用估算合计",
     "活跃天数",
     "请求次数",
     "最后一次使用（北京时间）",

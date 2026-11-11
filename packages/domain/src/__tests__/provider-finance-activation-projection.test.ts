@@ -144,8 +144,10 @@ function baseInput(overrides: Partial<ActivationProjectionInput> = {}): Activati
     accounts: [apiAccount()],
     financeEvents: [],
     periods: [period()],
+    // 断言迁移（WP2-S4 / R5）：夹具旧记录由 API_RECHARGE 改为 PACKAGE_PURCHASE——
+    // API 充值旧记录已退出激活前置集（AFR-01），仍在激活合同内的关闭域只剩套餐采购。
     legacyPurchases: [{
-      id: LEGACY_ID, resourceId: API_RESOURCE, purchaseType: "API_RECHARGE",
+      id: LEGACY_ID, resourceId: API_RESOURCE, purchaseType: "PACKAGE_PURCHASE",
       amount: "100.00000000", currency: "CNY", purchasedAt: "2026-09-05T02:00:00.000Z",
       alreadyMigratedEventId: null,
     }],
@@ -250,19 +252,29 @@ describe("候选假设投影", () => {
     expect(left).toBe(right);
   });
 
-  it("缺少必要账户期初返回可定位的结构化缺口（不是一条错误字符串）", () => {
+  it("API 资源缺少期初不再阻塞激活（WP2-S4 / R5：必要账户期初要求随资金管理退役）", () => {
+    // 断言迁移（WP2-S4 / AFR-01 场景3、AFR-04）：原 MISSING_OPENING_BALANCE 结构化缺口
+    // 已随 API 资金管理退役——纯套餐初始化不得被 API 资源的资金缺口阻塞。
+    // 余额分量在本用例清零，以免触发保留中的 NEGATIVE_BALANCE 守恒（余额投影语义不变）。
     const draft = happyDraft();
     draft.api_opening_balances = [];
     const result = projectActivationCandidate(baseInput({
       draft: normalizeDraftItem(draft, API_RESOURCE),
+      accountComponents: [{
+        resourceId: API_RESOURCE, currency: "CNY",
+        components: emptyBalanceComponents(), reportedBalance: "0.00000000",
+      }],
     }));
-    expect(result.decision).toBe("NO_GO");
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "MISSING_OPENING_BALANCE", resourceId: API_RESOURCE, accountCurrency: "CNY",
-    }));
+    expect(result.gaps).toEqual([]);
+    expect(result.gaps.some((entry) => entry.code === "MISSING_OPENING_BALANCE")).toBe(false);
+    expect(result.gaps.some((entry) => entry.code === "REQUIRED_CURRENCY_UNRESOLVED")).toBe(false);
+    expect(result.decision).toBe("GO_CANDIDATE");
   });
 
-  it("显式零期初被接受，但余额为负时失败关闭", () => {
+  it("显式零期初被接受；API 账户余额为负不再产出激活缺口（WP2-S4 / R8 / AFR-04）", () => {
+    // 断言迁移（总指挥 R8 裁定）：原"余额为负时失败关闭"对 API 账户随资金守恒退役
+    // 摘除——无期初的 API 计价用量不得以余额为负阻断纯套餐初始化（AFR-04）。
+    // accounts 证据数组照常产出（balance 字段保留 -5）；CP 账户正控见下一组用例。
     const draft = happyDraft();
     draft.api_opening_balances[0]!.account_amount = "0";
     draft.historical_api_recharges = [];
@@ -274,15 +286,15 @@ describe("候选假设投影", () => {
     const result = projectActivationCandidate(baseInput({
       draft: normalizeDraftItem(draft, API_RESOURCE),
     }));
-    expect(result.decision).toBe("NO_GO");
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "NEGATIVE_BALANCE", resourceId: API_RESOURCE, accountCurrency: "CNY",
-    }));
+    expect(result.decision).toBe("GO_CANDIDATE");
+    expect(result.gaps).toEqual([]);
+    expect(result.gaps.some((entry) => entry.code === "NEGATIVE_BALANCE")).toBe(false);
     expect(result.projected.accounts[0]!.balance).toBe("-5.00000000");
   });
 
-  it("已落库余额与共享公式漂移时失败关闭并发射 BALANCE_FORMULA_MISMATCH（§4.5-5 / §8-7）", () => {
-    // components 重算为 -5，但 reportedBalance 被写成 -9（数据库侧独立值漂移）。
+  it("API 账户的余额公式漂移不再产出激活缺口；formulaMatches 字段照常产出（WP2-S4 / R8 / AFR-04）", () => {
+    // 断言迁移（总指挥 R8 裁定）：原 BALANCE_FORMULA_MISMATCH 失败关闭对 API 账户
+    // 随资金守恒退役摘除（AFR-04：不得阻断纯套餐初始化）；CP 正控见下一用例。
     const result = projectActivationCandidate(baseInput({
       accountComponents: [{
         resourceId: API_RESOURCE, currency: "CNY",
@@ -290,11 +302,32 @@ describe("候选假设投影", () => {
         reportedBalance: "-9.00000000",
       }],
     }));
-    expect(result.decision).toBe("NO_GO");
+    expect(result.decision).toBe("GO_CANDIDATE");
+    expect(result.gaps).toEqual([]);
     expect(result.projected.accounts[0]!.formulaMatches).toBe(false);
+  });
+
+  it("CP 账户的余额公式漂移仍失败关闭并发射 BALANCE_FORMULA_MISMATCH（R8 后的正控保留）", () => {
+    // components 重算为 0，但 reportedBalance 被写成 -9（数据库侧独立值漂移）；
+    // CP 资源账户的两类余额守恒缺口原样保留（R8 仅豁免 API 资源账户）。
+    const result = projectActivationCandidate(baseInput({
+      accounts: [
+        { resourceId: API_RESOURCE, currency: "CNY", sources: ["PRICED_USAGE"] },
+        { resourceId: PLAN_RESOURCE, currency: "CNY", sources: ["FINANCE_EVENT"] },
+      ],
+      accountComponents: [{
+        resourceId: PLAN_RESOURCE, currency: "CNY",
+        components: emptyBalanceComponents(),
+        reportedBalance: "-9.00000000",
+      }],
+    }));
+    expect(result.decision).toBe("NO_GO");
+    const planAccount = result.projected.accounts.find((row) => row.resourceId === PLAN_RESOURCE)!;
+    expect(planAccount.formulaMatches).toBe(false);
     expect(result.gaps).toContainEqual(expect.objectContaining({
       code: "BALANCE_FORMULA_MISMATCH", category: "BALANCE",
-      resourceId: API_RESOURCE, accountCurrency: "CNY",
+      resourceId: PLAN_RESOURCE, accountCurrency: "CNY",
+      detail: "重算 0.00000000 ≠ 已落库 -9.00000000",
     }));
   });
 
@@ -316,7 +349,9 @@ describe("候选假设投影", () => {
     expect(result.gaps.some((entry) => entry.code === "BALANCE_FORMULA_MISMATCH")).toBe(false);
   });
 
-  it("UNKNOWN_COST 是独立缺口，不会被旧记录拒绝决定关闭", () => {
+  it("UNKNOWN_COST 用量行不再产生激活缺口（WP2-S4 / R5：API 分类缺口退役，AFR-04）", () => {
+    // 断言迁移（WP2-S4）：原“UNKNOWN_COST 是独立缺口”随 API 资金管理退役摘除；
+    // 真实存在的用量分类状态仍由 ledger_line 保留，视图层展示由 S5 口径承接。
     const draft = happyDraft();
     draft.legacy_purchase_resolutions = [{
       legacy_record_id: LEGACY_ID, resource_id: API_RESOURCE, resolution: "REJECTED_WITH_EVIDENCE",
@@ -341,10 +376,8 @@ describe("候选假设投影", () => {
           cacheTokens: "0", reasoningTokens: "0" },
       ],
     }));
-    expect(result.decision).toBe("NO_GO");
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "UNKNOWN_COST", ledgerLineId: unknown.id,
-    }));
+    expect(result.gaps.some((entry) => entry.code === "UNKNOWN_COST")).toBe(false);
+    expect(result.decision).toBe("GO_CANDIDATE");
   });
 
   it("跨月：九月守恒通过但十月存在未知成本时整体 NO_GO 并指向十月", () => {
@@ -434,6 +467,34 @@ describe("候选假设投影", () => {
     expect(result.gaps).toContainEqual(expect.objectContaining({
       code: "LEGACY_RECORD_UNCLOSED", legacyRecordId: LEGACY_ID,
     }));
+  });
+
+  it("草稿显式引用 API 充值旧记录的关闭决定在预检即被拒（WP2-S4 / R4 反静默）", () => {
+    // 总指挥 S4 中途裁定 3：R5 只豁免“服务端扫描到的未解决 API_RECHARGE 记录”；
+    // 草稿显式提交的 API 类 legacy 引用必须在预检阶段产出明确缺口（NO_GO＋退役文案），
+    // 激活侧再由协调器 validateCandidate 以 CANDIDATE_CONTAINS_RETIRED_API_FACTS 硬拒绝。
+    const draft = draftOf({
+      legacy_purchase_resolutions: [{
+        legacy_record_id: LEGACY_ID, resource_id: API_RESOURCE,
+        resolution: "REJECTED_WITH_EVIDENCE",
+        finance_event_id: null, migrated_external_reference: null,
+        reason: "退役说明", evidence_ref: "evidence://retired",
+      }],
+    });
+    const result = projectActivationCandidate(quietInput({
+      legacyPurchases: [{ ...legacyRecord(), purchaseType: "API_RECHARGE" as const }],
+      draft: normalizeDraftItem(draft, API_RESOURCE),
+    }));
+    expect(result.decision).toBe("NO_GO");
+    const retired = result.gaps.find((entry) => entry.legacyRecordId === LEGACY_ID);
+    expect(retired).toBeDefined();
+    expect(retired!.message).toContain("API 内部资金管理退役");
+    expect(retired!.message).toContain("不再接受对它的关闭决定");
+    // 未被草稿引用的 API_RECHARGE 记录不产生任何缺口（R5 豁免）。
+    const unreferenced = projectActivationCandidate(quietInput({
+      legacyPurchases: [{ ...legacyRecord(), purchaseType: "API_RECHARGE" as const }],
+    }));
+    expect(unreferenced.gaps.some((entry) => entry.legacyRecordId === LEGACY_ID)).toBe(false);
   });
 
   it("Token 不守恒（usage_event 缺失）使整体 NO_GO", () => {
@@ -613,8 +674,10 @@ const CARRYOVER_PERIOD_ID = "draft:carryover-1";
 const UNKNOWN_LEGACY_ID = "66666666-6666-4666-8666-666666666667";
 
 function legacyRecord(overrides: Partial<LegacyPurchaseFactRow> = {}): LegacyPurchaseFactRow {
+  // 断言迁移（WP2-S4 / R5）：默认夹具改 PACKAGE_PURCHASE（API_RECHARGE 已退出激活前置；
+  // 显式引用 API_RECHARGE 的负路径在新增的 R4 反静默用例中单独构造）。
   return {
-    id: LEGACY_ID, resourceId: API_RESOURCE, purchaseType: "API_RECHARGE",
+    id: LEGACY_ID, resourceId: API_RESOURCE, purchaseType: "PACKAGE_PURCHASE",
     amount: "100.00000000", currency: "CNY", purchasedAt: "2026-09-05T02:00:00.000Z",
     alreadyMigratedEventId: null, ...overrides,
   };
@@ -900,15 +963,14 @@ describe("期初余额来源与证据", () => {
     }));
   });
 
-  it("期初说明与证据为空时失败关闭（投影不依赖合同校验层）", () => {
+  it("期初说明与证据为空不再产生激活缺口（WP2-S4 / R5：期初证据要求随退役移除）", () => {
+    // 断言迁移（WP2-S4 / AFR-01 场景3）：原 MISSING_OPENING_EVIDENCE 位于已退役的
+    // “API 资源必要账户期初”循环内；草稿期初的对账结构保留但不再构成激活前置。
     const result = projectActivationCandidate(quietInput({
       draft: candidateOf({ apiOpeningBalances: [opening({ description: "   ", evidenceRef: "  " })] }),
     }));
-    expect(result.decision).toBe("NO_GO");
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "MISSING_OPENING_EVIDENCE", category: "OPENING_BALANCE",
-      resourceId: API_RESOURCE, accountCurrency: "CNY",
-    }));
+    expect(result.gaps.some((entry) => entry.code === "MISSING_OPENING_EVIDENCE")).toBe(false);
+    expect(result.decision).toBe("GO_CANDIDATE");
   });
 });
 
@@ -1028,7 +1090,7 @@ describe("草稿行必填项（防御层）", () => {
   });
 });
 
-describe("用量费用分类的负路径", () => {
+describe("用量费用分类（WP2-S4 / R5 迁移：分类缺口退役）", () => {
   const orphan = (id: string, overrides: Partial<LedgerLineFactRow> = {}): LedgerLineFactRow => apiLine({
     id, apiCost: "5.00000000", apiCostCurrency: null, apiCostStatus: null,
     billingRuleSnapshotCurrency: null, billingRuleId: null,
@@ -1036,19 +1098,19 @@ describe("用量费用分类的负路径", () => {
     ...overrides,
   });
 
-  it("已定价但缺结算币种的 API 用量失败关闭", () => {
+  it("已定价但缺结算币种的 API 用量不再产生激活缺口（R5；视图层口径由 S5 承接）", () => {
+    // 断言迁移（WP2-S4 / AFR-01 场景3）：原 MISSING_API_CURRENCY 激活缺口随 API
+    // 资金管理退役摘除；分类数据仍由 ledger_line 原样保留。
     const line = orphan("aaaaaaaa-0000-4000-8000-000000000011");
     const result = projectActivationCandidate(baseInput({
       ledgerLines: [apiLine(), planLine(), line],
       usageEvents: [EVENT_1, EVENT_2, { id: line.usageEventId, inputTokens: "10", outputTokens: "20",
         cacheTokens: "0", reasoningTokens: "0" }],
     }));
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "MISSING_API_CURRENCY", category: "USAGE", ledgerLineId: line.id,
-    }));
+    expect(result.gaps.some((entry) => entry.code === "MISSING_API_CURRENCY")).toBe(false);
   });
 
-  it("结算币种与计价规则快照币种冲突时失败关闭", () => {
+  it("结算币种与计价规则快照币种冲突不再产生激活缺口（R5）", () => {
     const line = apiLine({
       id: "aaaaaaaa-0000-4000-8000-000000000012",
       apiCost: "5.00000000", apiCostCurrency: "USD", apiCostStatus: "PRICED_USAGE",
@@ -1060,8 +1122,6 @@ describe("用量费用分类的负路径", () => {
       usageEvents: [EVENT_1, EVENT_2, { id: line.usageEventId, inputTokens: "10", outputTokens: "20",
         cacheTokens: "0", reasoningTokens: "0" }],
     }));
-    expect(result.gaps).toContainEqual(expect.objectContaining({
-      code: "CONFLICTING_API_CURRENCY", category: "USAGE", ledgerLineId: line.id,
-    }));
+    expect(result.gaps.some((entry) => entry.code === "CONFLICTING_API_CURRENCY")).toBe(false);
   });
 });

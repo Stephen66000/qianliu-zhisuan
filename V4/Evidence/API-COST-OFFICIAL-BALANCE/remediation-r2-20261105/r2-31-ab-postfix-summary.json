@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "date": "2026-11-05",
+    "purpose": "W20-10 性能修复（R2-r2-30 批次）：query.ts 逐资源 loadApiCostEstimation N+1 改批量分组读取后的同机 A/B 复验——候选（修复后）vs 旧基线 ae506fe",
+    "machine": "Stephen-macbook.local（colima VM，macOS Virtualization.framework，aarch64）",
+    "fix": {
+      "files": [
+        "packages/database/src/repositories/api-cost-estimation.ts（新增 loadApiCostEstimationByResource：同 estimationLinesSql（参数化 includeResourceId 追加 provider_resource_id 分组维度）/同 ESTIMATE_COUNT_PROJECTION、ESTIMATE_PRICED_SUM 聚合片段（单资源版同步提取、逐字未改）/同 assembleApiCostEstimation 派生；3 条 GROUP BY provider_resource_id 聚合取代 3×N 条）",
+        "packages/database/src/exports/delivery-ledger.ts（仅 1 行导出注册，白名单边界注明）",
+        "apps/control-api/src/resource-insights/query.ts（逐资源 Promise.all 循环 → 一次 loadApiCostEstimationByResource＋Map 取值；金额派生逻辑逐字保留）"
+      ],
+      "structureChange": "每资源 3 条聚合 SQL（N+1，N=API 资源数）→ 恒 3 条 GROUP BY 分组聚合；N>1 时查询数 3N→3"
+    },
+    "candidate": {
+      "worktree": "/Users/mac/Projects/仟流智算-api-decouple",
+      "head": "b511ad9（＋本批未提交改动：api-cost-estimation.ts / delivery-ledger.ts / query.ts / 新增一致性测试）",
+      "note": "含 WP1-WP6＋R1-R4 返修全部改动＋本批批量分组修复"
+    },
+    "legacy": {
+      "worktree": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+      "head": "ae506fed47d21865420afa91137e8b244072933e",
+      "note": "git status 零改动零提交（本批复验前实测 porcelain=0）；resource-insights/query.ts 无 loadApiCostEstimation 引用（grep=0）"
+    },
+    "test": "packages/database/src/__tests-integration__/w20-standard-capacity.integration.test.ts（两 worktree md5 逐字节一致）",
+    "command": "cd <worktree>/packages/database && DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true W20_CAPACITY_EVIDENCE=true pnpm vitest run --config ../../vitest.config.ts src/__tests-integration__/w20-standard-capacity.integration.test.ts",
+    "envNote": "与 R1 基准（logs/23-26/27-ab-summary.json）完全同款命令与环境变量；每样本独立 postgres:17-alpine 容器，afterAll pg.stop() 清理；本批四样本后 docker ps 实证无残留测试容器",
+    "ambient": "运行全程另有 2 个 4h 前既存容器（wp6-r7-restore、qianliu-pg）未触碰、保持恒定（R1 当期为 4 个 19h 遗留容器——跨轮环境底噪不同，跨轮绝对值对比仅供参考，同轮 A/B 为有效对照）",
+    "samplePolicy": "合同固定交替四样本即止（cand-s1→legacy-s1→cand-s2→legacy-s2），不因结果多跑刷数（同 R1 政策）"
+  },
+  "thresholds": { "commonAdminP95": 500, "subjectUsageP95": 800, "resourceUtilizationP95": 1000, "departmentBillP95": 1000 },
+  "samples": [
+    { "id": "cand-s1", "log": "logs/r2-30-ab-postfix-cand-s1.log", "commonAdminP95Ms": 5.108, "subjectUsageP95Ms": 330.784, "resourceUtilizationP95Ms": 992.537, "departmentBillP95Ms": 816.58, "pass": true, "failItems": [] },
+    { "id": "legacy-s1", "log": "logs/r2-30-ab-postfix-legacy-s1.log", "commonAdminP95Ms": 4.007, "subjectUsageP95Ms": 18.38, "resourceUtilizationP95Ms": 641.904, "departmentBillP95Ms": 832.868, "pass": true, "failItems": [] },
+    { "id": "cand-s2", "log": "logs/r2-30-ab-postfix-cand-s2.log", "commonAdminP95Ms": 3.039, "subjectUsageP95Ms": 381.634, "resourceUtilizationP95Ms": 1015.531, "departmentBillP95Ms": 841.569, "pass": false, "failItems": ["resourceUtilizationP95（1015.53>1000，超阈 1.55%）"] },
+    { "id": "legacy-s2", "log": "logs/r2-30-ab-postfix-legacy-s2.log", "commonAdminP95Ms": 5.483, "subjectUsageP95Ms": 16.518, "resourceUtilizationP95Ms": 622.055, "departmentBillP95Ms": 818.331, "pass": true, "failItems": [] }
+  ],
+  "means": {
+    "commonAdminP95Ms": { "candidate": 4.07, "legacy": 4.75 },
+    "subjectUsageP95Ms": { "candidate": 356.21, "legacy": 17.45, "note": "结构差＝本变更 S2B getOverview 企业级 loadPriceBasisEstimation（R1 已归因），两侧均 <800 阈值，不构成 FAIL" },
+    "resourceUtilizationP95Ms": {
+      "candidate": 1004.03,
+      "legacy": 631.98,
+      "candidateOverLegacyPct": 58.9,
+      "preFixCandidateMean": 1159.4,
+      "preFixComparison": "修复前候选均值 1159.4（R1 logs/23-26，2/2 FAIL）→ 修复后 1004.03（1/2 FAIL，另一样本 992.5 贴线 PASS）：绝对均值改善约 -155ms，但跨轮环境底噪不同（R1 legacy 均值 812.2 vs 本轮 632.0），跨轮差值仅供参考",
+      "verdict": "未回落到旧基线水平（631.98）；如实记录，分解见 attribution"
+    },
+    "departmentBillP95Ms": { "candidate": 829.07, "legacy": 825.6, "note": "两侧同量级，无差异（R1 的混合不可归因状态在本轮消失，两侧均 <1000）" }
+  },
+  "attribution": {
+    "resourceUtilization": "耗时分解（同轮 A/B 数据）：本轮 legacy 均值 632.0＝主 SQL＋loadMonthlyOperatingCosts 等既有路径；候选均值 1004.0＝legacy＋同源估算结构成本约 +372ms。该 +372ms 在 w20 形状（仅 1 个 API 资源）下由『3 条对 100 万行 ledger_line 月窗全匹配扫描的聚合 SQL』构成——批量分组版与修复前逐资源版同为 3 条查询（N=1 无 N+1 可消除），GROUP BY provider_resource_id 在单组形状下仅增加极小分组成本（修复前跨轮差 +347 vs 修复后 +372，含跨轮底噪差，不可精确归出 GROUP BY 净成本，量级估计 ≤25ms）。即：本修复消除了 N+1 结构（N>1 时 3N→3 条查询，真实多资源企业为真实收益），但 w20 合成形状 N=1 使其收益为零，P95 由估算语义本身的扫描成本决定",
+    "decompositionIdeas": "进一步回落思路（均超出本批合同范围，供裁定）：(1) 将三条聚合折为单次扫描（一条查询同时计算 counts/sums/basis）——合同口径『同三条聚合』不允许本批实施；(2) ledger_line (enterprise_id, resource_mode, settled_at) 复合索引或估算预聚合/物化；(3) w20 形状本身仅 1 资源，不代表真实 N>1 企业——CI 判据是否应按资源数分档，建议总指挥裁定",
+    "subjectUsage": "候选 330.8/381.6 vs legacy 16.5/18.4：R1 已归因的结构差（S2B loadPriceBasisEstimation），非本批路径（本批零触碰 usage-overview），两侧均达标",
+    "departmentBill": "两侧 816-842ms 同量级且均达标；R1 的 legacy-s1 1800.78 噪声样本本轮未复现",
+    "commonAdmin": "两侧同量级（3-5.5ms），无差异"
+  },
+  "conclusion": "批量分组修复按合同落地并经一致性回归（3 用例逐字段 toEqual）＋行为回归（DB 25/25、CA 单测 9/9＋集成 28/28）证实单资源语义零变化；resourceUtilizationP95 相对修复前候选改善（1159.4→1004.03 均值，FAIL 数 2/2→1/2 且贴线），但同轮 A/B 未回落到旧基线水平（1004.03 vs 631.98，+58.9%）——原因＝w20 合成形状仅 1 个 API 资源，N+1 无倍数可消除，剩余成本为估算语义的 3 条 100 万行扫描（结构性、修复前后同在）。发布门（CI 四项全过）在本机形状下 resourceUtilizationP95 仍贴线抖动（992.5/1015.5 跨 1000 阈值），最终判定仍以 CI/标定环境复验为准；进一步回落需单次扫描合并/索引/预聚合等超出本批合同的手段，已列 decompositionIdeas 供裁定。",
+  "caveats": [
+    "每侧 n=2（合同固定四样本），统计强度有限；cand 两样本跨越 1000 阈值（992.5/1015.5），贴线抖动",
+    "跨轮对比（修复前 1159.4 vs 修复后 1004.03）环境底噪不同（R1 四容器 vs 本轮两容器），仅指示性；有效对照为本轮 A/B（cand 1004.03 vs legacy 631.98）",
+    "候选侧含本批未提交改动，测得『ae506fe vs 候选工作区整体』差；本批 diff 仅触碰 query.ts 估算读取结构与 api-cost-estimation.ts（一致性回归证实估算输出零变化），A/B 差异主项＝估算扫描结构成本（R1 已归因）＋GROUP BY 小额增量",
+    "subjectUsageP95 候选侧 +340ms 级结构差为 R1 已归因项（S2B），本批未触碰该路径，两侧均未超阈"
+  ]
+}

@@ -21,27 +21,102 @@ const planFinance: ResourceFinanceView = { resourceId: "plan-1", providerCode: "
     requestCount: "200",
   } };
 
-it("projects the same API balance and cost into utilization", () => {
+// 断言迁移（WP4-S2 / WP2 遗留②收口＋AFR-07/D5）：原用例断言资金账户 498.4/108.43/600
+// 覆盖 API 行——该兜底随内部资金管理退役（apiCost/currency 与预算利用率由基础行
+// applyApiBudgetFacts 按 C1 同源估算计算，finance 开/关双路同源同值；ACE-06）。
+// 改断言：资金账户值不再进入 API 行，currentBalance/purchaseCashAmount 恒 null，
+// 基础行估算与利用率字段原样透传。
+it("keeps API utilization projection同源：funding account values must not override estimation fields", () => {
   const row = { resourceId: "resource-1", mode: "API", budgetStatus: "ACTIVE",
-    budgetAmount: "200", budgetCurrency: "CNY" } as ResourceUtilizationRow;
-  expect(projectFinanceUtilization(row, apiFinance)).toMatchObject({
-    currentBalance: "498.4", apiCost: "108.43", purchaseCashAmount: "600",
+    budgetAmount: "200", budgetCurrency: "CNY",
+    apiCost: "108.43000000", currency: "CNY",
     utilizationRate: "0.54215000", budgetDifference: "91.57000000",
+    utilizationBasis: "API_MONTHLY_BUDGET", utilizationStatus: "OVER_BUDGET",
+    notCalculableReason: null } as ResourceUtilizationRow;
+  expect(projectFinanceUtilization(row, apiFinance)).toMatchObject({
+    apiCost: "108.43000000", currency: "CNY",
+    utilizationRate: "0.54215000", budgetDifference: "91.57000000",
+    utilizationBasis: "API_MONTHLY_BUDGET", notCalculableReason: null,
+    currentBalance: null, purchaseCashAmount: null,
   });
+  expect(projectFinanceUtilization(row, apiFinance))
+    .not.toMatchObject({ currentBalance: "498.4", purchaseCashAmount: "600" });
 });
 
-it("projects the same balance into provider and model overview", () => {
-  const overview = { providerSummaries: [{ providerCode: "deepseek", mode: "API" }],
+/**
+ * S3a 迁移（依据：WP0 contracts.md §1 C1 约束“finance-usage-overview.ts 的 remainingQuota
+ * 覆盖行为移除，余额走 C2”＋ACE-06“不把货币余额放进 Token/套餐剩余额度、全部消费视图
+ * 采用同源费用”）：
+ *   a) API 汇总行的 monthlyCost/monthlyCostReason/currency 由基础层 loadApiCostEstimation
+ *      同源供给，本投影不得用资金账户 monthlyApiCost 覆盖；
+ *   b) rechargeAmount/currentBalance 不再从资金账户覆盖 API 汇总行，保留基础层厂商经营
+ *      快照事实（官方余额域走 C2）；
+ *   c) API 模型行 remainingQuota/currency 不被账户余额覆盖。
+ * 由此 finance 开（投影后）与 finance 关（基础层原样）两条路径的 API 字段同源同值。
+ */
+it("keeps API overview fields同源：finance projection must not override API cost or balance fields", () => {
+  const baseOverview = {
+    providerSummaries: [{ providerCode: "deepseek", mode: "API",
+      monthlyCost: "12.34000000", monthlyCostReason: null, currency: "CNY",
+      rechargeAmount: "80.00000000", currentBalance: "87.66000000" }],
     modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API",
-      remainingQuota: "old", currency: "USD" }] } as unknown as ResourceUsageOverview;
-  const projected = projectFinanceUsageOverview(overview, [apiFinance]);
+      remainingQuota: "87.66000000", currency: "CNY", monthlyCost: "12.34000000" }],
+  } as unknown as ResourceUsageOverview;
+  const projected = projectFinanceUsageOverview(baseOverview, [apiFinance]);
+  // a+b) API 汇总行：资金账户的 108.43/600/498.4 不得覆盖同源估算与快照事实。
   expect(projected.providerSummaries[0]).toMatchObject({
-    currentBalance: "498.40000000", monthlyCost: "108.43000000",
-    rechargeAmount: "600.00000000", currency: "CNY",
+    monthlyCost: "12.34000000", monthlyCostReason: null, currency: "CNY",
+    rechargeAmount: "80.00000000", currentBalance: "87.66000000",
   });
-  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: "498.4", currency: "CNY" });
+  expect(projected.providerSummaries[0]).not.toMatchObject({ monthlyCost: "108.43000000" });
+  // c) API 模型行：remainingQuota/currency 保持基础层快照值，不被账户余额 498.4/CNY 覆盖。
+  expect(projected.modelDetails[0]).toMatchObject({
+    remainingQuota: "87.66000000", currency: "CNY",
+  });
+  // finance 关路径＝基础层原样返回：与上面投影后的 API 字段逐字段相等（双路同源同值）。
+  expect(baseOverview.providerSummaries[0]).toEqual(projected.providerSummaries[0]);
+  expect(baseOverview.modelDetails[0]).toEqual(projected.modelDetails[0]);
 });
 
+/**
+ * S3a 迁移：原用例断言“期初余额缺失时仍从资金账户透出 monthlyApiCost”——该前提随 C1
+ * 约束退役（API 费用不再来自资金账户；同源估算不依赖期初/资金初始化，ACE-03）。改断言：
+ * 账户月费用/币种不进入 API 行，基础层字段（含模型行 remainingQuota=null 的事实）原样透传。
+ */
+it("keeps API cost同源 even when the funding account lacks opening balance but knows usage costs", () => {
+  const missingOpeningFinance: ResourceFinanceView = {
+    resourceId: "resource-1",
+    providerCode: "deepseek",
+    mode: "API",
+    accounts: [{
+      currency: "CNY",
+      balanceState: "MISSING_OPENING_BALANCE",
+      balance: null,
+      monthOpeningState: "MISSING_OPENING_BALANCE",
+      monthOpeningBalance: null,
+      monthlyRecharge: "0",
+      monthlyApiCost: "0.07",
+    }],
+    monthlyPlanCashCny: "0",
+    currentPeriod: null,
+  };
+  const overview = {
+    providerSummaries: [{ providerCode: "deepseek", mode: "API",
+      monthlyCost: "0.05000000", monthlyCostReason: null, currency: "CNY",
+      rechargeAmount: null, currentBalance: null }],
+    modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API",
+      remainingQuota: null, currency: "CNY" }],
+  } as unknown as ResourceUsageOverview;
+  const projected = projectFinanceUsageOverview(overview, [missingOpeningFinance]);
+  // 资金账户的 0.07/CNY 不覆盖 API 行；基础层估算值与快照事实（null 余额）原样保留。
+  expect(projected.providerSummaries[0]).toMatchObject({
+    monthlyCost: "0.05000000", monthlyCostReason: null, currency: "CNY",
+    currentBalance: null, rechargeAmount: null,
+  });
+  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: null, currency: "CNY" });
+});
+
+// 套餐分支行为不变（C4/W5-W6 合同原样；S3a 未触碰 CODING_PLAN 分支）。
 it("projects active carryover subscription cost and ledger quota independently from monthly cash", () => {
   const row = { resourceId: "plan-1", mode: "CODING_PLAN", totalQuota: "300000000",
     usedQuota: null, remainingQuota: null, currency: "CNY" } as ResourceUtilizationRow;
@@ -92,35 +167,4 @@ it("does not mix current-period usage with another snapshot or mislabel CNY cash
     totalQuota: "300000000",
     notCalculableReason: "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE",
   });
-});
-
-it("projects monthlyCost even when API opening balance is missing but usage costs are known", () => {
-  const missingOpeningFinance: ResourceFinanceView = {
-    resourceId: "resource-1",
-    providerCode: "deepseek",
-    mode: "API",
-    accounts: [{
-      currency: "CNY",
-      balanceState: "MISSING_OPENING_BALANCE",
-      balance: null,
-      monthOpeningState: "MISSING_OPENING_BALANCE",
-      monthOpeningBalance: null,
-      monthlyRecharge: "0",
-      monthlyApiCost: "0.07",
-    }],
-    monthlyPlanCashCny: "0",
-    currentPeriod: null,
-  };
-  const overview = {
-    providerSummaries: [{ providerCode: "deepseek", mode: "API" }],
-    modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API", remainingQuota: "old", currency: "USD" }],
-  } as unknown as ResourceUsageOverview;
-  const projected = projectFinanceUsageOverview(overview, [missingOpeningFinance]);
-  expect(projected.providerSummaries[0]).toMatchObject({
-    currentBalance: null,
-    monthlyCost: "0.07000000",
-    monthlyCostReason: null,
-    currency: "CNY",
-  });
-  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: null, currency: "CNY" });
 });

@@ -1,0 +1,7 @@
+exec
+pgtest
+sh
+-c
+rm -rf "$1" && mkdir -p "$1"
+sh
+/tmp/wp6-r4-delta-in

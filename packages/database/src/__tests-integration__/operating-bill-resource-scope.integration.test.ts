@@ -17,7 +17,12 @@ beforeAll(async () => {
   db = createKysely(pg.connectionString);
   await migrateToLatest(db);
 }, 120_000);
-afterAll(async () => { await db?.destroy(); await pg?.stop(); }, 60_000);
+afterAll(async () => { await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1
+  // （R2-2 干净复跑 a2 批实测，见 r2-12 日志）。
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await pg?.stop(); }, 60_000);
 
 async function tenant() {
   const enterpriseId = randomUUID(); const adminId = randomUUID();
@@ -114,9 +119,12 @@ describe("operating bill resource scope", () => {
     expect(october.legacyCosts.summary.ledgerApiCost).toBe("7.00000000");
     expect(october.financeViews[0]!.accounts[0]!.monthlyApiCost).toBe("7.00000000");
     expect(october.financeBill.summary.apiSpends).toEqual([{ currency: "CNY", amount: "7.00000000" }]);
-    expect(october.financeBill.gaps).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "API_OPENING_BALANCE_MISSING", providerResourceId: resourceId }),
-    ]));
+    // 断言迁移（WP2-S5 / AFR-07＋WP2 plan §4.5）：API_OPENING_BALANCE_MISSING（期初
+    // 缺口）对当前期停产。该归档资源虽无资金期初，但其账户由已计价用量推导（有账户），
+    // finance 投影的 retainedGaps 对资金覆盖资源排除桥接/快照类旧码（既有排除表语义），
+    // 资金域质量码停产后再无资源级缺口——归档资源"保留资源与费用"的核心语义由
+    // :114-116 断言承担，gaps 收敛为空。
+    expect(october.financeBill.gaps).toEqual([]);
   });
 
   it("carries both zero and nonzero financial accounts after resource and provider archives", async () => {

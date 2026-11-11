@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { get, post } from "./client";
 import type {
-  FinanceCurrency,
-  ProviderFinanceBalance,
   ProviderFinanceEvent,
   ProviderFinanceSummary,
   ProviderSubscriptionPeriod,
@@ -11,8 +9,6 @@ import type {
 
 export const FINANCE_QUERY_KEYS = {
   summary: (month: string) => ["provider-finance", "summary", month] as const,
-  balance: (resourceId: string, currency: FinanceCurrency) =>
-    ["provider-finance", "balance", resourceId, currency] as const,
   events: (resourceId: string, month: string) =>
     ["provider-finance", "events", resourceId, month] as const,
   periods: (resourceId: string) => ["provider-finance", "periods", resourceId] as const,
@@ -66,15 +62,6 @@ export function useProviderFinanceSummary(month: string, enabled = true) {
     enabled, staleTime: 15_000, refetchInterval: 30_000, refetchIntervalInBackground: false, retry: 1 });
 }
 
-export function useProviderFinanceBalance(
-  resourceId: string | null, currency: FinanceCurrency, enabled = true,
-) {
-  return useQuery({ queryKey: FINANCE_QUERY_KEYS.balance(resourceId ?? "", currency),
-    queryFn: ({ signal }) => get<ProviderFinanceBalance>(
-      `/provider-resources/${resourceId}/finance/balance?currency=${currency}`, signal,
-    ), enabled: enabled && resourceId !== null, staleTime: 15_000, retry: 1 });
-}
-
 export function useProviderFinanceEvents(resourceId: string | null, month: string, enabled = true) {
   const bounds = shanghaiMonthBounds(month);
   const query = new URLSearchParams({ from: bounds.from, to: bounds.to, limit: "100" });
@@ -94,11 +81,10 @@ export function useProviderSubscriptionPeriods(resourceId: string | null, enable
 export function useRecordProviderFinance(resourceId: string | null) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { kind: "API" | "CODING_PLAN"; payload: Record<string, unknown> }) => {
+    // AFR-01：API 日常充值写入口（W4）已 410 退役，客户端只保留 Coding Plan 订阅登记（W5）。
+    mutationFn: (input: { kind: "CODING_PLAN"; payload: Record<string, unknown> }) => {
       if (!resourceId) throw new Error("请选择厂商资源");
-      return input.kind === "API"
-        ? post(`/provider-resources/${resourceId}/finance/recharges`, input.payload)
-        : post(`/provider-resources/${resourceId}/finance/subscriptions`, input.payload);
+      return post(`/provider-resources/${resourceId}/finance/subscriptions`, input.payload);
     },
     onSuccess: () => invalidateProviderFinanceCaches(client),
   });

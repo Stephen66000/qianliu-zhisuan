@@ -1,0 +1,10 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$db" "$@"
+sh
+shadow_ok
+-Atq
+-c
+SELECT count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API'

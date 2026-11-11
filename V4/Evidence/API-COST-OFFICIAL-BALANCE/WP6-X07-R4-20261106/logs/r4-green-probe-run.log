@@ -1,0 +1,106 @@
+  script exit=6 stderr=invalid command \
+FAIL-CLOSED[6]: 回放执行失败（影子已删、事务已回滚，live 未动）
+
+RED [A-replay] 增量回放
+  contract=exit=0
+  actual  =exit=6
+[pool-error:A-wp6_r4_red_shadow] terminating connection due to administrator command
+  script exit=6 stderr=invalid command \
+FAIL-CLOSED[6]: 回放执行失败（影子已删、事务已回滚，live 未动）
+
+PASS [B1-replay-fk-fail] 缺口②：引用白名单外表的消费使影子回放失败（fail-closed）
+  contract=exit≠0（FK 失败）
+  actual  =exit=6
+PASS [B2-live-intact] 缺口②绿证：回放失败时 live 未动
+  contract=水位＝0096
+  actual  =水位=0096_official_balance_refresh_request
+PASS [B3-consumption-intact] 缺口②绿证：切换后消费仍在 live
+  contract=request4 行仍在
+  actual  =count=1
+PASS [B4-shadow-dropped] 缺口②绿证：失败后影子库已删除
+  contract=影子不存在
+  actual  =exists=false
+== PG LOG TAIL ==
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.utf8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/data ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /var/lib/postgresql/data -l logfile start
+
+waiting for server to start....2026-11-06 08:20:28.165 UTC [162] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 08:20:28.166 UTC [162] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 08:20:28.169 UTC [165] LOG:  database system was shut down at 2026-11-06 08:20:28 UTC
+2026-11-06 08:20:28.171 UTC [162] LOG:  database system is ready to accept connections
+ done
+server started
+CREATE DATABASE
+
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+waiting for server to shut down...2026-11-06 08:20:28.387 UTC [162] LOG:  received fast shutdown request
+.2026-11-06 08:20:28.388 UTC [162] LOG:  aborting any active transactions
+2026-11-06 08:20:28.390 UTC [162] LOG:  background worker "logical replication launcher" (PID 168) exited with exit code 1
+2026-11-06 08:20:28.391 UTC [163] LOG:  shutting down
+2026-11-06 08:20:28.392 UTC [163] LOG:  checkpoint starting: shutdown immediate
+2026-11-06 08:20:28.427 UTC [163] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.015 s, sync=0.018 s, total=0.037 s; sync files=301, longest=0.004 s, average=0.001 s; distance=4266 kB, estimate=4266 kB; lsn=0/191C7C8, redo lsn=0/191C7C8
+2026-11-06 08:20:28.431 UTC [162] LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+sh: locale: not found
+2026-11-06 08:20:27.797 UTC [77] WARNING:  no usable system locales were found
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-11-06 08:20:28.509 UTC [1] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 08:20:28.509 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-11-06 08:20:28.509 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-11-06 08:20:28.513 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 08:20:28.515 UTC [228] LOG:  database system was shut down at 2026-11-06 08:20:28 UTC
+2026-11-06 08:20:28.520 UTC [1] LOG:  database system is ready to accept connections
+2026-11-06 08:20:35.346 UTC [996] ERROR:  relation "principal_quota_period" does not exist at character 15
+2026-11-06 08:20:35.346 UTC [996] STATEMENT:  SELECT 1 FROM principal_quota_period LIMIT 1
+2026-11-06 08:20:35.556 UTC [1024] ERROR:  relation "principal_quota_usage" does not exist at character 15
+2026-11-06 08:20:35.556 UTC [1024] STATEMENT:  SELECT 1 FROM principal_quota_usage LIMIT 1
+2026-11-06 08:20:38.668 UTC [1113] FATAL:  terminating connection due to administrator command
+2026-11-06 08:20:38.774 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:39.404 UTC [226] LOG:  checkpoint complete: wrote 3877 buffers (23.7%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.037 s, sync=0.589 s, total=0.630 s; sync files=2221, longest=0.012 s, average=0.001 s; distance=35722 kB, estimate=35722 kB; lsn=0/3BFF168, redo lsn=0/3BFF110
+2026-11-06 08:20:46.340 UTC [1983] ERROR:  relation "principal_quota_period" does not exist at character 15
+2026-11-06 08:20:46.340 UTC [1983] STATEMENT:  SELECT 1 FROM principal_quota_period LIMIT 1
+2026-11-06 08:20:46.544 UTC [2011] ERROR:  relation "principal_quota_usage" does not exist at character 15
+2026-11-06 08:20:46.544 UTC [2011] STATEMENT:  SELECT 1 FROM principal_quota_usage LIMIT 1
+2026-11-06 08:20:49.927 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:50.529 UTC [226] LOG:  checkpoint complete: wrote 2247 buffers (13.7%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.046 s, sync=0.553 s, total=0.603 s; sync files=1711, longest=0.012 s, average=0.001 s; distance=27942 kB, estimate=34944 kB; lsn=0/5748D60, redo lsn=0/5748D08
+2026-11-06 08:20:50.568 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:50.575 UTC [226] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.008 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=31450 kB; lsn=0/57495D8, redo lsn=0/5749580
+2026-11-06 08:20:50.590 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:50.595 UTC [226] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.002 s, total=0.005 s; sync files=3, longest=0.002 s, average=0.001 s; distance=2 kB, estimate=28305 kB; lsn=0/5749E50, redo lsn=0/5749DF8
+2026-11-06 08:20:50.612 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:50.616 UTC [226] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.002 s, total=0.005 s; sync files=2, longest=0.002 s, average=0.001 s; distance=2 kB, estimate=25475 kB; lsn=0/574A6E0, redo lsn=0/574A688
+2026-11-06 08:20:50.630 UTC [226] LOG:  checkpoint starting: immediate force wait
+2026-11-06 08:20:50.635 UTC [226] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.005 s; sync files=3, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=22927 kB; lsn=0/574AF58, redo lsn=0/574AF00
+
+
+== GREEN(R4 修复后) == RED=1 PASS=4
+RED [A-replay] 增量回放

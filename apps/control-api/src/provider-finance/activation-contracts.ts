@@ -12,10 +12,18 @@ import {
 } from "@qianliu/domain";
 
 /**
- * 资金账本初始化草稿合同（WP01 任务 1.1 / PFA-02、PFA-03）。
+ * 资金账本初始化草稿合同（WP01 任务 1.1 / PFA-02、PFA-03；WP2-S4 套餐化切分）。
  *
  * 严格校验：未知字段拒绝、金额精度、日期格式、证据必填、数组上限。
  * 请求体不接受权威 `enterprise_id` / `admin_id`：企业与管理员只来自认证会话（PFA-07）。
+ *
+ * WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：API 内部资金管理已退役——初始化草稿
+ * 是**纯套餐**合同，三类 API 资金事实（api_opening_balances/historical_api_recharges/
+ * historical_api_costs）任一非空即显式拒绝（不静默剥离后继续激活混合候选）；
+ * 空数组（省略或 []）照常通过。legacy_purchase_resolutions 引用 API 充值旧记录的
+ * 行在纯 schema 层不可判定（类型在 DB resource_purchase_record.purchase_type，
+ * 草稿只有 legacy_record_id）——由预检投影产出 NO_GO 退役缺口，激活协调器
+ * validateCandidate 以 CANDIDATE_CONTAINS_RETIRED_API_FACTS 硬拒绝。
  */
 
 const ResourceId = z.string().uuid();
@@ -50,6 +58,9 @@ export const OpeningBalanceDraftSchema = z.object({
  * `resource_purchase_record` 时，允许仅凭真实厂商充值订单号录入；
  * 事实说明、证据引用与记录级幂等键改为**可选**，缺省由服务端按确定性规则生成
  * （见 `toActivationDraft`），不再要求管理员手工填写；显式提供时旧路径语义不变。
+ *
+ * WP2-S4（AFR-01）：字段 schema 保留存档（激活协调器/route 仍以它约束持久化候选的
+ * 复算路径），但提交入口已在 {@link ActivationDraftSchema} 整体拒绝该类行。
  */
 export const HistoricalRechargeDraftSchema = z.object({
   resource_id: ResourceId,
@@ -71,6 +82,7 @@ export const HistoricalRechargeDraftSchema = z.object({
  * 才转成负向资金事实），事实说明、证据引用与记录级幂等键由服务端按资源、币种、
  * 切换时点、截止时间和金额确定性生成（见 `toActivationDraft`），不提供输入字段。
  * 成本截止时间不得早于固定资金切换时点，不得晚于服务器当前时间。
+ * WP2-S4（AFR-01）：提交入口已整体拒绝（存档说明同上）。
  */
 export const HistoricalApiCostDraftSchema = z.object({
   resource_id: ResourceId,
@@ -144,7 +156,7 @@ export const LegacyPurchaseResolutionDraftSchema = z.object({
     path: ["reason"], message: "REJECTED_WITH_EVIDENCE 必须填写原因与证据",
   });
 
-/** 完整初始化草稿（PFA-02 Scenario: Preview a complete draft）。 */
+/** 完整初始化草稿（PFA-02 Scenario: Preview a complete draft；WP2-S4 后为纯套餐合同）。 */
 export const ActivationDraftSchema = z.object({
   schema_version: z.literal(PROVIDER_FINANCE_ACTIVATION_SCHEMA_VERSION),
   api_opening_balances: DraftRows(OpeningBalanceDraftSchema).default([]),
@@ -154,6 +166,27 @@ export const ActivationDraftSchema = z.object({
   coding_plan_carryovers: DraftRows(CodingPlanCarryoverDraftSchema).default([]),
   legacy_purchase_resolutions: DraftRows(LegacyPurchaseResolutionDraftSchema).default([]),
 }).strict()
+  // WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：含 API 资金事实的旧混合草稿**显式拒绝
+  // 并说明原因**——不得静默剥离后继续激活混合候选。该拒绝发生在哈希与投影之前，
+  // 不改变 candidate_hash 语义（见 inv-wp2 §2.2/§7.4）。
+  .superRefine((value, ctx) => {
+    const retiredKeys: Array<[keyof typeof value, string]> = [
+      ["api_opening_balances", "api_opening_balances"],
+      ["historical_api_recharges", "historical_api_recharges"],
+      ["historical_api_costs", "historical_api_costs"],
+    ];
+    for (const [key, label] of retiredKeys) {
+      if (value[key].length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [label],
+          message: "API 内部资金管理已退役，初始化草稿不再接受 API 资金事实"
+            + "（api_opening_balances/historical_api_recharges/historical_api_costs），"
+            + "请仅提交套餐所需事实",
+        });
+      }
+    }
+  })
   // 历史 API 消耗的期间开始固定为切换时点：同一（资源、币种）多条必然重叠并
   // 重复扣减，权威侧直接拒绝（不同截止时间或金额也不放行；数据库还有
   // 0084 partial unique index 兜底）。其余资金事件类型的多行语义不受影响。
@@ -200,6 +233,9 @@ export type ActivationRequestBodyInput = z.infer<typeof ActivationRequestBody>;
 /**
  * Zod 校验后的草稿 → 领域草稿（补 null 默认值，供规范化与哈希使用）。
  * 未填写的可选字段统一规范为 null，禁止 undefined 与 null 混用。
+ *
+ * WP2-S4（AFR-01）：API 三类数组经 {@link ActivationDraftSchema} 拒绝后在此恒为空；
+ * 映射逻辑保留存档（激活协调器对持久化候选的规范化复算走同一领域函数）。
  */
 export function toActivationDraft(input: ActivationDraftInput): ActivationDraft {
   return {

@@ -1,0 +1,52 @@
+runtime node=v22.23.4 start=11:23:55 head=cefbb6d
+=== build @qianliu/control-api ===
+$ tsc -p tsconfig.json
+exit[@qianliu/control-api build]=0
+=== build @qianliu/web ===
+$ tsc -p tsconfig.json --noEmit && vite build
+vite v7.1.7 building for production...
+transforming...
+../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/util.js (400:0): A comment
+
+"// Wrapped in a `@__PURE__` IIFE: esbuild never tree-shakes a top-level initializer that contains a member access on `Number`, so the bare object literal survived into every bundle."
+
+in "../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/util.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/regexes.js (74:0): A comment
+
+"/** Anchors a pattern source. The interpolation lives here rather than at the call site because
+ * esbuild will not drop a `@__PURE__` call whose own argument interpolates a variable, but it
+ * will drop `anchor(dateSource)`. Keeping it inline pinned `date` into every bundle. */"
+
+in "../../node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/regexes.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+✓ 1909 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.85 kB │ gzip:   0.97 kB
+dist/assets/index-DGv7YCOA.css   41.84 kB │ gzip:   8.59 kB
+dist/assets/index-CdNE7-j9.js   994.17 kB │ gzip: 280.48 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.07s
+exit[@qianliu/web build]=0
+=== build @qianliu/database ===
+$ tsc -p tsconfig.json --noEmit
+exit[@qianliu/database build]=0
+=== jscpd ===
+exit[jscpd]=0
+[90mtime: 112.291ms[39m
+
+[90m💡 Auto-refactor with AI: [1m[39mnpx skills add https://github.com/kucherenko/jscpd --skill dry-refactoring[90m[22m
+[90m🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page[39m
+[90m💖 Support jscpd project → https://opencollective.com/jscpd[39m
+=== licenses ===
+exit[licenses]=0
+$ corepack pnpm@11.11.0 licenses list --prod --json | node scripts/check-licenses.mjs
+license gate passed: (MIT AND Zlib), (MIT OR GPL-3.0-or-later), Apache-2.0, BSD-3-Clause, BlueOak-1.0.0, ISC, MIT, Unlicense
+=== audit:prod ===
+exit[audit]=0
+$ corepack pnpm@11.11.0 audit --prod --audit-level moderate
+No known vulnerabilities found
+end=11:24:13

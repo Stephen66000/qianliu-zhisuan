@@ -30,6 +30,8 @@ export interface ResourceBreakdownItem {
   snapshotAt: string | null;
   monthlyCost: string | null;
   monthlyCostReason: string | null;
+  /** S2B（R7 裁定）：聚合级价格依据待核实（镜像 database ResourceBreakdownItem）。 */
+  priceBasisUnverified?: boolean;
   monthlyInputTokens: string | null;
   monthlyOutputTokens: string | null;
   monthlyCacheTokens: string | null;

@@ -1,0 +1,99 @@
+{
+  "package": "simplify-api-cost-and-official-balance",
+  "task": "X07 R4 二次返修（主路线 v3＝全行比对增量＋影子库管线＋retire/verify/swap）实施＋红/绿证据",
+  "date": "2026-11-06",
+  "baseline_head": "b1a0ba4cf726a03e533804362ceb13d5e8097f2f（含用户自行提交的 R3 成果 c0f0f11＋b1a0ba4；本任务零 commit）",
+  "deliverables": {
+    "script": "deploy/scripts/rollback-delta-20261106.sh v3（sha256=2604f65ded6e81f85424b4ea9840fd094010f812d66e1a27b813fa6db37115c5）——七子命令 export/restore/replay/retire-threshold/verify/swap/check-contract",
+    "drill_test": "packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts（sha256=9440afdc1d95781c94b0fea6ef55c77cd0081e8c5d762db944f28cfd36a7aee2）10 用例",
+    "legacy_check": "WP6-X07-R4-20261106/scripts/wp6-r4-legacy-read-check.ts（sha256=f216aa8e…；真实额度路径 reserveEmployeeQuota/settleEmployeeQuota）",
+    "doc": "release-candidate.md §6.0 注记＋§6.1 v3 整段＋§6.4d＋§6.5 红线4 v3",
+    "diff_evidence": "red-evidence/script-r3-to-r4.diff＋test-r3-to-r4.diff（R3 快照 → R4 终版）"
+  },
+  "red_evidence": {
+    "method": "r4-red-probe.ts 以 R3 现状脚本（red-evidence/rollback-delta-20261106.r3-snapshot.sh 同字节）执行 R4 合同断言",
+    "result": "RED=6 PASS=3 exit=1（logs/r4-red-probe-run.log＋r4-red-probe.json）",
+    "reds": [
+      "A1 in-flight 请求行更新丢失（SUCCEEDED→回退为 IN_PROGRESS）",
+      "A2 in-flight attempt 行更新丢失（finished_at null/committed false）",
+      "A3 principal_grant 收紧更新丢失（quota_value 100000→回退 1000000；allow_overage/pool 字段/basis 全丢）",
+      "A4 enterprise.employee_quota_monthly_from 丢失（月度额度启用态回退）",
+      "B2 缺口②红证：回放失败时原 live 已被 restore 覆盖（水位 0091）",
+      "B3 缺口②红证：切换后消费随整库覆盖消失"
+    ]
+  },
+  "green_evidence": {
+    "probe": "logs/r4-green-probe-run.log＋r4-green-probe.json 10/10 exit=0",
+    "suite": "logs/wp6-rollback-replay-drill.log 10/10 passed（A/B/C/D/E/F/G/H/I/J）",
+    "regression": "logs/wp6-rollback-drill-x07-regression.log 原 X07 down 链演练 7/7 零改动",
+    "legacy_result": "logs/wp6-r4-legacy-read-check.result.json（真实路径 JSON）"
+  },
+  "gap_mapping": {
+    "缺口①增量含更新": "A 组：全行比对清单 inserted/updated 逐表＝期望（enterprise upd1、ai_request upd1、upstream_attempt upd1、principal_grant upd1、其余 ins）；D 组影子摘要＝live 摘要＋in-flight 结算态/grant 收紧/enterprise 启用列逐值；回放 ON CONFLICT (id) DO UPDATE SET 列交集全列；E 组二次回放 applied＝行数且摘要不变",
+    "缺口②影子库先行": "C 组 restore 后 live 物理未动；G 组 verify 17 digest=match 才 swap＋单事务改名＋keep 留档；J 组缺口②场景影子内回放失败＝删影子、live 水位 0096＋消费与订阅周期完好；B 组负向 export 失败＋确认门",
+    "缺口③真实额度路径": "I 组 ae506fe 子进程 reserveEmployeeQuota（MONTHLY 模式＋REJECT_EXHAUSTED 额度语义拒绝＋reserved 未变）＋settleEmployeeQuota（ALLOW→结算落库→used 1900→51900 累计正确→usage SETTLED）",
+    "缺口④门槛退役保持": "F 组 retire-threshold（pending before=1/after=0 留档＋触发器/函数退役＋READY 保留）＋G 组 swap 后 H 组（回退后新建 API/CODING_PLAN 资源无 PENDING＋触发器/函数不存在）＋I 组准入（无 finance 行资源、原 PENDING 控制行删除后资源、回退后新建资源全部可服务）"
+  },
+  "whitelist_final_v3": {
+    "16_tables": [
+      "enterprise",
+      "provider",
+      "unified_model",
+      "principal",
+      "principal_key",
+      "provider_resource",
+      "billing_rule",
+      "model_route",
+      "ai_request",
+      "upstream_attempt",
+      "usage_event",
+      "ledger_line",
+      "ledger_transaction",
+      "principal_grant",
+      "principal_quota_period",
+      "principal_quota_usage"
+    ],
+    "r4_addition": "enterprise（0092:5 employee_quota_monthly_from 按迁移定义属额度域；全行比对捕获启用态更新——真实路径 currentScope 前提）",
+    "compare_set": "live∩ref＋0092 补回列（employee_quota_monthly_from/quota_basis）；其余 live−ref 列（0093 source_status 等）为 drift 不比对、回放按交集投影丢弃",
+    "external_fk_parents": "person admin_user historical_import_run employee_model_rule_version provider_finance_legacy_cost_resolution provider_subscription_period"
+  },
+  "shadow_swap_policy": "restore/replay/retire/verify 只写影子库（任一步失败＝删影子、live 物理未动、exit 非 0）；verify 校验＝水位/16 表全表摘要(live∩ref+0092 补回列)/provider_finance_event 全表摘要=ref(零补造)/触发器函数退役/API PENDING=0；全过才 swap：单事务 ALTER DATABASE live→<live>_pre_rollback_keep、影子→live；keep＝切换后状态留档，回退验证完成后由运维清理、期间不得写入；restore/swap 须 ROLLBACK_DELTA_CONFIRM=YES（DESTRUCTIVE 定级保持）",
+  "redlines": {
+    "finance_zero": "provider_finance_event 不在白名单＋verify ref 全表摘要比对＋A/C/D/E/F/H/I 各段断言＝0；I 组真实结算路径动作后仍 0",
+    "no_migration_touch": "0092-0096 迁移文件零触碰（git diff 仅脚本/测试/文档/证据）",
+    "no_rollback_sh_touch": "rollback.sh 零触碰",
+    "no_commit": "本任务零 commit（HEAD 停留 b1a0ba4）",
+    "existing_tests": "原 R3 7 用例（A-G）全部保留并按 R4 语义扩展；原 X07 wp6-rollback-drill 7/7 零改动仍绿"
+  },
+  "artifacts_index": {
+    "red": [
+      "red-evidence/r4-red-probe.ts（探针源码）",
+      "red-evidence/rollback-delta-20261106.r3-snapshot.sh（R3 字节级快照）",
+      "red-evidence/wp6-rollback-replay-drill.r3-era.test.ts（R3 版测试快照）",
+      "red-evidence/wp6-r3-legacy-read-check.r3-snapshot.ts",
+      "red-evidence/script-r3-to-r4.diff",
+      "red-evidence/test-r3-to-r4.diff",
+      "logs/r4-red-probe-run.log（RED=6 运行日志）",
+      "logs/r4-red-probe.log（红证 JSON）"
+    ],
+    "green": [
+      "logs/r4-green-probe-run.log＋logs/r4-green-probe.json（探针 10/10）",
+      "logs/wp6-rollback-replay-drill.log（套件 10/10）",
+      "logs/wp6-rollback-replay-drill-commands.json（全部命令/exit/stdout/stderr）",
+      "logs/wp6-r4-legacy-read-check.result.json（真实路径 JSON）",
+      "logs/replay-sql-sample.sql（生成的回放 SQL 样本）"
+    ],
+    "selfcheck": [
+      "logs/script-selfcheck.log（bash -n EXIT=0＋check-contract EXIT=0）",
+      "logs/wp6-rollback-drill-x07-regression.log（X07 原演练 7/7）"
+    ]
+  },
+  "known_boundaries": [
+    "0093 billing_rule.source_status 随 schema 回退不保留（重升按 DEFAULT 重建）——非消费事实",
+    "白名单外表（订阅周期等）引用在影子内失败＝fail-closed 删影子（J 组实测），非静默丢失",
+    "非白名单派生表（operating 快照/sync_attempt/聚合/路由候选等）随恢复丢失，worker 重建",
+    "白名单外表前提＝先于备份点存在；窗口内新建企业/员工等未纳入（FK 失败＝fail-closed）",
+    "比对集含 0092 补回列的实现依赖 ALTER ADD 列在表尾（padding 对齐前提）",
+    "脚本未在生产验证（与既有操作单同口径，属发布前实操核对项）；macOS bash 3.2 兼容性已实测（tz/SETCLS/ADDED/db_exists 四处 POSIX 化）"
+  ]
+}

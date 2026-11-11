@@ -322,10 +322,10 @@ export function ResourceOnboardingSection({ model }: { model: ResourcesPageModel
                 <FormField htmlFor="res-package-name" label="套餐名称">
                   <input className={INPUT_CLASS} id="res-package-name" {...register("package_name")} />
                 </FormField>
-                <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary">订阅金额和服务周期在“充值与订阅”中登记。</div>
+                <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary">订阅金额和服务周期在“套餐与订阅”中登记。</div>
               </>
             ) : (
-              <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary sm:col-span-2">API 期初、充值、余额和费用统一由“充值与订阅”资金账本管理。</div>
+              <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2 text-[13px] text-ql-fg-tertiary sm:col-span-2">API 资金期初与充值已退役；费用参考 API 费用估算，余额参考官方账户余额。</div>
             )}
             {createMode === "CODING_PLAN" ? (
               <>

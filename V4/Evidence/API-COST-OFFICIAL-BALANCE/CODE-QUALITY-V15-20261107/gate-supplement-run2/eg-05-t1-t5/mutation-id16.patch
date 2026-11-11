@@ -1,0 +1,13 @@
+diff --git a/packages/database/src/repositories/api-cost-estimation.ts b/packages/database/src/repositories/api-cost-estimation.ts
+index 46732cd..a69e7fd 100644
+--- a/packages/database/src/repositories/api-cost-estimation.ts
++++ b/packages/database/src/repositories/api-cost-estimation.ts
+@@ -248,7 +248,7 @@ function assembleApiCostEstimation(
+   basisRows: EstimatePriceBasisRow[],
+ ): ApiCostEstimation {
+   const gapTotal = aggregate.not_migrated_rows + aggregate.usage_unknown_rows
+-    + aggregate.price_missing_rows + aggregate.currency_missing_rows;
++    + aggregate.price_missing_rows - aggregate.currency_missing_rows;
+   // 语义（S1 §3.3）：缺口>0 → KNOWN_PARTIAL；期间无任何 API 行 → KNOWN_COMPLETE（空 amounts）；
+   // 无缺口且无已计价金额行（只剩明确零/处置排除）→ ZERO_CONFIRMED；否则 KNOWN_COMPLETE。
+   const completeness: ApiCostEstimationCompleteness = gapTotal > 0

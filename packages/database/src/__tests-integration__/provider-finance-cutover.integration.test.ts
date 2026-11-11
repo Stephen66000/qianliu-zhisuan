@@ -244,8 +244,12 @@ describe("provider finance cutover rehearsal", () => {
       });
       const operatingBill = await new OperatingBillRepository(db, "DARK")
         .getBill(enterpriseId, "2026-09");
+      // 断言迁移（WP2-S5 B / WP1 合同 §4 裁定 2）：账单 API 金额权威切同源估算——
+      // 只计已计价账本行（1.00）；遗留解决调整金额（+4，API_LEGACY_COST_ADJUSTMENT 域）
+      // 不并入估算金额段（AFR-06 历史处置域经 gaps 与 home 同期窗口的遗留并入保留；
+      // WP5 金额核对以 loadApiCostEstimation 为唯一基准）。
       expect(operatingBill.summary.apiSpends).toEqual([
-        { currency: "CNY", amount: "5.00000000" },
+        { currency: "CNY", amount: "1.00000000" },
       ]);
       expect(operatingBill.gaps).not.toEqual(expect.arrayContaining([
         expect.objectContaining({ code: "API_NEGATIVE_BALANCE_BRIDGE" }),

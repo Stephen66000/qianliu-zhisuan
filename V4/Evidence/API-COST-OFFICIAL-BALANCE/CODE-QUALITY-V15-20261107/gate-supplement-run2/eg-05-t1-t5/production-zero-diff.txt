@@ -1,0 +1,22 @@
+== 生产零改动自证（T1-T5 收尾批终检；原子快照，2026-11-07 15:48:31） ==
+HEAD: 1447adeb902cc2070b5f2b13348427a7641f68ba（＝合同基线 1447ade）
+
+-- 全树状态 --
+ M V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/red-evidence/run-probes.sh
+ M openspec/changes/simplify-api-cost-and-official-balance/handoff/code-quality-v1.5/budget-ledger.md
+ M packages/database/src/__tests-integration__/api-cost-estimation.integration.test.ts
+ M packages/database/src/__tests-integration__/wp3-official-balance-states.integration.test.ts
+?? V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/candidate-lock.json
+?? V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/gate-supplement-run2/eg-05-t1-t5/
+
+-- 被测生产实现 vs HEAD（无输出＝零改动；两轮手工变异实验后均已还原） --
+(diff 空)
+
+-- 生产面 diff --stat（apps packages deploy scripts） --
+ .../api-cost-estimation.integration.test.ts        | 29 ++++++++-
+ ...wp3-official-balance-states.integration.test.ts | 76 +++++++++++++++++++++-
+ 2 files changed, 102 insertions(+), 3 deletions(-)
+
+-- budget-ledger（基线遗留追加，本轮未触碰） --
+ .../handoff/code-quality-v1.5/budget-ledger.md                        | 4 ++++
+ 1 file changed, 4 insertions(+)

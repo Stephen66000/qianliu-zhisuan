@@ -1,0 +1,44 @@
+--- V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R5-20261106/red-evidence/rollback-delta-20261106.r4-snapshot.sh	2026-11-06 19:56:58
++++ deploy/scripts/rollback-delta-20261106.sh	2026-11-06 20:24:35
+@@ -39,7 +39,9 @@
+ #   消费事实：ai_request upstream_attempt usage_event（FK 强制，0009:26）ledger_line
+ #     ledger_transaction；
+ #   员工月度额度域（0092）：principal_grant（principal_quota_usage FK 强制）
+-#     principal_quota_period principal_quota_usage。
++#     principal_quota_period principal_quota_usage；
++#   累计额度域（R5 补入）：quota_counter（0004:41——累计额度准入 reserveQuota 直接
++#     读 used_value；全行比对覆盖已有计数行 used_value 更新与新增授权计数行）。
+ #   白名单外表（FK 父，不导出，先于备份点存在）：person admin_user historical_import_run
+ #     employee_model_rule_version provider_finance_legacy_cost_resolution
+ #     provider_subscription_period（CODING_PLAN 窗口内新建周期被消费引用＝已知边界：
+@@ -59,7 +61,10 @@
+ LOG_PATH=""
+ 
+ # 白名单回放序（FK 依赖序：父先于子；enterprise 为根）。
+-REPLAY_ORDER="enterprise provider unified_model principal principal_key provider_resource billing_rule model_route ai_request upstream_attempt usage_event ledger_line ledger_transaction principal_grant principal_quota_period principal_quota_usage"
++# R5 补入 quota_counter——累计额度计数行（0004:41，grant_id 唯一约束
++# quota_counter_grant_idx）；FK 父 principal_grant 先于它；累计额度准入
++# quota-gate-repository reserveQuota 直接读其 used_value（热路径非缓存）。
++REPLAY_ORDER="enterprise provider unified_model principal principal_key provider_resource billing_rule model_route ai_request upstream_attempt usage_event ledger_line ledger_transaction principal_grant quota_counter principal_quota_period principal_quota_usage"
+ # 0092 专属表：0091 备份点快照无此二表（0092 未应用），全行比对按「快照空集」全量导出。
+ ONLY_0092_TABLES="principal_quota_period principal_quota_usage"
+ # 白名单外表（FK 父，先于备份点存在；不导出）。
+@@ -293,6 +298,9 @@
+       "$WORK/ref.$T.copy" "$WORK/live.$T.copy" > "$OUT_DIR/$T.copy" || die 4 "全行比对失败: $T"
+     read -r INSERTED UPDATED < "$WORK/counts.$T"
+     ROWS="$((INSERTED + UPDATED))"
++    if [ "${WP6_R4_DEBUG:-}" = "1" ]; then
++      echo "export-debug: $T live_rows=$(wc -l < "$WORK/live.$T.copy" | tr -d ' ') ref_rows=$(wc -l < "$WORK/ref.$T.copy" | tr -d ' ') inserted=$INSERTED updated=$UPDATED" >&2
++    fi
+     GOT="$(wc -l < "$OUT_DIR/$T.copy" | tr -d ' ')"
+     [ "$GOT" -eq "$ROWS" ] || die 4 "行数校验失败: $T 期望 $ROWS 实得 $GOT"
+ 
+@@ -545,7 +553,7 @@
+   [ "$FUN" = "0" ] || drop_shadow_or_die 8 "种入函数未退役" "$DB_SHADOW"
+   PEND="$(psql_in "$DB_SHADOW" -Atq -c "SELECT count(*)::text FROM provider_resource_finance_state s JOIN provider_resource r ON r.enterprise_id = s.enterprise_id AND r.id = s.provider_resource_id WHERE s.state = 'PENDING' AND r.mode = 'API'")"
+   [ "$PEND" = "0" ] || drop_shadow_or_die 8 "API PENDING 控制行未清零" "$DB_SHADOW"
+-  echo "verify: OK shadow=${DB_SHADOW}（head／16 表摘要／资金零补造／门槛退役 全部通过——live 未动，可 swap）"
++  echo "verify: OK shadow=${DB_SHADOW}（head／17 表摘要／资金零补造／门槛退役 全部通过——live 未动，可 swap）"
+ }
+ 
+ # ── swap（单事务改名；keep＝切换后状态留档）─────────────────────────────

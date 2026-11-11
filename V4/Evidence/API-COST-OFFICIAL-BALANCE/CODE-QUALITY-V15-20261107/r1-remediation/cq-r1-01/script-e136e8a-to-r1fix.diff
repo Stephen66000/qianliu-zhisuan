@@ -1,0 +1,95 @@
+--- /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/rollback-delta-20261106.e136e8a-snapshot.sh	2026-11-07 17:51:31
++++ deploy/scripts/rollback-delta-20261106.sh	2026-11-07 17:57:23
+@@ -88,7 +88,7 @@
+   $PROG replay  --container C --db-live DB --db-shadow SHADOW --manifest MANIFEST_TSV --delta-dir DIR
+   $PROG retire-threshold --container C --db-live DB --db-shadow SHADOW --log PATH
+   $PROG verify --container C --db-live DB --db-shadow SHADOW --db-ref REFDB --manifest MANIFEST_TSV
+-  $PROG swap --container C --db-live DB --db-shadow SHADOW [--keep-name K]   (须 ROLLBACK_DELTA_CONFIRM=YES)
++  $PROG swap --container C --db-live DB --db-shadow SHADOW --db-ref REFDB --manifest MANIFEST_TSV [--keep-name K]   (须 ROLLBACK_DELTA_CONFIRM=YES)
+   $PROG check-contract [--container C --db-live DB]
+ 语义:
+   export  破坏动作之前执行。备份点快照载入 --db-ref（只写 ref 草稿库），逐白名单表
+@@ -105,6 +105,13 @@
+           失败＝删影子、exit 非 0。
+   swap    单事务：ALTER DATABASE live→keep、影子→live（keep＝切换后状态留档）。
+           失败＝事务回滚＋删影子、exit 非 0；须 ROLLBACK_DELTA_CONFIRM=YES。
++          执行门（CQ-R1-01）：swap 另须 --db-ref/--manifest——在发出任何改名前
++          以同一组 live/shadow/ref/清单内联重跑 verify 全部校验（水位／白名单
++          全表摘要＝live／资金事实摘要＝ref 零补造／种入触发器与函数退役／
++          API PENDING=0）；缺验证必需参数、清单 container/live_db/ref_db 与待
++          切换对象不符、或任一校验失败＝改名之前 exit 非 0（校验失败＝删影子）。
++          未经过本次内联验证的影子不得接管 live 名称（旧成功日志/独立布尔/
++          仅存在性检查不作验证凭据）。
+   参数防护（CQ-01）：restore/replay/retire-threshold/verify/swap 五入口要求
+           --db-live 必填（live 标识缺失＝同名防护退化为空串比较），且
+           live/shadow/keep/ref 互不同名、shadow 非系统库——校验先于任何
+@@ -533,12 +540,12 @@
+ }
+ 
+ # ── verify（影子校验，全过才允许 swap）──────────────────────────────────
+-cmd_verify() {
+-  need_tools
+-  guard_shadow_pipeline "verify"
+-  [ -n "$DB_REF" ] || die 2 "verify 缺少 --db-ref"
+-  [ -n "$MANIFEST" ] || die 2 "verify 缺少 --manifest"
+-  require_env
++# CQ-R1-01（v1.5 正式审核 R1 整改）：校验主体提取为 verify_shadow_body，供
++# cmd_verify 与 cmd_swap 共用同一实现（swap 在发出任何改名之前内联重跑全部
++# 校验）。校验语义逐字保持：水位／白名单全表摘要（live∩ref 列交集）＝live／
++# 资金事实全表摘要＝ref 快照（零补造）／种入触发器与函数已退役／API PENDING=0；
++# 任一失败＝drop_shadow_or_die 8（删影子、live 未动、exit 非 0）。
++verify_shadow_body() {
+   REF_HEAD="$(manifest_field ref_migration_head)"
+   TARGET_HEAD="$(migration_head "$DB_SHADOW")" || drop_shadow_or_die 8 "影子水位读取失败" "$DB_SHADOW"
+   if [ "$TARGET_HEAD" != "$REF_HEAD" ]; then
+@@ -581,13 +588,42 @@
+   echo "verify: OK shadow=${DB_SHADOW}（head／17 表摘要／资金零补造／门槛退役 全部通过——live 未动，可 swap）"
+ }
+ 
++cmd_verify() {
++  need_tools
++  guard_shadow_pipeline "verify"
++  [ -n "$DB_REF" ] || die 2 "verify 缺少 --db-ref"
++  [ -n "$MANIFEST" ] || die 2 "verify 缺少 --manifest"
++  require_env
++  verify_shadow_body
++}
++
+ # ── swap（单事务改名；keep＝切换后状态留档）─────────────────────────────
++# CQ-R1-01（v1.5 正式审核 R1 整改）：「verify 全过才 swap」从操作单要求落为
++# 本入口的强制执行门。凭据只认本次内联重跑的 verify 全过；拒绝路径（全部在
++# 任何 ALTER DATABASE RENAME 之前 exit 非 0）：
++#   a) 缺验证必需参数 --db-ref/--manifest（或清单不存在/零字节）→ exit 2，
++#      且先于 require_env——零容器调用；
++#   b) 未确认（ROLLBACK_DELTA_CONFIRM≠YES）→ exit 9（既有停写/确认前提保持）；
++#   c) 验证对象与待切换对象不符——清单 container/live_db/ref_db 与本次调用
++#      逐字不一致 → exit 9（否则内联校验的不是将被切换的影子管线）；
++#   d) 内联 verify 任一校验失败 → 沿用 verify 失败语义：删影子、exit 8，
++#      此时零改名 SQL（负向断言留证见 r1-remediation/cq-r1-01/）。
+ cmd_swap() {
+   need_tools
+   guard_shadow_pipeline "swap"
++  [ -n "$DB_REF" ] || die 2 "swap 缺少 --db-ref（切换前须以同一 ref/清单内联重验影子——verify 全过才 swap）"
++  [ -n "$MANIFEST" ] || die 2 "swap 缺少 --manifest（切换前须以同一 ref/清单内联重验影子——verify 全过才 swap）"
++  [ -s "$MANIFEST" ] || die 2 "swap 清单不存在或为零字节: $MANIFEST"
+   require_env
+   [ "${ROLLBACK_DELTA_CONFIRM:-}" = "YES" ] \
+     || die 9 "危险动作：须环境 ROLLBACK_DELTA_CONFIRM=YES（单事务改名替换 live，DESTRUCTIVE 定级同 rollback.sh:5）"
++  MF_CONTAINER="$(manifest_field container)"
++  [ "$MF_CONTAINER" = "$CONTAINER" ] || die 9 "swap 清单 container 与本次调用不符（验证对象≠待切换对象）: 清单=$MF_CONTAINER 调用=$CONTAINER"
++  MF_LIVE="$(manifest_field live_db)"
++  [ "$MF_LIVE" = "$DB_LIVE" ] || die 9 "swap 清单 live_db 与 --db-live 不符（验证对象≠待切换对象）: 清单=$MF_LIVE 调用=$DB_LIVE"
++  MF_REF="$(manifest_field ref_db)"
++  [ "$MF_REF" = "$DB_REF" ] || die 9 "swap 清单 ref_db 与 --db-ref 不符（验证对象≠待切换对象）: 清单=$MF_REF 调用=$DB_REF"
++  verify_shadow_body
+   KEEP="${DB_KEEP:-${DB_LIVE}_pre_rollback_keep}"
+   case "$KEEP" in postgres|template0|template1) die 9 "拒绝系统保留名 $KEEP";; esac
+   [ "$(db_exists "$DB_LIVE")" = "t" ] || die 9 "live 库不存在: $DB_LIVE"
+@@ -622,6 +658,7 @@
+   echo "delta_semantics: 全行比对（PK 全连接，任一列变更或新增行均入增量；清单含 inserted/updated）"
+   echo "shadow_pipeline: restore/replay/retire/verify 只写影子；全过才 swap；任一步失败＝删影子、live 未动"
+   echo "swap_policy: 单事务 ALTER DATABASE live→keep、影子→live；keep＝切换后状态留档（回退验证完成后由运维清理，期间不得写入）"
++  echo "swap_verify_gate: swap 必须带 --db-ref/--manifest 并在改名前内联重跑 verify 全部校验（同一组 live/shadow/ref/清单）；缺参数/对象不符/校验失败＝改名前 exit 非 0（CQ-R1-01）"
+   echo "fail_closed: export/校验失败 exit 非 0，live 零写入；无 manifest_done 拒绝 replay"
+   echo "finance_redline: provider_finance_event 不在白名单（增量面恒空）＋verify 以 ref 全表摘要证明零补造"
+   if [ -z "$CONTAINER" ] || [ -z "$DB_LIVE" ]; then

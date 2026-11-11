@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+ ✓ src/__tests-integration__/resource-insights-api-cost-evidence.test.ts (2 tests) 4786ms
+   ✓ 估算证据与 utilization 行同范围可核对：证据值＝loadApiCostEstimation 按资源范围的金额  446ms
+ ✓ src/__tests-integration__/dashboard-finance-estimation.test.ts (2 tests) 6117ms
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  14:04:45
+   Duration  8.39s (transform 1.01s, setup 0ms, collect 4.01s, tests 10.90s, environment 0ms, prepare 131ms)
+

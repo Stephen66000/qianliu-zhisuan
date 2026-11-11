@@ -169,20 +169,23 @@ export function buildFinancialLedgerModel(analysis: OperatingAnalysis): Financia
 }
 
 export function financialLedgerCsv(model: FinancialLedgerModel): string {
-  // F-020 补遗：现金/套餐列恒为人民币实付口径，表头标注单位；余额列保留币种列。
+  // WP4-S4（AFR-07／ACE-01）：月末内部余额列退役（资金轨迹口径，现行导出退出，
+  // 历史资金经只读入口查看）；API 消耗列数据源已为同源估算（WP1 合同 §3 年度统计
+  // S3c），改"API费用估算"命名；现金/套餐列恒为人民币实付口径，表头标注单位；
+  // 币种列服务于估算列（多币种月份不合并）。
   const headers = ["账期月份", "Coding Plan采购实付(¥)", "API现金充值(¥)", "本月现金流出合计(¥)",
-    "API实际计价消耗", "套餐计入费用(¥)", "本月用量总花费(¥)", "实际产出Token",
-    "每百万Token花费(元/M)", "活跃人数", "月末账本余额", "余额币种"];
+    "API费用估算", "套餐计入费用(¥)", "本月用量总花费(¥)", "实际产出Token",
+    "每百万Token花费(元/M)", "活跃人数", "估算币种"];
   const raw = (value: string | number | null) => value === null ? "" : String(value);
   const rows = model.rows.map((row) => [row.month, raw(row.planPaid), raw(row.apiRecharge),
     raw(row.cashOutTotal), raw(row.apiSpend), raw(row.planCost), raw(row.usageSpendTotal),
-    raw(row.tokensTotal), raw(row.costPerMillion), raw(row.activeUsers), raw(row.endingBalance),
+    raw(row.tokensTotal), raw(row.costPerMillion), raw(row.activeUsers),
     row.multiCurrency ? "MULTI" : raw(row.apiCurrency)]);
   const total = ["年度累计", raw(model.totals.planPaid), raw(model.totals.apiRecharge),
     raw(model.totals.cashOutTotal), raw(model.totals.apiSpend), raw(model.totals.planCost),
     raw(model.totals.usageSpendTotal), raw(model.totals.tokensTotal),
     raw(model.totals.costPerMillion), raw(model.totals.activeUsers),
-    raw(model.totals.endingBalance), model.totals.multiCurrency ? "MULTI" : raw(model.totals.apiCurrency)];
+    model.totals.multiCurrency ? "MULTI" : raw(model.totals.apiCurrency)];
   return "\uFEFF" + [headers, ...rows, total].map((row) => row.join(",")).join("\n");
 }
 
@@ -204,16 +207,18 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
   };
   return (
     <div className="space-y-5" role="region" aria-label="财务账">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
           <div className="text-[13px] text-ql-fg-secondary mb-1">年度实付总采购（现金流出）</div>
           <div className="text-2xl font-bold text-ql-fg tabular-nums">{money(totals.cashOutTotal)}</div>
           <div className="text-[13px] text-ql-fg-tertiary mt-1">真实资金事件，不从套餐周期反推付款</div>
         </div>
         <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
-          <div className="text-[13px] text-ql-fg-secondary mb-1">年度用量总花费（实际核算）</div>
+          {/* WP4-S4（WP1 合同 §3 年度统计 S3c 核实：apiSpend 已由 loadApiCostEstimation 供给）：
+              "实际核算"措辞退役，改综合费用含 API 估算口径（ACE-07）。 */}
+          <div className="text-[13px] text-ql-fg-secondary mb-1">年度综合费用（含 API 估算）</div>
           <div className="text-2xl font-bold text-ql-fg tabular-nums">{money(totals.usageSpendTotal)}</div>
-          <div className="text-[13px] text-ql-fg-tertiary mt-1">API实际消耗 + 套餐计入费用；币种不可比时不合并</div>
+          <div className="text-[13px] text-ql-fg-tertiary mt-1">API 费用估算＋套餐计入费用；币种不可比时不合并</div>
         </div>
         <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
           <div className="text-[13px] text-ql-fg-secondary mb-1">综合每百万 Token 成本</div>
@@ -234,13 +239,9 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
           </div>
           <div className="text-[13px] text-ql-fg-secondary mt-1">实际可用资金以厂商官方余额为准</div>
         </div>
-        <div className="rounded-xl border border-ql-border bg-ql-surface p-4">
-          <div className="text-[13px] text-ql-fg-secondary mb-1">仟流内部账本余额</div>
-          <div className="text-2xl font-bold text-ql-fg tabular-nums">
-            {apiMoney(totals.endingBalance, totals.apiCurrency, totals.multiCurrency)}
-          </div>
-          <div className="text-[13px] text-ql-fg-tertiary mt-1">仅核算仟流登记充值与可归因消耗；不会覆盖官方余额</div>
-        </div>
+        {/* WP4-S4（AFR-07）：仟流内部账本余额卡退役——数据源为资金轨迹
+            （loadResourceFinanceViews，旧资金口径），现行视图退出内部余额展示；
+            历史资金信息经"历史资金记录（旧口径，只读）"等入口查看。 */}
       </div>
 
       <BillCard className="overflow-hidden">
@@ -254,13 +255,13 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
             <thead className="bg-ql-surface-subtle text-ql-fg-secondary border-b border-ql-border-zone font-medium">
               <tr><th className="p-3">账期月份</th><th className="p-3 text-right">Coding Plan 采购实付（¥）</th>
                 <th className="p-3 text-right">API 现金充值（¥）</th><th className="p-3 text-right font-bold text-ql-fg">本月现金流出合计（¥）</th>
-                <th className="p-3 text-right">API 实际计价消耗</th><th className="p-3 text-right">套餐计入费用（¥）</th>
+                <th className="p-3 text-right">API 费用估算</th><th className="p-3 text-right">套餐计入费用（¥）</th>
                 <th className="p-3 text-right font-semibold text-ql-fg">本月用量总花费（¥）</th><th className="p-3 text-right">实际产出 Token</th>
                 <th className="p-3 text-right font-semibold text-ql-fg">每百万 Token 花费</th>
-                <th className="p-3 text-right">活跃人数</th><th className="p-3 text-right">月末账本余额</th></tr>
+                <th className="p-3 text-right">活跃人数</th></tr>
             </thead>
             <tbody className="divide-y divide-ql-border-zone">
-              {rows.length === 0 ? <tr><td className="p-6 text-center text-ql-fg-secondary" colSpan={11}>当前年度尚无已登记资金事实</td></tr>
+              {rows.length === 0 ? <tr><td className="p-6 text-center text-ql-fg-secondary" colSpan={10}>当前年度尚无已登记资金事实</td></tr>
                 : rows.map((row) => <tr className="hover:bg-ql-surface-subtle" key={row.month}>
                   <td className="p-3 font-semibold text-ql-fg">{row.month}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planPaid)}</td>
@@ -273,7 +274,6 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                   <td className="p-3 text-right tabular-nums">{tokenBillions(row.tokensTotal)}</td>
                   <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{row.costPerMillion === null ? "—" : `¥ ${row.costPerMillion} / M`}</td>
                   <td className="p-3 text-right tabular-nums">{row.activeUsers === null ? "—" : `${row.activeUsers} 人`}</td>
-                  <td className="p-3 text-right tabular-nums text-ql-fg font-medium">{apiMoney(row.endingBalance, row.apiCurrency, row.multiCurrency)}</td>
                 </tr>)}
             </tbody>
             <tfoot className="bg-ql-surface-subtle font-semibold border-t-2 border-ql-border">
@@ -287,7 +287,6 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                 <td className="p-3 text-right tabular-nums">{tokenBillions(totals.tokensTotal)}</td>
                 <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion} / M`}</td>
                 <td className="p-3 text-right tabular-nums">{totals.activeUsers === null ? "—" : `${totals.activeUsers} 人`}</td>
-                <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{apiMoney(totals.endingBalance, totals.apiCurrency, totals.multiCurrency)}</td>
               </tr>
             </tfoot>
           </table>

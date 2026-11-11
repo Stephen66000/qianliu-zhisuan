@@ -10,6 +10,7 @@ import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
 import { formatCount, formatDateTimeShort, formatDecimal, formatMoney, formatRatePerHour } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
+import { PRICE_BASIS_UNVERIFIED_LABEL } from "../../lib/usage-cost";
 import { ExpandableTableRow, RowDetail } from "../ui/ExpandableTableRow";
 import { StatusTag } from "./StatusTag";
 
@@ -31,7 +32,8 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
           <tr className="whitespace-nowrap border-b border-ql-border text-[13px] leading-5 text-ql-fg-tertiary">
             <th className="py-2 pr-4 font-medium">厂商 / 模式</th>
             <th className="py-2 pr-4 text-right font-medium">账号数</th>
-            <th className="py-2 pr-4 text-right font-medium">余额 / 剩余额度</th>
+            <th className="py-2 pr-4 text-right font-medium">官方余额</th>
+            <th className="py-2 pr-4 text-right font-medium">剩余额度</th>
             <th className="py-2 pr-4 text-right font-medium">本月花费</th>
             <th className="py-2 pr-4 text-right font-medium">本月 Token</th>
             <th className="py-2 font-medium">状态 / 预计耗尽</th>
@@ -39,7 +41,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
         </thead>
         <tbody>
           {items.map((item) => (
-            <ExpandableTableRow key={`${scope}:${item.providerCode}:${item.mode}`} columns={6}
+            <ExpandableTableRow key={`${scope}:${item.providerCode}:${item.mode}`} columns={7}
               label={`${item.providerName} ${MODE_LABEL[item.mode]}`}
               leading={<><span className="font-medium">{item.providerName}</span><span className="block text-ql-fg-tertiary">{MODE_LABEL[item.mode]}</span></>}
               details={<>
@@ -51,14 +53,20 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
             >
               <td className="text-right [font-variant-numeric:tabular-nums]">{item.accountCount}</td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
+                {/* OAB-01：官方余额只认 C2 官方来源；usage-overview 链暂无 C2 字段，先降级"—"
+                    （数据缺口移交 S4/后端，不在前端用内部余额冒充），"余额待补"提示退役（AFR-07）。 */}
+                {"—"}
+              </td>
+              <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API"
-                  ? item.currentBalance === null ? "余额待补"
-                    : `${item.currency ?? ""} ${formatMoney(item.currentBalance)}`
+                  ? "—"
                   : item.remainingQuota === null ? "—" : `${formatCount(item.remainingQuota)} ${item.quotaUnit?.trim() || "单位未知"}`}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null
-                  ? item.monthlyCostReason ?? (item.mode === "API" ? "API 花费不可计算" : "套餐费用待补")
+                  ? item.mode === "API"
+                    ? `API费用估算不可计算${item.monthlyCostReason ? `（${item.monthlyCostReason}）` : ""}`
+                    : item.monthlyCostReason ?? "套餐费用待补"
                   : (
                     <>
                       {`${item.currency ?? ""} ${formatMoney(item.monthlyCost)}`}
@@ -69,6 +77,9 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
                       ) : null}
                     </>
                   )}
+                {item.mode === "API" && item.priceBasisUnverified ? (
+                  <span className="block text-[13px] font-normal text-ql-fg-tertiary">{PRICE_BASIS_UNVERIFIED_LABEL}</span>
+                ) : null}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {monthlyTokenText(item)}

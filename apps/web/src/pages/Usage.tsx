@@ -437,7 +437,7 @@ function UsageDetailsPage() {
                   <th className="py-2 pr-4 text-right font-medium">输出 Token</th>
                   <th className="py-2 pr-4 text-right font-medium">缓存 Token</th>
                   <th className="py-2 pr-4 text-right font-medium">扣减额度</th>
-                  <th className="py-2 pr-4 text-right font-medium">API 费用</th>
+                  <th className="py-2 pr-4 text-right font-medium">API费用估算</th>
                   <th className="py-2 pr-4 font-medium">状态</th>
                   <th className="py-2 pr-4 font-medium">开始时间</th>
                   <th className="py-2 text-right font-medium">耗时</th>

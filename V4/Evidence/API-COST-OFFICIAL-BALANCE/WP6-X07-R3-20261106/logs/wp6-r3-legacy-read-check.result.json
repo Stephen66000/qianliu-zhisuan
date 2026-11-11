@@ -1,0 +1,95 @@
+{
+  "legacyRoot": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+  "legacyHeadMigration": "0092_employee_monthly_quota（ae506fe 迁移头；恢复点 0091＋0092 幂等重放）",
+  "databaseUrlPath": "/wp6_r3_replay",
+  "admission": {
+    "query": "ResourcePoolRepository.listServableResources (ae506fe)",
+    "servableIds": [
+      "1a23ccd8-1455-4733-ab65-f674f41f1bf0",
+      "2e99f19f-9ee3-46ae-ab4d-c863e70c1ed6"
+    ],
+    "readyResource_included": true,
+    "cutoverResource_noFinanceRow_included": true,
+    "pendingArchive_excluded": true,
+    "postReplayNewResource_pending_excluded": true
+  },
+  "readConsumptionFacts": {
+    "query": "GatewayLedgerRepository.listLedgerLines (ae506fe)",
+    "preBackupRequest": {
+      "requestId": "a51ed2b6-ffff-4466-8eb8-a36328d3f31b",
+      "lines": [
+        {
+          "api_cost": "0.00104000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutoverRequest1_replayed": {
+      "requestId": "9ae93435-59ee-4b06-92d8-b17b3e9949e8",
+      "lines": [
+        {
+          "api_cost": "0.00060000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutoverRequest2_replayed": {
+      "requestId": "bd08a73f-261a-4c95-9990-eca762afd4ad",
+      "lines": [
+        {
+          "api_cost": "0.00040000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    }
+  },
+  "settleNewConsumption": {
+    "path": "GatewayLedgerRepository.createRequest/createAttempt/createUsageAndLedgerLineIfAbsent (ae506fe)",
+    "requestStatus": "IN_PROGRESS",
+    "created": true,
+    "newLine": {
+      "api_cost": "0.00052000",
+      "api_cost_currency": "CNY",
+      "api_cost_status": "PRICED_USAGE"
+    },
+    "readableAfterSettle": [
+      "0.00052000"
+    ]
+  },
+  "windowOperatingFinance": {
+    "path": "loadWindowOperatingFinance (ae506fe dashboard-home-costs)",
+    "totalSpends": [
+      {
+        "currency": "CNY",
+        "amount": "0.00204000"
+      }
+    ],
+    "incompleteReason": "OPENING_BALANCE_MISSING:1",
+    "expectedWindowSumCny": "0.00204000",
+    "sumMatches": true
+  },
+  "employeeQuotaPeriods": {
+    "path": "readQuotaPeriodsInTransaction (ae506fe employee-quota-read-repository)",
+    "periods": [
+      {
+        "period_key": "2026-11",
+        "provider": "deepseek",
+        "limit_value": "1000000",
+        "used_value": "1900",
+        "quota_basis": "RAW_TOKEN",
+        "allow_overage": true
+      }
+    ],
+    "limitMatches": true,
+    "usedMatches": true
+  }
+}

@@ -141,7 +141,14 @@ beforeAll(async () => {
   await app.ready();
 }, 240_000);
 
-afterAll(async () => { await app?.close(); await db?.destroy(); await pg?.stop(); }, 60_000);
+afterAll(async () => {
+  await app?.close();
+  await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1。
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await pg?.stop();
+}, 60_000);
 
 interface Synthetic {
   enterpriseId: string;
@@ -306,26 +313,16 @@ type GapView = { code: string; category: string; message: string; resourceId: st
   ledgerLineId: string | null; month: string | null; detail: string | null };
 
 /**
- * 完整合成草稿：DeepSeek 期初 + 切换后历史充值，智谱套餐购买（金额/实付/周期）+ 旧记录 MIGRATED 关闭。
- * 与 WP03 的"最小草稿"不同，这里刻意带上套餐与旧记录，以覆盖 6.3 的业务面。
+ * 完整合成草稿（WP2-S4 / AFR-01 场景3 迁移）：智谱套餐购买（金额/实付/周期）+ 旧记录
+ * MIGRATED 关闭。DeepSeek 期初/历史充值不再进草稿（API 资金事实在预检合同处整体退役），
+ * 改为用例 1 中的直插历史事实（source=MIGRATION，0083 口径不变），余额与账单读模型
+ * 断言全部保持成立。与 WP03 的"最小草稿"不同，这里刻意带上套餐与旧记录以覆盖 6.3 业务面。
  */
 function completeDraft(synthetic: Synthetic) {
   return {
     schema_version: "1",
-    api_opening_balances: [{
-      resource_id: synthetic.apiResourceId, account_currency: "CNY",
-      account_amount: MONEY.apiOpening, occurred_at: CUTOVER_ISO,
-      description: `${SYNTHETIC_TAG} 切换时点厂商余额（合成）`,
-      evidence_ref: "synthetic://deepseek-opening", source_record_id: null,
-    }],
-    historical_api_recharges: [{
-      resource_id: synthetic.apiResourceId, account_currency: "CNY",
-      account_amount: MONEY.apiRecharge, cash_paid_cny: MONEY.apiRecharge,
-      occurred_at: AT.apiRecharge.toISOString(), external_reference: "SYN-API-PAY-1",
-      description: `${SYNTHETIC_TAG} 切换后历史充值（合成）`,
-      evidence_ref: "synthetic://deepseek-recharge-1",
-      source_record_id: randomUUID(), record_idempotency_key: "syn-api-recharge-1",
-    }],
+    api_opening_balances: [],
+    historical_api_recharges: [],
     historical_api_costs: [],
     coding_plan_purchases: [{
       resource_id: synthetic.planResourceId, kind: "PURCHASE",
@@ -347,21 +344,62 @@ function completeDraft(synthetic: Synthetic) {
   };
 }
 
-/** 刻意不完整的草稿：只保留一条金额为 0 的充值行，其余全缺 → 用于证明 NO_GO 缺口定位精确。 */
+/**
+ * 历史 API 资金事实直插（WP2-S4 迁移）：激活草稿不再携带 API 期初/充值，DeepSeek 的
+ * 历史余额证据改由 SQL 直插构造（source=MIGRATION：0083 要求期初锚定切换时点、
+ * 充值前须有同币种期初）。保持用例 5/7 的余额与账单读模型断言成立。
+ */
+async function seedHistoricalApiFacts(synthetic: Synthetic): Promise<void> {
+  await db.insertInto("provider_finance_event").values({
+    enterprise_id: synthetic.enterpriseId,
+    provider_resource_id: synthetic.apiResourceId,
+    event_type: "API_OPENING_BALANCE", account_amount: MONEY.apiOpening,
+    account_currency: "CNY", cash_paid_cny: null, occurred_at: new Date(CUTOVER_ISO),
+    external_reference: null, reversal_of_event_id: null, correction_of_event_id: null,
+    reconciliation_case_id: null, legacy_cost_resolution_id: null,
+    description: `${SYNTHETIC_TAG} 切换时点厂商余额（合成，直插历史事实）`,
+    evidence_ref: "synthetic://deepseek-opening", source: "MIGRATION",
+    idempotency_key: "syn-api-opening-1",
+  }).execute();
+  await db.insertInto("provider_finance_event").values({
+    enterprise_id: synthetic.enterpriseId,
+    provider_resource_id: synthetic.apiResourceId,
+    event_type: "API_RECHARGE", account_amount: MONEY.apiRecharge,
+    account_currency: "CNY", cash_paid_cny: MONEY.apiRecharge,
+    occurred_at: AT.apiRecharge,
+    external_reference: "SYN-API-PAY-1",
+    reversal_of_event_id: null, correction_of_event_id: null,
+    reconciliation_case_id: null, legacy_cost_resolution_id: null,
+    description: `${SYNTHETIC_TAG} 切换后历史充值（合成，直插历史事实）`,
+    evidence_ref: "synthetic://deepseek-recharge-1", source: "MIGRATION",
+    idempotency_key: "syn-api-recharge-1",
+  }).execute();
+}
+
+/**
+ * 刻意不完整的草稿（WP2-S4 迁移）：原“金额为 0 的历史充值行”已随 API 资金事实退役，
+ * 改为一条金额为 0、且服务周期不覆盖套餐用量行的购买行（其余全缺）——
+ * 用于证明 NO_GO 缺口定位精确（MISSING_PURCHASE_AMOUNT / UNATTRIBUTED_PLAN_USAGE）。
+ */
 function incompleteDraft(synthetic: Synthetic) {
   return {
     schema_version: "1",
     api_opening_balances: [],
-    historical_api_recharges: [{
-      resource_id: synthetic.apiResourceId, account_currency: "CNY",
-      account_amount: "0", cash_paid_cny: MONEY.apiRecharge,
-      occurred_at: AT.apiRecharge.toISOString(), external_reference: "SYN-API-PAY-0",
-      description: `${SYNTHETIC_TAG} 故意缺金额的充值（合成）`,
-      evidence_ref: "synthetic://deepseek-recharge-0",
-      source_record_id: randomUUID(), record_idempotency_key: "syn-api-recharge-0",
-    }],
+    historical_api_recharges: [],
     historical_api_costs: [],
-    coding_plan_purchases: [],
+    coding_plan_purchases: [{
+      resource_id: synthetic.planResourceId, kind: "PURCHASE",
+      product_name: `${SYNTHETIC_TAG} 智谱 Coding Plan`,
+      account_amount: "0", account_currency: "CNY",
+      cash_paid_cny: MONEY.planAmount,
+      service_period_start: LAST_DAY, service_period_end: null,
+      occurred_at: new Date(anchor.next.getTime() - DAY_MS + 10 * 3_600_000).toISOString(),
+      external_reference: "SYNTH-ZHIPU-ORD-0",
+      auto_renew: false, description: `${SYNTHETIC_TAG} 故意缺金额的购买（合成）`,
+      evidence_ref: "synthetic://zhipu-purchase-0",
+      source_record_id: null, carryover_snapshot_id: null,
+      record_idempotency_key: "syn-plan-purchase-0",
+    }],
     coding_plan_carryovers: [],
     legacy_purchase_resolutions: [],
   };
@@ -384,13 +422,17 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
       mode: "CODING_PLAN", resourceId: synthetic.planResourceId,
       settledAt: AT.planUsage, inputTokens: 40, outputTokens: 10,
       apiCost: null, apiCostStatus: null, snapshotCurrency: "CNY" });
-    // 落库即事实：未激活前企业既无严格写、也无任何资金事件。
+    // 断言迁移（WP2-S4 / AFR-01 场景3）：DeepSeek 期初/历史充值不再经初始化草稿写入
+    // （API 资金事实已在预检合同处退役），改由 SQL 直插历史事实（source=MIGRATION，
+    // 0083 口径不变），保持用例 5/7 的余额与账单读模型断言成立。
+    await seedHistoricalApiFacts(synthetic);
+    // 落库即事实：未激活前企业无严格写；资金事件只有直插的历史期初/充值两条。
     const state = await activationState(synthetic.cookie);
     expect(state.statusCode, state.body).toBe(200);
     expect(state.json()).toMatchObject({ mode: "ACTIVE", strict_writes_enabled: false,
       latest_candidate: null, activation_receipt: null });
     expect(await financeCounts(synthetic.enterpriseId)).toMatchObject({
-      provider_finance_event: 0, provider_subscription_period: 0,
+      provider_finance_event: 2, provider_subscription_period: 0,
       provider_finance_activation_attempt: 0 });
     // 「激活前」基线：账单只能走旧口径，因而**无法算出动态 API 成本**（缺期末余额桥）。
     // 同时记录主体维度行（用于判别观察项 O-1 是否为资金路径引入）。
@@ -401,7 +443,11 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
       openingBalance: preBill.summary.openingBalance,
       subjects: preBill.subjects.map((row) => ({ principalId: row.principalId,
         principalType: row.principalType, totalTokens: row.totalTokens })) })}`);
-    expect(preBill.summary.apiCost).toBeNull();
+    // 断言迁移（S3b 合同 §1.3 / AFR-07 场景“缺期初但费用已计价”）：激活前无期初/期末
+    // 余额桥，旧口径因此置 null；新口径主值＝同源估算——已定价已结算的 1.25 照常透出，
+    // 不再据资金缺口隐藏费用估算。totalCost 仍为 null（套餐快照缺 package_cost，无可
+    // 合并的套餐分量，非资金缺口所致）。
+    expect(preBill.summary.apiCost).toBe("1.25000000");
     expect(preBill.summary.totalCost).toBeNull();
   }, 120_000);
 
@@ -413,45 +459,49 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     expect(body.decision).toBe("NO_GO");
     const gaps = body.gaps as GapView[];
     expect(gaps.length).toBeGreaterThan(0);
-    // 资源 + 账户维度：DeepSeek API 的 CNY 必要账户缺期初。
+    // 断言迁移（WP2-S4 / plan §4a-R5）：API 资源的期初缺口（MISSING_OPENING_BALANCE）
+    // 与经营账单 API 资金域月度缺口（OPENING_BALANCE_MISSING）已随退役摘除——
+    // 预检不得再因 API 资源的资金前置阻塞。
+    expect(gaps.some((gap) => gap.code === "MISSING_OPENING_BALANCE")).toBe(false);
+    expect(gaps.some((gap) => gap.code === "MISSING_RECHARGE_AMOUNT")).toBe(false);
+    // 资源 + 草稿维度：购买行金额为 0（WP2-S4 迁移：原断言挂在充值行，已退役）。
     expect(gaps).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "MISSING_OPENING_BALANCE",
-        resourceId: synthetic.apiResourceId, accountCurrency: "CNY" })]));
-    // 资源 + 账户维度：充值行金额为 0。
-    expect(gaps).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "MISSING_RECHARGE_AMOUNT",
-        resourceId: synthetic.apiResourceId, accountCurrency: "CNY" })]));
+      expect.objectContaining({ code: "MISSING_PURCHASE_AMOUNT",
+        resourceId: synthetic.planResourceId })]));
     // 用量行维度：智谱套餐用量没有覆盖周期，无法唯一归属。
     expect(gaps).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "UNATTRIBUTED_PLAN_USAGE",
         ledgerLineId: synthetic.planUsageLineId })]));
-    // 旧记录维度：切换后旧购买记录没有唯一关闭结果。
+    // 旧记录维度：切换后旧套餐购买记录没有唯一关闭结果（PACKAGE_PURCHASE 照常）。
     expect(gaps).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "LEGACY_RECORD_UNCLOSED",
         legacyRecordId: synthetic.legacyRecordId })]));
-    // 经营账单维度：同月账单缺口必须带 month 且精确到原因码。
+    // 经营账单维度：同月账单缺口必须带 month 且精确到原因码（WP2-S4 / R5：激活域
+    // 只消费套餐/现金码集——订阅覆盖缺口保留，API 资金域缺口退出）。
     expect(gaps).toEqual(expect.arrayContaining([
       expect.objectContaining({ category: "OPERATING_BILL", month: anchor.month,
-        detail: "OPENING_BALANCE_MISSING" })]));
+        detail: "SUBSCRIPTION_PERIOD_MISSING" })]));
     // 修复基准里只有那一条套餐用量行；它只带来「费用分类 = NOT_APPLICABLE」这一项可修复字段，
     // **不含** `subscription_period_id` —— 缺覆盖周期时不存在确定性归属，修复计划不得凭空指定。
     expect(body.usage_repairs.eligibleRows).toBe(1);
     expect(body.usage_repairs.eligibleByField).toMatchObject({
       subscription_period_id: 0, api_cost_status: 1, api_cost_currency: 0, settled_at: 0,
     });
-    // 未激活前严格资金写入口必须被停写门禁拒绝（PFA-08）；激活前不得出现任何资金事实。
+    // 断言迁移（WP2-S3 / AFR-01 / plan §4.1）：原断言 503 finance_write_contract_inactive
+    // 钉 PFA-08 停写门禁；W4 退役后不再依赖激活状态——已认证客户端一律 410 且零写入，
+    // “激活前不得出现任何资金事实”由更强的退役合同承接。
     const blockedWrite = await app.inject({ method: "POST",
       url: `/provider-resources/${synthetic.apiResourceId}/finance/recharges`,
       headers: { cookie: synthetic.cookie },
       payload: { account_currency: "CNY", account_amount: "1", cash_paid_cny: "1",
         occurred_at: AT.postRecharge.toISOString(), description: "激活前不应成功",
         evidence_ref: "synthetic://should-not-happen", idempotency_key: "syn-blocked-1" } });
-    expect(blockedWrite.statusCode, blockedWrite.body).toBe(503);
-    expect(blockedWrite.json()).toMatchObject({ error: "finance_write_contract_inactive" });
-    // NO_GO 结论同样被归档为候选行（预检结论留痕），但企业侧**零资金事实**：
-    // 没有任何资金事件、没有订阅周期；`previewActivation` 只记录结论元数据。
+    expect(blockedWrite.statusCode, blockedWrite.body).toBe(410);
+    expect(blockedWrite.json()).toMatchObject({ error: "api_funding_management_retired" });
+    // NO_GO 结论同样被归档为候选行（预检结论留痕），但企业侧不新增资金事实：
+    // 事件仍只有直插的两条历史事实、没有订阅周期；`previewActivation` 只记录结论元数据。
     expect(await financeCounts(synthetic.enterpriseId)).toMatchObject({
-      provider_finance_event: 0, provider_subscription_period: 0,
+      provider_finance_event: 2, provider_subscription_period: 0,
       provider_finance_activation_attempt: 1 });
     // 且 NO_GO 候选**不可激活**（决策门禁在协调器第 4 步，先于租约门禁）。
     const noGoCandidate = (await activationState(synthetic.cookie)).json().latest_candidate as {
@@ -465,7 +515,7 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     expect(noGoActivation.statusCode, noGoActivation.body).toBe(409);
     expect(noGoActivation.json()).toMatchObject({ error: "candidate_not_ready", retryable: false });
     expect(await financeCounts(synthetic.enterpriseId)).toMatchObject({
-      provider_finance_event: 0, provider_subscription_period: 0 });
+      provider_finance_event: 2, provider_subscription_period: 0 });
     phase = "NO_GO";
   }, 120_000);
 
@@ -550,8 +600,9 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
       idempotency_key: "syn-accept-mismatch", confirm_enterprise_id: randomUUID() });
     expect(mismatch.statusCode, mismatch.body).toBe(409);
     expect(mismatch.json()).toMatchObject({ error: "session_enterprise_mismatch", retryable: false });
+    // 断言迁移（WP2-S4）：事件计数只含用例 1 直插的两条历史事实，激活失败零新增。
     expect(await financeCounts(synthetic.enterpriseId))
-      .toMatchObject({ provider_finance_event: 0 });
+      .toMatchObject({ provider_finance_event: 2 });
 
     // 按企业复核（确认 ID 与会话企业逐字一致）后激活。
     const payload = { candidate_id: candidate.candidate_id, candidate_hash: candidate.candidate_hash,
@@ -559,9 +610,12 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     const activated = await activate(synthetic.cookie, payload);
     expect(activated.statusCode, activated.body).toBe(200);
     expect(activated.json()).toMatchObject({ replayed: false,
-      candidate_id: candidate.candidate_id, receipt: {
+      candidate_id: candidate.candidate_id,
+      // 断言迁移（WP2-S4 / R5）：纯套餐激活只写购买/关闭事实——期初/充值计数为 0
+      // （API 历史事实改由直插构造，不经激活写入）。
+      receipt: {
         conservationPassed: true, conservationFailures: [],
-        factCounts: { openings: 1, recharges: 1, purchases: 1, carryovers: 0,
+        factCounts: { openings: 0, recharges: 0, purchases: 1, carryovers: 0,
           legacyResolutions: 1, usageRepairs: 1 },
       } });
     receipt = activated.json().receipt;
@@ -575,14 +629,12 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     expect(replay.json().receipt).toEqual(receipt);
     expect(await financeCounts(synthetic.enterpriseId)).toEqual(countsAfter);
 
-    // 范围资源资金就绪（PFH-07）：**只有 API 资源**建立资金就绪行（它才持有必要币种账户），
-    // 且必备币种必须等于候选投影出的账户集合。套餐资源无币种账户，不纳入资金门禁。
+    // 断言迁移（WP2-S4 / plan §4a-R5）：资源级资金就绪随 API 资金管理退役——激活
+    // 不再对 scope 内 API 资源 promote READY（原 PFH-07 READY 行断言随退役移除；
+    // promoteResourceFinanceReady repo 方法保留存档）；strict_writes 置位不受影响。
     const states = await db.selectFrom("provider_resource_finance_state").selectAll()
       .where("enterprise_id", "=", synthetic.enterpriseId).execute();
-    expect(states.map((row) => [row.provider_resource_id, row.state, row.required_currencies]))
-      .toEqual([[synthetic.apiResourceId, "READY", ["CNY"]]]);
-    expect(states[0]!.ready_by_admin_user_id).toBe(synthetic.adminId);
-    expect(states[0]!.ready_at).not.toBeNull();
+    expect(states).toEqual([]);
 
     // 回执不可变且可见；激活者与激活时点已落库。
     const state = await activationState(synthetic.cookie);
@@ -603,8 +655,11 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
     phase = "ACTIVATED";
   }, 180_000);
 
-  it("5. 激活后后续充值走严格写接口；DeepSeek 余额/本月充值/API 成本可解释", async () => {
-    // 激活后、后续充值前：余额 = 期初 88.55 + 历史充值 20.00 − 已定价 API 成本 1.25。
+  it("5. 激活后后续充值入口退役（410）；DeepSeek 余额/本月充值/API 成本仍可解释", async () => {
+    // 断言迁移（WP2-S3 / AFR-01 / AT-AFR-02 / plan §4.1）：原“激活后后续充值走严格写接口”
+    // 经 W4 充值（201）；W4 退役后该入口对已认证客户端一律 410 且零写入。合同二选一处
+    // 取“直插构造该事实”：后续充值事实改由 SQL 直插（source=ADMIN，0083 触发器校验同前），
+    // 保持本用例与后续账单/摘要断言（BALANCE_AFTER_POST_RECHARGE、apiRecharges 50.00）成立。
     const beforeRecharge = await app.inject({ method: "GET",
       url: `/provider-resources/${synthetic.apiResourceId}/finance/balance?currency=CNY`,
       headers: { cookie: synthetic.cookie } });
@@ -621,7 +676,20 @@ describe.sequential("PF-INIT WP07：合成企业本地业务验收（NO_GO → G
         description: `${SYNTHETIC_TAG} 激活后后续充值（合成）`,
         evidence_ref: "synthetic://deepseek-recharge-2",
         idempotency_key: "syn-api-recharge-2" } });
-    expect(recharge.statusCode, recharge.body).toBe(201);
+    expect(recharge.statusCode, recharge.body).toBe(410);
+    expect(recharge.json()).toMatchObject({ error: "api_funding_management_retired" });
+
+    await db.insertInto("provider_finance_event").values({
+      enterprise_id: synthetic.enterpriseId,
+      provider_resource_id: synthetic.apiResourceId,
+      event_type: "API_RECHARGE", account_amount: MONEY.postRecharge, account_currency: "CNY",
+      cash_paid_cny: MONEY.postRecharge, occurred_at: AT.postRecharge,
+      external_reference: "SYN-API-PAY-2",
+      description: `${SYNTHETIC_TAG} 激活后后续充值（合成，直插）`,
+      evidence_ref: "synthetic://deepseek-recharge-2",
+      source: "ADMIN", idempotency_key: "syn-api-recharge-2",
+      created_by_admin_user_id: synthetic.adminId,
+    }).execute();
 
     // 余额 = 期初 88.55 + 历史充值 20.00 + 后续充值 30.00 − 已定价 API 成本 1.25。
     const balance = await app.inject({ method: "GET",

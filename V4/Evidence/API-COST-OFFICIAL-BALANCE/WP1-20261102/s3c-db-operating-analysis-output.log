@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/operating-analysis.integration.test.ts (9 tests) 4493ms
+   ✓ 经营分析真实数据链 > YTD、各月系统人数、实付和充值到账保持独立，峰值使用真实月度 Token  437ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  01:30:29
+   Duration  6.76s (transform 1.02s, setup 0ms, collect 2.04s, tests 4.49s, environment 0ms, prepare 58ms)
+

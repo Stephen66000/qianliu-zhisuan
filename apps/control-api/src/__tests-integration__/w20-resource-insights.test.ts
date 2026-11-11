@@ -738,9 +738,13 @@ describe("W20-09 轻量采购复盘", () => {
     expect(byId.get(apiResourceId)).toMatchObject({
       purchaseCashAmount: "120.00000000",
       purchaseCashAmounts: [{ currency: "CNY", amount: "120.00000000" }],
-      apiCost: null,
+      // 断言迁移（S3b 合同 §1.3；WP2-S5 / AFR-07＋总指挥 S5 裁定）：该夹具账本行
+      // settled_at 为 NULL（未结算事实），按新口径不落入任何结算窗口 → 估算精确 0；
+      // 桥接状态位停产"待补期初余额"（期初事实缺席 → BRIDGE_UNAVAILABLE、reason 恒
+      // null），ledgerApiCost（created_at 核对证据）与桥接字段保留。
+      apiCost: "0.00000000",
       ledgerApiCost: "12.50000000",
-      apiSpendReason: "待补期初余额",
+      apiSpendReason: null,
       utilizationRate: null,
       reviewLabel: "数据不足",
       reviewReason: expect.stringContaining("MONTHLY_BUDGET_NOT_CONFIGURED"),

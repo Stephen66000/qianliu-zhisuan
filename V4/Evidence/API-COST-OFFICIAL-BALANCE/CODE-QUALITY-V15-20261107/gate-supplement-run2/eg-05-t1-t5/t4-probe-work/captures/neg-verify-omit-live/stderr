@@ -1,0 +1,1 @@
+FAIL-CLOSED[2]: verify 缺少 --db-live（live 标识必填：缺省＝shadow≠live 同名防护退化为空串比较）

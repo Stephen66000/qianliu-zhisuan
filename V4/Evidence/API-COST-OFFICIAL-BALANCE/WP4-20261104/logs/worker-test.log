@@ -1,0 +1,121 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/provider-operating-sync/runner.test.ts (3 tests) 8876ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 周期门禁：P1 内重复 tick 跳过零上游调用；到点恢复；同日多次尝试各留一行；P1 可配置且非法值 fail-fast  3137ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 资金模式 DARK/OFF 仍执行同步并写入快照（OAB-03 场景：不因旧资金开关关闭而跳过）；纯查询零资金事实写入  346ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 恢复链回归：新隔离被更新官方证据解除；证据不足不恢复；失败保鲜最后成功值与 last_success_data_at  321ms
+ ✓ src/reporting/__tests__/quota-preflight.integration.test.ts (8 tests) 8708ms
+ ✓ src/reporting/__tests__/weekly-report-resolution.integration.test.ts (2 tests) 9425ms
+   ✓ Weekly jobs produce actual 2x images before delivery > personal delivery uploads a 1080x1538 image without changing its crop or recipients  330ms
+ ✓ src/reporting/__tests__/monthly-report.integration.test.ts (5 tests) 10000ms
+   ✓ closed-month reports share the weekly high-resolution layout > renders and delivers a personal month card using the existing font, crop and recipient  375ms
+   ✓ closed-month reports share the weekly high-resolution layout > uses frozen monthly limits after a grant edit and rejects an unproven monthly limit  315ms
+   ✓ closed-month reports share the weekly high-resolution layout > a missing identity is recorded and does not block the next personal report  718ms
+ ✓ src/reporting/__tests__/report-facts.integration.test.ts (9 tests) 10677ms
+   ✓ employee report frozen facts > uses November quota at the end of a crossing week and creates no historical quota rows  356ms
+   ✓ employee report frozen facts > initializes one current monthly account and renders separate raw/plan overage and unresolved states  975ms
+   ✓ employee report frozen facts > explains proven legacy API/plan consumption while retaining unknown historical allocations  402ms
+ ✓ src/reporting/__tests__/delivery.integration.test.ts (13 tests) 13080ms
+   ✓ Postgres report execution invariants > response loss and receipt persistence failure become UNKNOWN without restart replay  474ms
+   ✓ Postgres report execution invariants > legacy completion stays unverified without creating delivery facts  1013ms
+   ✓ Postgres report execution invariants > manual UNKNOWN retry requires explicit acknowledgement and records immutable audit  303ms
+   ✓ Postgres report execution invariants > dirty reporting data records a durable block instead of sending an empty report  564ms
+   ✓ Postgres report execution invariants > schema rollback retains actual delivery evidence and reapplies without duplicates  379ms
+   ✓ Postgres report execution invariants > expired media is re-uploaded while successful messages remain immutable  560ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles PONG and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/reporting/__tests__/model-report-labels.integration.test.ts (4 tests) 16086ms
+   ✓ report model identity and complete counts > counts four used models before limiting the table to three without changing any totals  1659ms
+   ✓ report model identity and complete counts > retains principal, tenant and exclusive time-range filters for both count and Top3  756ms
+   ✓ report model identity and complete counts > the actual daily job passes four to the renderer while keeping the original three rows  5463ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-redis.test.ts (3 tests) 2658ms
+   ✓ real Redis connection handles SILENT and closes every socket  2553ms
+ ✓ src/runtime-assurance/__tests__/wecom-report-http.test.ts (14 tests) 305ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"75ba1c45-5a2e-4ce1-bef8-09f38cecce7e","provider":"kimi","windows":2,"recovered":false}
+
+ ✓ src/reporting/__tests__/report-layout-preview.test.ts (1 test) 206ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"75ba1c45-5a2e-4ce1-bef8-09f38cecce7e","provider":"kimi","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+{"event":"quota_sync_success","resource_id":"7e9942cc-e682-4d12-8682-a8cf9115230b","provider":"zhipu","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过
+{"event":"quota_sync_success","resource_id":"51055408-72fa-487a-bd47-9cfdd86fff93","provider":"kimi","windows":2,"recovered":false}
+
+ ✓ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests) 8163ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 143ms
+ ✓ src/reporting/__tests__/render-png-resolution.test.ts (8 tests) 103ms
+ ✓ src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts (3 tests) 8311ms
+   ✓ PF-INIT WP04：Worker 静默跳过与自动恢复 > 厂商经营同步：静默期内零扫描零快照零 attempt，跨企业时只跳过目标企业  487ms
+ ✓ src/reporting/__tests__/milestone-store.integration.test.ts (1 test) 2124ms
+   ✓ Redis milestone compatibility receipts > parallel or resumed success increments the weekly win count once  2123ms
+ ✓ src/coding-plan-quota/runner.test.ts (3 tests) 8801ms
+   ✓ Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实  2860ms
+   ✓ Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过  341ms
+ ✓ src/runtime-assurance/scheduler-loop.test.ts (6 tests) 12ms
+stderr | src/__tests-integration__/runtime-assurance-worker.test.ts > RA-W05A/W05B/W06 Worker 闭环 > 调度循环成功和失败均更新健康状态并响应停止信号
+{"event":"runtime_assurance_tick_failed","error_type":"TypeError"}
+
+ ✓ src/directory/connector.test.ts (11 tests) 36ms
+ ✓ src/reporting/__tests__/company-monthly-contract.test.ts (3 tests) 68ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (3 tests) 79ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 25ms
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-probes.test.ts (6 tests) 16ms
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 9ms
+ ✓ src/operating-bill/runner.test.ts (4 tests) 7ms
+stderr | src/runtime-assurance/observed-task.test.ts > database failure does not replace the original error; recovery flushes the pending failure first
+{"event":"task_fault_record_unavailable","task":"task"}
+
+ ✓ src/runtime-assurance/observed-task.test.ts (3 tests) 5ms
+ ✓ src/__tests-integration__/runtime-assurance-worker.test.ts (5 tests) 8167ms
+   ✓ RA-W05A/W05B/W06 Worker 闭环 > 无页面访问自动恢复，触发／恢复各向本人 userid 发送一次  818ms
+ ✓ src/runtime-assurance/scheduler.test.ts (4 tests) 31ms
+ ✓ src/__tests-integration__/directory-sync-worker.test.ts (2 tests) 8981ms
+   ✓ directory sync worker > 凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人  3903ms
+ ✓ src/runtime-assurance/scheduled-tasks.test.ts (3 tests) 4ms
+ ✓ src/usage-aggregate/runner.test.ts (2 tests) 6ms
+ ✓ src/subscription-renewal/runner.test.ts (3 tests) 11ms
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ ✓ src/runtime-assurance/infrastructure-checks.test.ts (2 tests) 20ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 7ms
+ ✓ src/reporting/__tests__/monthly-period.test.ts (13 tests) 9ms
+ ✓ src/reporting/__tests__/delivery-scheduler.test.ts (12 tests) 5ms
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 2ms
+
+ Test Files  36 passed (36)
+      Tests  200 passed (200)
+   Start at  02:09:46
+   Duration  24.00s (transform 2.05s, setup 0ms, collect 29.88s, tests 125.17s, environment 4ms, prepare 3.25s)
+

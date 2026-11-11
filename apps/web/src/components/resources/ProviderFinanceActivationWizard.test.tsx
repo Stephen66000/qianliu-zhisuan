@@ -122,7 +122,9 @@ describe("预检与结构化缺口", () => {
       ],
     }));
 
-    expect(screen.getByTestId("activation-gap-MISSING_OPENING_BALANCE")).toHaveTextContent("必要币种账户缺少原始期初余额");
+    // WP4-S3 / AFR-01：API 期初缺口码文案已退役，缺口原样展示服务端 message。
+    expect(screen.getByTestId("activation-gap-MISSING_OPENING_BALANCE")).toHaveTextContent("缺少期初");
+    expect(screen.queryByText("必要币种账户缺少原始期初余额")).not.toBeInTheDocument();
     expect(screen.getByTestId("activation-gap-MISSING_OPENING_BALANCE")).toHaveTextContent("Kimi · 主账号 · CNY");
     expect(screen.getByTestId("activation-gap-UNKNOWN_COST")).toHaveTextContent("不能用旧记录关闭绕过");
     expect(screen.getByTestId("activation-hold-reason")).toHaveTextContent("NO_GO");
@@ -278,11 +280,16 @@ describe("清除本机草稿二次确认（复核修复 R3）", () => {
   const SEEDED_NOTE = "需要被恢复的期初说明";
 
   function seedDraft() {
+    // WP4-S3 / AFR-01：期初草稿区编辑 UI 已退役，种子改用仍可编辑的 CP 购买行验证恢复。
     saveDraftAutosave(window.localStorage, {
       ...emptyDraftState(),
-      apiOpeningBalances: [{
-        id: "row-1", resourceId: RESOURCE, accountCurrency: "CNY", accountAmount: "100",
-        description: SEEDED_NOTE, evidenceRef: "evidence://seed", sourceRecordId: "",
+      codingPlanPurchases: [{
+        id: "row-1", resourceId: RESOURCE, kind: "RENEWAL", productName: "GLM Coding Plan",
+        accountAmount: "100", accountCurrency: "CNY", cashPaidCny: "100.00",
+        servicePeriodStart: "2026-09-01", servicePeriodEnd: "", occurredAtLocal: "2026-09-01T10:00",
+        externalReference: "", autoRenew: true, description: SEEDED_NOTE,
+        evidenceRef: "evidence://seed", sourceRecordId: "", carryoverSnapshotId: "",
+        recordIdempotencyKey: "idem-seed-1",
       }],
     }, ENTERPRISE, CUTOVER, PAST);
   }

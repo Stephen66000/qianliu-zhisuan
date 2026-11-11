@@ -37,10 +37,29 @@ test.beforeAll(async () => {
     const key = await db.selectFrom("principal_key").select("id").where("principal_id", "=", E2E_IDS.principal).executeTakeFirstOrThrow();
     const month = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
     const atMonth = (offset: number) => new Date(Date.UTC(month.getFullYear(), month.getMonth() + offset, 1) - 8 * 3600_000);
+    // 0085 严格合同（非导入路径）对 CODING_PLAN 行除 api_cost_status=NOT_APPLICABLE
+    // 外还要求 subscription_period_id 非空，否则拒绝写入 "active Coding Plan ledger
+    // line requires an attributed period"（2026-11-04 WP5 单跑实测，合同修法之外的
+    // 补充：CODING_PLAN 行必须挂周期）。MIGRATED_CARRYOVER 是无资金事件建周期的
+    // 合法路径（0059 source_shape_check 要求 finance_event_id 为 NULL）；边界取
+    // 上海零点并覆盖全部 CODING_PLAN 行 settled_at（0061 period link 触发器要求
+    // 周期覆盖结算时间）。该表有 no_delete 触发器（0059）→ 不参与 afterAll 清理，
+    // 依赖 globalSetup 每轮 TRUNCATE 重建。
+    // 0061 收紧 MIGRATED_CARRYOVER：finance_event_id 为 NULL 时还须
+    // created_by_admin_user_id 或 migration_source_record_id 非空（留档责任人）。
+    const admin = await db.selectFrom("admin_user").select("id")
+      .where("enterprise_id", "=", resource.enterprise_id).executeTakeFirstOrThrow();
+    const planPeriod = await db.insertInto("provider_subscription_period").values({
+      enterprise_id: resource.enterprise_id, provider_resource_id: E2E_IDS.isolatedResource,
+      product_name: "E2E Provider Review 夹具周期", period_start: atMonth(-3),
+      period_end_exclusive: atMonth(1), source: "MIGRATED_CARRYOVER",
+      created_by_admin_user_id: admin.id,
+    }).returning("id").executeTakeFirstOrThrow();
     for (const [id, mode] of [[api.id, "API"], [E2E_IDS.isolatedResource, "CODING_PLAN"]] as const) {
       await db.updateTable("provider_resource").set({ created_at: atMonth(-4) }).where("id", "=", id).execute();
+      const planPeriodId = mode === "CODING_PLAN" ? planPeriod.id : null;
       for (const [index, tokens] of [8000000n, 10000000n, 12000000n, 9000000n].entries()) {
-        await addTokenFact(db, resource.enterprise_id, key.id, id, mode, tokens, atMonth(index - 3));
+        await addTokenFact(db, resource.enterprise_id, key.id, id, mode, tokens, atMonth(index - 3), planPeriodId);
       }
     }
     const grant = await db.insertInto("principal_grant").values({ enterprise_id: resource.enterprise_id,
@@ -72,7 +91,8 @@ test.afterAll(async () => {
 });
 
 async function addTokenFact(db: ReturnType<typeof createKysely>, enterpriseId: string,
-  keyId: string, resourceId: string, mode: "API" | "CODING_PLAN", tokens: bigint, at: Date) {
+  keyId: string, resourceId: string, mode: "API" | "CODING_PLAN", tokens: bigint, at: Date,
+  subscriptionPeriodId: string | null) {
   const requestId = randomUUID();
   await db.insertInto("ai_request").values({ id: requestId, enterprise_id: enterpriseId,
     principal_id: E2E_IDS.principal, principal_key_id: keyId, protocol: "chat", unified_model: "provider-review",
@@ -85,11 +105,19 @@ async function addTokenFact(db: ReturnType<typeof createKysely>, enterpriseId: s
     ai_request_id: requestId, upstream_attempt_id: attempt.id, provider_resource_id: resourceId,
     input_tokens: tokens - 1n, output_tokens: 1n, usage_quality: "PROVIDER_REPORTED", dedup_key: randomUUID(),
   }).returning("id").executeTakeFirstOrThrow();
+  // WP4 seed 给共享企业开启 strict_writes（seed-e2e-wp4.ts §4）＋0085 严格合同要求
+  // ledger_line 结算字段：settled_at 与 api_cost_status 均不得为 NULL
+  // （2026-11-04 WP5 全量首跑发现）。0085 shape 约束：UNKNOWN_COST 要求
+  // resource_mode=API 且 api_cost/api_cost_currency 同时为 NULL；NOT_APPLICABLE
+  // 要求 CODING_PLAN 且金额为 NULL——语义＝有用量无价格（本 spec 不种子计价规则），
+  // 故 api_cost 一律留 null。
   await db.insertInto("ledger_line").values({ enterprise_id: enterpriseId, ai_request_id: requestId,
     upstream_attempt_id: attempt.id, usage_event_id: usage.id, provider_resource_id: resourceId,
     principal_id: E2E_IDS.principal, resource_mode: mode, raw_input_tokens: tokens - 1n,
     raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
-    usage_quality: "PROVIDER_REPORTED", api_cost: mode === "API" ? "1" : null,
+    usage_quality: "PROVIDER_REPORTED", api_cost: null,
+    api_cost_status: mode === "API" ? "UNKNOWN_COST" : "NOT_APPLICABLE",
+    subscription_period_id: subscriptionPeriodId,
     created_at: at, settled_at: at }).execute();
 }
 

@@ -6,12 +6,17 @@ import {
   historicalCostEvidenceRef,
   historicalCostFactDescription,
   historicalCostIdempotencyKey,
+  rechargeEvidenceRef,
+  rechargeFactDescription,
   rechargeRecordIdempotencyKey,
 } from "@qianliu/domain";
 import {
   ActivationDraftSchema,
   ActivationRequestBody,
+  HistoricalApiCostDraftSchema,
+  HistoricalRechargeDraftSchema,
   LegacyPurchaseResolutionDraftSchema,
+  OpeningBalanceDraftSchema,
   QuiescenceStartBody,
   toActivationDraft,
 } from "./activation-contracts.js";
@@ -20,31 +25,61 @@ const RESOURCE = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 const EVENT = "33333333-3333-4333-8333-333333333333";
 
+/**
+ * 纯套餐基底草稿（断言迁移 WP2-S4 / AFR-01 场景3）：原基底携带一条 API 期初行，
+ * 该类行已随 API 资金管理退役——提交即被 {@link ActivationDraftSchema} 拒绝，
+ * 合法基底改为空 API 数组（省略或 [] 均可）。
+ */
 function minimalDraft(overrides: Record<string, unknown> = {}) {
   return {
     schema_version: "1",
-    api_opening_balances: [{
-      resource_id: RESOURCE,
-      account_currency: "CNY",
-      account_amount: "0",
-      occurred_at: "2026-08-31T16:00:00.000Z",
-      description: "切换时点余额为零",
-      evidence_ref: "evidence://deepseek/opening-zero",
-    }],
+    api_opening_balances: [],
+    historical_api_recharges: [],
+    historical_api_costs: [],
     ...overrides,
   };
 }
 
+/** 退役形态的 API 期初行（仅用于断言提交即拒）。 */
+function retiredOpeningRow(overrides: Record<string, unknown> = {}) {
+  return {
+    resource_id: RESOURCE,
+    account_currency: "CNY",
+    account_amount: "0",
+    occurred_at: "2026-08-31T16:00:00.000Z",
+    description: "切换时点余额为零",
+    evidence_ref: "evidence://deepseek/opening-zero",
+    ...overrides,
+  };
+}
+
+const RETIRED_MESSAGE = "API 内部资金管理已退役，初始化草稿不再接受 API 资金事实"
+  + "（api_opening_balances/historical_api_recharges/historical_api_costs），请仅提交套餐所需事实";
+
 describe("激活草稿合同", () => {
-  it("接受显式零值期初并保留说明与证据", () => {
+  it("含 API 期初的旧草稿提交即被拒绝并说明退役；空数组照常通过（WP2-S4 / AFR-01 场景3）", () => {
+    // 断言迁移（WP2-S4 / plan §4.4、§4a-R4）：原“接受显式零值期初”随 API 资金管理
+    // 退役——API 期初行不得被静默剥离后继续激活混合候选。
+    const retired = ActivationDraftSchema.safeParse({
+      ...minimalDraft(),
+      api_opening_balances: [retiredOpeningRow()],
+    });
+    expect(retired.success).toBe(false);
+    if (!retired.success) expect(retired.error.issues[0]!.message).toBe(RETIRED_MESSAGE);
+
+    // 纯套餐（空 API 数组）是唯一合法形态：显式 [] 与省略等价。
     const parsed = ActivationDraftSchema.parse(minimalDraft());
     const draft = toActivationDraft(parsed);
-    expect(draft.api_opening_balances[0]!.account_amount).toBe("0");
-    expect(draft.api_opening_balances[0]!.source_record_id).toBeNull();
+    expect(draft.api_opening_balances).toEqual([]);
     expect(draft.historical_api_recharges).toEqual([]);
+
+    // 行级 schema 保留存档：零值金额与 source_record_id 归一语义由行 schema 钉死。
+    const row = OpeningBalanceDraftSchema.parse({ ...retiredOpeningRow(), source_record_id: undefined });
+    expect(row.account_amount).toBe("0");
+    expect(row.source_record_id).toBeUndefined();
   });
 
-  it("拒绝缺少说明或证据的期初", () => {
+  it("拒绝缺少说明或证据的期初（行级校验语义保留；整类行在提交层已随退役被拒）", () => {
     const missingDescription = ActivationDraftSchema.safeParse(minimalDraft({
       api_opening_balances: [{
         resource_id: RESOURCE,
@@ -73,7 +108,7 @@ describe("激活草稿合同", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("拒绝超过八位小数或负数的期初金额", () => {
+  it("拒绝超过八位小数或负数的期初金额（行级校验语义保留；整类行在提交层已随退役被拒）", () => {
     expect(ActivationDraftSchema.safeParse(minimalDraft({
       api_opening_balances: [{
         resource_id: RESOURCE, account_currency: "CNY", account_amount: "1.000000001",
@@ -88,7 +123,7 @@ describe("激活草稿合同", () => {
     })).success).toBe(false);
   });
 
-  it("拒绝超过数组上限的草稿", () => {
+  it("拒绝超过数组上限的草稿（上限语义保留；API 类数组在提交层已随退役被拒）", () => {
     const rows = Array.from({ length: 501 }, () => ({
       resource_id: RESOURCE, account_currency: "CNY", account_amount: "0",
       occurred_at: "2026-08-31T16:00:00.000Z", description: "d", evidence_ref: "e",
@@ -140,61 +175,60 @@ describe("激活草稿合同", () => {
   });
 });
 
-describe("历史 API 充值草稿：无旧记录最小录入", () => {
-  function rechargeDraft(overrides: Record<string, unknown> = {}) {
-    return minimalDraft({
-      historical_api_recharges: [{
-        resource_id: RESOURCE,
-        account_currency: "CNY",
-        account_amount: "50",
-        cash_paid_cny: "50.00",
-        occurred_at: "2026-09-05T02:00:00.000Z",
-        external_reference: "DS-ORDER-9",
-        ...overrides,
-      }],
-    });
+describe("历史 API 充值草稿（WP2-S4 / AFR-01 场景3：提交入口退役，行级 schema 存档）", () => {
+  function rechargeRow(overrides: Record<string, unknown> = {}) {
+    return {
+      resource_id: RESOURCE,
+      account_currency: "CNY",
+      account_amount: "50",
+      cash_paid_cny: "50.00",
+      occurred_at: "2026-09-05T02:00:00.000Z",
+      external_reference: "DS-ORDER-9",
+      ...overrides,
+    };
   }
 
-  it("source_record_id 缺失时通过校验，内部字段由服务端确定性生成", () => {
-    const parsed = ActivationDraftSchema.parse(rechargeDraft());
-    expect(parsed.historical_api_recharges[0]!.source_record_id).toBeUndefined();
-    const draft = toActivationDraft(parsed);
-    const recharge = draft.historical_api_recharges[0]!;
-    expect(recharge.source_record_id).toBeNull();
-    expect(recharge.description).toBe("历史 API 充值:DS-ORDER-9");
-    expect(recharge.evidence_ref).toBe("provider-order:DS-ORDER-9");
-    expect(recharge.record_idempotency_key)
-      .toBe(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"));
-    // 确定性：相同资源+订单的重复提交得到同一幂等键。
-    const replayed = toActivationDraft(ActivationDraftSchema.parse(rechargeDraft()));
-    expect(replayed.historical_api_recharges[0]!.record_idempotency_key)
-      .toBe(recharge.record_idempotency_key);
+  it("含历史充值的旧草稿提交即被拒绝并说明退役（不静默剥离）", () => {
+    const retired = ActivationDraftSchema.safeParse({
+      ...minimalDraft(), historical_api_recharges: [rechargeRow()],
+    });
+    expect(retired.success).toBe(false);
+    if (!retired.success) expect(retired.error.issues[0]!.message).toBe(RETIRED_MESSAGE);
   });
 
-  it("显式提供内部字段时旧路径语义不变（带旧 source_record_id 兼容）", () => {
-    const parsed = ActivationDraftSchema.parse(rechargeDraft({
+  it("行级 schema 存档：source_record_id 缺省语义与确定性内部字段生成（领域纯函数合同）", () => {
+    const row = HistoricalRechargeDraftSchema.parse(rechargeRow());
+    expect(row.source_record_id).toBeUndefined();
+    // 内部字段确定性生成合同保留在领域纯函数上（提交入口已退役，规范化不可再达）。
+    expect(rechargeFactDescription("DS-ORDER-9")).toBe("历史 API 充值:DS-ORDER-9");
+    expect(rechargeEvidenceRef("DS-ORDER-9")).toBe("provider-order:DS-ORDER-9");
+    // 确定性：相同资源+订单得到同一幂等键。
+    expect(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"))
+      .toBe(rechargeRecordIdempotencyKey(RESOURCE, "DS-ORDER-9"));
+  });
+
+  it("行级 schema 存档：显式内部字段旧路径语义不变（带旧 source_record_id 兼容）", () => {
+    const row = HistoricalRechargeDraftSchema.parse(rechargeRow({
       description: "历史充值（迁移）",
       evidence_ref: "evidence://deepseek/recharge-1",
       source_record_id: EVENT,
       record_idempotency_key: "history-recharge-1",
     }));
-    const draft = toActivationDraft(parsed);
-    const recharge = draft.historical_api_recharges[0]!;
-    expect(recharge.source_record_id).toBe(EVENT);
-    expect(recharge.description).toBe("历史充值（迁移）");
-    expect(recharge.evidence_ref).toBe("evidence://deepseek/recharge-1");
-    expect(recharge.record_idempotency_key).toBe("history-recharge-1");
+    expect(row.source_record_id).toBe(EVENT);
+    expect(row.description).toBe("历史充值（迁移）");
+    expect(row.evidence_ref).toBe("evidence://deepseek/recharge-1");
+    expect(row.record_idempotency_key).toBe("history-recharge-1");
   });
 
-  it("source_record_id 显式 null 合法，非法 UUID 被拒绝", () => {
-    expect(ActivationDraftSchema.safeParse(rechargeDraft({ source_record_id: null })).success).toBe(true);
-    expect(ActivationDraftSchema.safeParse(rechargeDraft({ source_record_id: "not-a-uuid" })).success).toBe(false);
+  it("行级 schema 存档：source_record_id 显式 null 合法，非法 UUID 被拒绝", () => {
+    expect(HistoricalRechargeDraftSchema.safeParse(rechargeRow({ source_record_id: null })).success).toBe(true);
+    expect(HistoricalRechargeDraftSchema.safeParse(rechargeRow({ source_record_id: "not-a-uuid" })).success).toBe(false);
   });
 
-  it("充值订单号必填且不得超过 255 字", () => {
-    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "" })).success).toBe(false);
-    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "x".repeat(256) })).success).toBe(false);
-    expect(ActivationDraftSchema.safeParse(rechargeDraft({ external_reference: "x".repeat(255) })).success).toBe(true);
+  it("行级 schema 存档：充值订单号必填且不得超过 255 字", () => {
+    expect(HistoricalRechargeDraftSchema.safeParse(rechargeRow({ external_reference: "" })).success).toBe(false);
+    expect(HistoricalRechargeDraftSchema.safeParse(rechargeRow({ external_reference: "x".repeat(256) })).success).toBe(false);
+    expect(HistoricalRechargeDraftSchema.safeParse(rechargeRow({ external_reference: "x".repeat(255) })).success).toBe(true);
   });
 });
 
@@ -222,7 +256,7 @@ describe("激活与静默租约请求体", () => {
 });
 
 
-describe("历史 API 消耗合同（0084）", () => {
+describe("历史 API 消耗合同（0084；WP2-S4 / AFR-01 场景3：提交入口退役，行级 schema 存档）", () => {
   const costRow = {
     resource_id: RESOURCE,
     account_currency: "CNY",
@@ -230,19 +264,18 @@ describe("历史 API 消耗合同（0084）", () => {
     cost_until_at: "2026-09-10T04:00:00.000Z",
   };
 
-  it("接受四字段草稿，载荷不含说明/证据/幂等键（strict 拒绝未知字段）", () => {
-    const parsed = ActivationDraftSchema.parse(minimalDraft({ historical_api_costs: [costRow] }));
-    expect(parsed.historical_api_costs).toHaveLength(1);
-    const draft = toActivationDraft(parsed);
-    expect(draft.historical_api_costs[0]).toEqual(costRow);
-    // 未知内部字段拒绝：说明/证据/幂等键由服务端生成，不接受客户端提交。
-    const withExtra = ActivationDraftSchema.safeParse(minimalDraft({
-      historical_api_costs: [{ ...costRow, description: "管理员写的说明" }],
-    }));
+  it("含历史消耗的旧草稿提交即被拒绝并说明退役；行级 strict 未知字段拒绝保留", () => {
+    const retired = ActivationDraftSchema.safeParse(minimalDraft({ historical_api_costs: [costRow] }));
+    expect(retired.success).toBe(false);
+    if (!retired.success) expect(retired.error.issues[0]!.message).toBe(RETIRED_MESSAGE);
+    // 行级存档：载荷不含说明/证据/幂等键（strict 拒绝未知字段）。
+    const withExtra = HistoricalApiCostDraftSchema.safeParse({
+      ...costRow, description: "管理员写的说明",
+    });
     expect(withExtra.success).toBe(false);
   });
 
-  it("缺字段拒绝：金额缺失、非法币种、非法时间都不通过", () => {
+  it("行级存档：缺字段拒绝——金额缺失、非法币种、非法时间都不通过", () => {
     for (const broken of [
       { ...costRow, cost_amount: undefined },
       { ...costRow, cost_amount: "0" },
@@ -251,24 +284,18 @@ describe("历史 API 消耗合同（0084）", () => {
       { ...costRow, account_currency: "EUR" },
       { ...costRow, cost_until_at: "2026-09-10 04:00:00" },
     ]) {
-      expect(ActivationDraftSchema.safeParse(minimalDraft({ historical_api_costs: [broken] })).success)
-        .toBe(false);
+      expect(HistoricalApiCostDraftSchema.safeParse(broken).success).toBe(false);
     }
   });
 
-  it("成本截止时间不得早于切换时点、不得晚于当前时间", () => {
-    const beforeCutover = ActivationDraftSchema.safeParse(minimalDraft({
-      historical_api_costs: [{ ...costRow, cost_until_at: "2026-08-31T15:59:59.999Z" }],
-    }));
-    expect(beforeCutover.success).toBe(false);
-    const inFuture = ActivationDraftSchema.safeParse(minimalDraft({
-      historical_api_costs: [{ ...costRow, cost_until_at: "2099-01-01T00:00:00.000Z" }],
-    }));
-    expect(inFuture.success).toBe(false);
-    const atCutover = ActivationDraftSchema.parse(minimalDraft({
-      historical_api_costs: [{ ...costRow, cost_until_at: "2026-08-31T16:00:00.000Z" }],
-    }));
-    expect(atCutover.historical_api_costs[0]!.cost_until_at).toBe("2026-08-31T16:00:00.000Z");
+  it("行级存档：成本截止时间不得早于切换时点、不得晚于当前时间", () => {
+    expect(HistoricalApiCostDraftSchema.safeParse(
+      { ...costRow, cost_until_at: "2026-08-31T15:59:59.999Z" }).success).toBe(false);
+    expect(HistoricalApiCostDraftSchema.safeParse(
+      { ...costRow, cost_until_at: "2099-01-01T00:00:00.000Z" }).success).toBe(false);
+    const atCutover = HistoricalApiCostDraftSchema.parse(
+      { ...costRow, cost_until_at: "2026-08-31T16:00:00.000Z" });
+    expect(atCutover.cost_until_at).toBe("2026-08-31T16:00:00.000Z");
   });
 
   it("服务端默认说明/证据/幂等键可由领域纯函数复现（normalizeDraftItem 输入合同一致）", () => {
@@ -282,7 +309,7 @@ describe("历史 API 消耗合同（0084）", () => {
       .toMatch(/^pf-u:/);
   });
 
-  it("同一资源与币种的多条历史消耗被合同拒绝（不同截止时间也不放行，R2）", () => {
+  it("同一资源与币种的多条历史消耗被合同拒绝（不同截止时间也不放行，R2；提交入口随退役关闭）", () => {
     const duplicate = ActivationDraftSchema.safeParse(minimalDraft({
       historical_api_costs: [
         { ...costRow, cost_until_at: "2026-09-05T02:00:00.000Z" },
@@ -291,13 +318,13 @@ describe("历史 API 消耗合同（0084）", () => {
     }));
     expect(duplicate.success).toBe(false);
     if (!duplicate.success) {
+      // 退役拒绝与 R2 去重拒绝都会进入 issues（superRefine 链各自独立执行）。
       expect(JSON.stringify(duplicate.error.issues)).toContain("最多只能登记一条历史 API 消耗");
+      expect(duplicate.error.issues[0]!.message).toBe(RETIRED_MESSAGE);
     }
-    // 不同资源各一条不受影响。
-    const distinct = ActivationDraftSchema.safeParse(minimalDraft({
-      historical_api_costs: [costRow, { ...costRow, resource_id: OTHER }],
-    }));
-    expect(distinct.success).toBe(true);
+    // 不同资源各一条在行级仍合法（整类行的提交入口已随退役关闭）。
+    expect(HistoricalApiCostDraftSchema.safeParse(costRow).success).toBe(true);
+    expect(HistoricalApiCostDraftSchema.safeParse({ ...costRow, resource_id: OTHER }).success).toBe(true);
   });
 });
 

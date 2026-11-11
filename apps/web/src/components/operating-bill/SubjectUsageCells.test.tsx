@@ -94,12 +94,12 @@ describe("主体账按厂商分列", () => {
       "输出 Token": "100",
       "缓存命中 Token": "50",
       "DeepSeek Token": "100",
-      "DeepSeek API 消费": "¥12.50",
+      "DeepSeek API 费用估算": "¥12.50",
       "智谱 Token": "200",
       智谱订阅金额: "¥79.60",
       "Kimi Token": "600",
       "Kimi 订阅金额": "¥119.40",
-      "API 消费合计": "¥12.50",
+      "API 费用估算合计": "¥12.50",
       活跃天数: "3",
       请求次数: "7",
     });
@@ -111,7 +111,7 @@ describe("主体账按厂商分列", () => {
   it("未使用厂商显示零，旧接口缺少厂商明细时保持未知", () => {
     const cells = show([{ providerCode: "kimi", providerName: "Kimi" }]);
     expect(cells["DeepSeek Token"]).toBe("0");
-    expect(cells["DeepSeek API 消费"]).toBe("¥0.00");
+    expect(cells["DeepSeek API 费用估算"]).toBe("¥0.00");
     expect(cells["Kimi Token"]).toBe("未知");
     expect(cells["Kimi 订阅金额"]).toBe("未知");
   });

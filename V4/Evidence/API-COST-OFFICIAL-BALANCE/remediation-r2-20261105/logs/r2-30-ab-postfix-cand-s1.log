@@ -1,0 +1,56 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+{"level":30,"time":1793883830337,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-1","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883831353,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-1","res":{"statusCode":200},"responseTime":1015.2435829999959,"msg":"request completed"}
+{"level":30,"time":1793883831353,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-2","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883832291,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-2","res":{"statusCode":200},"responseTime":937.2761249999967,"msg":"request completed"}
+{"level":30,"time":1793883832291,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-3","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883833211,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-3","res":{"statusCode":200},"responseTime":920.1148329999996,"msg":"request completed"}
+{"level":30,"time":1793883833211,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-4","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883834161,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-4","res":{"statusCode":200},"responseTime":949.8066249999974,"msg":"request completed"}
+{"level":30,"time":1793883834162,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-5","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883835116,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-5","res":{"statusCode":200},"responseTime":954.6649580000012,"msg":"request completed"}
+{"level":30,"time":1793883835117,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-6","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883836036,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-6","res":{"statusCode":200},"responseTime":919.1107080000002,"msg":"request completed"}
+{"level":30,"time":1793883836037,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883836978,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":200},"responseTime":941.8310829999973,"msg":"request completed"}
+{"level":30,"time":1793883836979,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-8","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883837903,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-8","res":{"statusCode":200},"responseTime":924.1885000000038,"msg":"request completed"}
+{"level":30,"time":1793883837904,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883838826,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":200},"responseTime":921.0932079999984,"msg":"request completed"}
+{"level":30,"time":1793883838826,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883839815,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":200},"responseTime":988.8357499999984,"msg":"request completed"}
+{"level":30,"time":1793883839815,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-b","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883840732,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-b","res":{"statusCode":200},"responseTime":917.2068329999965,"msg":"request completed"}
+{"level":30,"time":1793883840733,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-c","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883841653,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-c","res":{"statusCode":200},"responseTime":919.8267919999998,"msg":"request completed"}
+{"level":30,"time":1793883841653,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-d","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883842728,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-d","res":{"statusCode":200},"responseTime":1075.3332080000037,"msg":"request completed"}
+{"level":30,"time":1793883842729,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-e","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883843721,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-e","res":{"statusCode":200},"responseTime":992.1397499999948,"msg":"request completed"}
+{"level":30,"time":1793883843721,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-f","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883844651,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-f","res":{"statusCode":200},"responseTime":929.3797500000001,"msg":"request completed"}
+{"level":30,"time":1793883844651,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883845575,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":200},"responseTime":924.4695419999989,"msg":"request completed"}
+{"level":30,"time":1793883845576,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883846503,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":200},"responseTime":927.8232080000016,"msg":"request completed"}
+{"level":30,"time":1793883846504,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-i","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883847432,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-i","res":{"statusCode":200},"responseTime":928.0297920000012,"msg":"request completed"}
+{"level":30,"time":1793883847432,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-j","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883848349,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-j","res":{"statusCode":200},"responseTime":916.7535840000055,"msg":"request completed"}
+{"level":30,"time":1793883848349,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-k","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883849270,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-k","res":{"statusCode":200},"responseTime":920.693041999999,"msg":"request completed"}
+{"level":30,"time":1793883849270,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-l","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883850197,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-l","res":{"statusCode":200},"responseTime":926.3897090000028,"msg":"request completed"}
+{"level":30,"time":1793883850197,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-m","req":{"method":"GET","url":"/provider-resources/utilization?month=2026-08","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793883851115,"pid":26778,"hostname":"Stephen-macbook.local","reqId":"req-m","res":{"statusCode":200},"responseTime":918.257458,"msg":"request completed"}
+{"commonAdminP95Ms":5.10816600000544,"subjectUsageP95Ms":330.78383400000166,"resourceUtilizationP95Ms":992.5372500000012,"departmentBillP95Ms":816.5802919999987}
+ ✓ src/__tests-integration__/w20-standard-capacity.integration.test.ts (2 tests) 77675ms
+   ✓ W20-10 标准容量合同 > 1,000,000 ledger 的常用管理、单主体聚合、资源与部门月账 P95 达标  45443ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  21:03:08
+   Duration  80.67s (transform 1.26s, setup 0ms, collect 2.68s, tests 77.67s, environment 0ms, prepare 63ms)
+

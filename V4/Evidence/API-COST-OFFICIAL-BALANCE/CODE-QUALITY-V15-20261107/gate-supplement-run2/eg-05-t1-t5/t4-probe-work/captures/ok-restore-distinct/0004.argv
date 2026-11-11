@@ -1,0 +1,7 @@
+exec
+pgtest
+sh
+-c
+createdb -U "$POSTGRES_USER" "$1"
+sh
+shadow_ok

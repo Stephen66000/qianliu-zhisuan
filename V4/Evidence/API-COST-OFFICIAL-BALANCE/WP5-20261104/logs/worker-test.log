@@ -1,0 +1,138 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/provider-operating-sync/runner.test.ts (3 tests) 11906ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 周期门禁：P1 内重复 tick 跳过零上游调用；到点恢复；同日多次尝试各留一行；P1 可配置且非法值 fail-fast  4774ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 资金模式 DARK/OFF 仍执行同步并写入快照（OAB-03 场景：不因旧资金开关关闭而跳过）；纯查询零资金事实写入  938ms
+   ✓ WP3 官方余额同步解耦（OAB-03：独立于内部资金账本＋P1 周期门禁） > 恢复链回归：新隔离被更新官方证据解除；证据不足不恢复；失败保鲜最后成功值与 last_success_data_at  793ms
+ ✓ src/reporting/__tests__/weekly-report-resolution.integration.test.ts (2 tests) 13641ms
+   ✓ Weekly jobs produce actual 2x images before delivery > personal delivery uploads a 1080x1538 image without changing its crop or recipients  382ms
+ ✓ src/reporting/__tests__/monthly-report.integration.test.ts (5 tests) 16355ms
+   ✓ closed-month reports share the weekly high-resolution layout > renders and delivers a personal month card using the existing font, crop and recipient  443ms
+   ✓ closed-month reports share the weekly high-resolution layout > a missing identity is recorded and does not block the next personal report  517ms
+ ✓ src/__tests-integration__/directory-sync-worker.test.ts (2 tests) 17374ms
+   ✓ directory sync worker > 凭证只在内存解密，通过统一 staging/apply 完成部分成功且重复快照不重复建人  5474ms
+ ✓ src/reporting/__tests__/delivery.integration.test.ts (13 tests) 19377ms
+   ✓ Postgres report execution invariants > freezes snapshot once and parallel workers send each message once  373ms
+   ✓ Postgres report execution invariants > dirty reporting data records a durable block instead of sending an empty report  489ms
+   ✓ Postgres report execution invariants > schema rollback retains actual delivery evidence and reapplies without duplicates  1124ms
+ ✓ src/reporting/__tests__/report-facts.integration.test.ts (9 tests) 19663ms
+   ✓ employee report frozen facts > uses November quota at the end of a crossing week and creates no historical quota rows  485ms
+   ✓ employee report frozen facts > initializes one current monthly account and renders separate raw/plan overage and unresolved states  698ms
+   ✓ employee report frozen facts > explains proven legacy API/plan consumption while retaining unknown historical allocations  301ms
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles PONG and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles ERROR and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+stderr | src/runtime-assurance/infrastructure-redis.test.ts > real Redis connection handles SILENT and closes every socket
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-redis.test.ts (3 tests) 2629ms
+   ✓ real Redis connection handles SILENT and closes every socket  2539ms
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"1d3e3de8-c15a-476e-8cf1-177f2c872f8f","provider":"kimi","windows":2,"recovered":false}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实
+{"event":"quota_sync_success","resource_id":"1d3e3de8-c15a-476e-8cf1-177f2c872f8f","provider":"kimi","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复
+{"event":"quota_sync_success","resource_id":"1306ce7f-fdc2-4f41-8fcc-c6860d429812","provider":"zhipu","windows":2,"recovered":true}
+
+stderr | src/coding-plan-quota/runner.test.ts > Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过
+{"event":"quota_sync_success","resource_id":"e9cec556-1a7e-47c4-af9a-0f236f82f206","provider":"kimi","windows":2,"recovered":false}
+
+ ✓ src/coding-plan-quota/runner.test.ts (3 tests) 13297ms
+   ✓ Coding Plan 额度同步恢复 > 额度成功不解除凭证隔离，并按间隔继续同步额度事实  4381ms
+   ✓ Coding Plan 额度同步恢复 > 智谱周窗口不支持时，以可知的 5 小时窗口自动恢复  650ms
+   ✓ Coding Plan 额度同步恢复 > 审核修复（P1）：生产大写厂商 code（Kimi）不再被额度同步整体跳过  474ms
+ ✓ src/runtime-assurance/__tests__/wecom-report-http.test.ts (14 tests) 206ms
+ ✓ src/reporting/__tests__/quota-preflight.integration.test.ts (8 tests) 12505ms
+ ✓ src/reporting/__tests__/report-layout-preview.test.ts (1 test) 160ms
+ ✓ src/reporting/__tests__/render-png-resolution.test.ts (8 tests) 95ms
+ ✓ src/reporting/__tests__/svg-templates.test.ts (6 tests) 125ms
+ ✓ src/reporting/__tests__/company-monthly-contract.test.ts (3 tests) 62ms
+ ✓ src/directory/connector.test.ts (11 tests) 25ms
+ ✓ src/reporting/__tests__/daily-token-report.test.ts (3 tests) 57ms
+ ✓ src/reporting/__tests__/format-utils.test.ts (20 tests) 20ms
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-checks.test.ts > probes internal services read-only and isolates each failure
+{"event":"infrastructure_health_failed","task":"health:redis"}
+
+ ✓ src/runtime-assurance/infrastructure-checks.test.ts (2 tests) 3ms
+ ✓ src/__tests-integration__/provider-finance-quiescence-worker.integration.test.ts (3 tests) 11270ms
+ ✓ src/runtime-assurance/scheduler.test.ts (4 tests) 26ms
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:gateway"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:control-api"}
+
+stderr | src/runtime-assurance/infrastructure-probes.test.ts > checks both HTTP failures, absent bodies and the default environment/fetch paths
+{"event":"infrastructure_health_failed","task":"health:database"}
+
+ ✓ src/runtime-assurance/infrastructure-probes.test.ts (6 tests) 12ms
+ ✓ src/runtime-assurance/scheduler-loop.test.ts (6 tests) 8ms
+ ✓ src/subscription-renewal/runner.test.ts (3 tests) 4ms
+ ✓ src/reporting/__tests__/quote-library.test.ts (6 tests) 8ms
+ ✓ src/operating-bill/runner.test.ts (4 tests) 5ms
+ ✓ src/usage-aggregate/runner.test.ts (2 tests) 4ms
+ ✓ src/runtime-assurance/__tests__/wecom-client-media.test.ts (3 tests) 5ms
+stderr | src/__tests-integration__/runtime-assurance-worker.test.ts > RA-W05A/W05B/W06 Worker 闭环 > 调度循环成功和失败均更新健康状态并响应停止信号
+{"event":"runtime_assurance_tick_failed","error_type":"TypeError"}
+
+stderr | src/runtime-assurance/observed-task.test.ts > database failure does not replace the original error; recovery flushes the pending failure first
+{"event":"task_fault_record_unavailable","task":"task"}
+
+ ✓ src/runtime-assurance/observed-task.test.ts (3 tests) 5ms
+ ✓ src/reporting/__tests__/monthly-period.test.ts (13 tests) 9ms
+ ✓ src/runtime-assurance/scheduled-tasks.test.ts (3 tests) 4ms
+ ✓ src/__tests-integration__/runtime-assurance-worker.test.ts (5 tests) 11561ms
+   ✓ RA-W05A/W05B/W06 Worker 闭环 > 无页面访问自动恢复，触发／恢复各向本人 userid 发送一次  381ms
+ ✓ src/reporting/__tests__/delivery-scheduler.test.ts (12 tests) 5ms
+ ❯ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests | 1 failed) 9696ms
+   × standalone reporting on existing production schema > does not require or create monthly quota tables; employee totals and models share one scope 53ms
+     → column rule.source_status does not exist
+   ✓ standalone reporting on existing production schema > uses the quota month containing the report final instant 1ms
+ ✓ src/reporting/__tests__/report-jobs.test.ts (4 tests) 2ms
+ ✓ src/reporting/__tests__/model-report-labels.integration.test.ts (4 tests) 30362ms
+   ✓ report model identity and complete counts > counts four used models before limiting the table to three without changing any totals  6281ms
+   ✓ report model identity and complete counts > retains principal, tenant and exclusive time-range filters for both count and Top3  3358ms
+   ✓ report model identity and complete counts > the actual daily job passes four to the renderer while keeping the original three rows  6683ms
+ ✓ src/reporting/__tests__/milestone-store.integration.test.ts (1 test) 45077ms
+   ✓ Redis milestone compatibility receipts > parallel or resumed success increments the weekly win count once  45076ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/reporting/__tests__/report-facts-legacy.integration.test.ts > standalone reporting on existing production schema > does not require or create monthly quota tables; employee totals and models share one scope
+error: column rule.source_status does not exist
+ ❯ ../../node_modules/.pnpm/pg@8.16.3/node_modules/pg/lib/client.js:545:17
+ ❯ PostgresConnection.executeQuery ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:90:49
+ ❯ ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+ ❯ PostgresConnection.executeQuery ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/dialect/postgres/postgres-driver.js:102:41
+ ❯ ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:28
+ ❯ SingleConnectionProvider.#run ../../../%E4%BB%9F%E6%B5%81%E6%99%BA%E7%AE%97-api-decouple/node_modules/.pnpm/kysely@0.28.17/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 35 passed (36)
+      Tests  1 failed | 199 passed (200)
+   Start at  19:54:52
+   Duration  70.63s (transform 1.67s, setup 0ms, collect 20.96s, tests 235.56s, environment 4ms, prepare 2.06s)
+
+/Users/mac/Projects/仟流智算-api-decouple/apps/worker:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @qianliu/worker@0.3.0 test: `vitest run --config ../../vitest.config.ts`
+Exit status 1

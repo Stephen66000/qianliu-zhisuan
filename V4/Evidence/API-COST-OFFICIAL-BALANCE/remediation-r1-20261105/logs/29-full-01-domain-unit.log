@@ -1,0 +1,34 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/domain
+
+ ✓ src/__tests__/project-allocation.test.ts (12 tests) 19ms
+ ✓ src/__tests__/api-multiplier.test.ts (11 tests) 28ms
+ ✓ src/employee-quota-period.test.ts (11 tests) 46ms
+ ✓ src/__tests__/runtime-assurance.test.ts (9 tests) 41ms
+ ✓ src/__tests__/dispatch-policy.test.ts (41 tests) 55ms
+ ✓ src/__tests__/billing-rule.test.ts (33 tests) 54ms
+ ✓ src/__tests__/provider-finance-activation-projection.test.ts (51 tests) 57ms
+ ✓ src/__tests__/provider-finance-activation.test.ts (35 tests) 20ms
+ ✓ src/__tests__/provider-finance-activation-hardening.test.ts (40 tests) 47ms
+ ✓ src/__tests__/routing-policy.test.ts (11 tests) 56ms
+ ✓ src/__tests__/quota-block.test.ts (17 tests) 12ms
+ ✓ src/__tests__/client-identity.test.ts (10 tests) 5ms
+ ✓ src/__tests__/provider-finance-pre-release-coverage.test.ts (8 tests) 13ms
+ ✓ src/__tests__/project-allocation-policy.test.ts (13 tests) 8ms
+ ✓ src/__tests__/provider-finance-activation-summary.test.ts (8 tests) 27ms
+ ✓ src/__tests__/resource-lifecycle.test.ts (30 tests) 5ms
+ ✓ src/__tests__/model-display-name.test.ts (23 tests) 10ms
+ ✓ src/__tests__/ip-allowlist.test.ts (8 tests) 5ms
+ ✓ src/__tests__/supply-forecast.test.ts (16 tests) 5ms
+ ✓ src/__tests__/reconciliation.test.ts (10 tests) 4ms
+ ✓ src/__tests__/domain.test.ts (5 tests) 4ms
+ ✓ src/__tests__/quota-gate.test.ts (11 tests) 3ms
+
+ Test Files  22 passed (22)
+      Tests  413 passed (413)
+   Start at  15:30:59
+   Duration  2.00s (transform 723ms, setup 0ms, collect 3.27s, tests 523ms, environment 3ms, prepare 3.53s)
+
+EXIT_CODE=0

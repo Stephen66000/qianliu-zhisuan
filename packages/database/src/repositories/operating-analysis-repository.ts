@@ -4,6 +4,11 @@ import type { Database } from "../kysely.js";
 import { ProviderFinanceRepository } from "./provider-finance-repository.js";
 import { operatingBillMonthRange } from "./operating-bill-month.js";
 import {
+  buildAnalysisApiAccounts,
+  buildAnalysisApiReviews,
+  loadAnalysisEstimationByMonthProvider,
+} from "./operating-analysis-api-accounts.js";
+import {
   addAnalysis,
   AnalysisDecimal,
   analysisMonthUsage,
@@ -186,78 +191,14 @@ export async function loadOperatingAnalysis(
             ),
         ),
       ].sort();
-      const apiAccounts = keys.map((key) => {
-        const [providerCode, currency] = key.split(":") as [string, string];
-        return {
-          providerCode,
-          providerName:
-            facts.usage.find((row) => row.provider_code === providerCode)
-              ?.provider_name ??
-            cashRows.find((row) => row.provider_code === providerCode)
-              ?.provider_name ??
-            providerCode,
-          currency,
-          months: months.map((month, i) => {
-            const resources = views[i]!.filter(
-              (view) =>
-                view.mode === "API" && view.providerCode === providerCode,
-            );
-            const accounts = resources.flatMap((view) =>
-              view.accounts.filter((account) => account.currency === currency),
-            );
-            const valid = month <= currentMonth && accounts.length > 0;
-            const paid = cashRows.filter((row) => row.month === month && row.currency === currency
-              && resources.some((resource) => resource.resourceId === row.resource_id));
-            return {
-              month,
-              openingBalance:
-                valid &&
-                accounts.every(
-                  (a) =>
-                    a.monthOpeningState === "NORMAL" &&
-                    a.monthOpeningBalance !== null,
-                )
-                  ? addAnalysis(
-                      accounts.map((a) => a.monthOpeningBalance!),
-                    ).toFixed(2)
-                  : null,
-              recharge: valid
-                ? addAnalysis(accounts.map((a) => a.monthlyRecharge)).toFixed(2)
-                : null,
-              paidCny: month <= currentMonth
-                ? paid.some((row) => row.cash === null) ? null : addAnalysis(paid.map((row) => row.cash!)).toFixed(2)
-                : null,
-              apiSpend: valid && accounts.every((a) => a.balanceState !== "LEGACY_ARCHIVED") ? addAnalysis(accounts.map((a) => a.monthlyApiCost)).toFixed(2) : null,
-              apiSpendComplete: valid && accounts.every((a) => a.balanceState !== "INCOMPLETE_USAGE_COST" && a.balanceState !== "LEGACY_ARCHIVED"),
-              endingBalance:
-                valid &&
-                accounts.every(
-                  (a) => a.balanceState === "NORMAL" && a.balance !== null,
-                )
-                  ? addAnalysis(accounts.map((a) => a.balance!)).toFixed(2)
-                  : null,
-            };
-          }),
-        };
+      const providerCodes = [...new Set(keys.map((key) => key.split(":")[0]!))];
+      const estimationByMonthProvider = await loadAnalysisEstimationByMonthProvider(
+        trx, enterpriseId, months, selectedMonth, now, providerCodes, views,
+      );
+      const apiAccounts = buildAnalysisApiAccounts({
+        keys, months, currentMonth, facts, cashRows, views, estimationByMonthProvider,
       });
-      const apiReviews = apiAccounts.map((account) => {
-        const rows = account.months.slice(0, monthNumber);
-        const total = (field: "recharge" | "paidCny" | "apiSpend") =>
-          rows.every((row) => row[field] !== null)
-            ? addAnalysis(rows.map((row) => row[field]!)).toFixed(2)
-            : null;
-        return {
-          ...account,
-          totals: {
-            openingBalance: rows[0]?.openingBalance ?? null,
-            recharge: total("recharge"),
-            paidCny: total("paidCny"),
-            apiSpend: rows.some((row) => row.apiSpend !== null) ? addAnalysis(rows.map((row) => row.apiSpend ?? "0")).toFixed(2) : null,
-            apiSpendComplete: rows.every((row) => row.apiSpendComplete),
-            endingBalance: rows.at(-1)?.endingBalance ?? null,
-          },
-        };
-      });
+      const apiReviews = buildAnalysisApiReviews(apiAccounts, monthNumber);
       const firstUsageMonth = facts.usage.map((row) => row.month).sort()[0] ?? selectedMonth;
       const ytd = usageMonths.slice(0, monthNumber).filter((row) => row.month >= firstUsageMonth),
         prior = ytd.slice(0, -1);

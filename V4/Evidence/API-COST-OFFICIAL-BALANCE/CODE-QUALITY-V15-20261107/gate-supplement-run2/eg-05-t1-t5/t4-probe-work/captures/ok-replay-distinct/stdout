@@ -1,0 +1,2 @@
+0
+replay: OK shadow=shadow_ok shadow_head=0091_recorded_cost_accounting_policy（ON CONFLICT (id) DO UPDATE 全列投影，二次执行幂等）

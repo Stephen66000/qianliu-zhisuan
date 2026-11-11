@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+
+{"level":30,"time":1794045876009,"pid":96336,"hostname":"Stephen-macbook.local","msg":"Server listening at http://127.0.0.1:56015"}
+{"level":30,"time":1794045876015,"pid":96336,"hostname":"Stephen-macbook.local","reqId":"5b8b483f-a1a3-455f-b79d-18fdef043788","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045876109,"pid":96336,"hostname":"Stephen-macbook.local","reqId":"5b8b483f-a1a3-455f-b79d-18fdef043788","res":{"statusCode":200},"responseTime":93.43720799999983,"msg":"request completed"}
+{"level":30,"time":1794045876111,"pid":96336,"hostname":"Stephen-macbook.local","reqId":"d60541f6-a75f-40a8-9cc4-86e1790d7e6b","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045876167,"pid":96336,"hostname":"Stephen-macbook.local","reqId":"d60541f6-a75f-40a8-9cc4-86e1790d7e6b","res":{"statusCode":200},"responseTime":55.528499999999894,"msg":"request completed"}
+ ✓ src/__tests-integration__/cq-r1-02-source-status-freeze.test.ts (3 tests) 2386ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:04:32
+   Duration  4.33s (transform 872ms, setup 0ms, collect 1.75s, tests 2.39s, environment 0ms, prepare 39ms)
+

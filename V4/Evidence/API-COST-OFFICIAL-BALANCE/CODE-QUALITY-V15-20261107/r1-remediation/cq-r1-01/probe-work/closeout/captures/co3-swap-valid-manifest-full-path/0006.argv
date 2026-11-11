@@ -1,0 +1,10 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$db" "$@"
+sh
+synthetic_live
+-Atq
+-c
+SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='provider'

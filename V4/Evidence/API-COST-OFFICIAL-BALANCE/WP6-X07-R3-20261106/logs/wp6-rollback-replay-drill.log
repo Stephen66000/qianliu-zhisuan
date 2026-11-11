@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts (7 tests) 23822ms
+   ✓ AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放） > 断言 A：check-contract 只读实测＋主键反连接增量导出——清单行数/sha256/0092 域全量与期望逐表一致  11213ms
+   ✓ AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放） > 断言 C：恢复段——整库恢复到备份点 0091，备份点摘要与 T0 逐字一致，0092 域表不存在  2121ms
+   ✓ AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放） > 断言 D：重放 0092＋增量回放——15 表「live 摘要＝回放后摘要」逐字在库，inserted 数与清单一致  2849ms
+   ✓ AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放） > 断言 E：幂等重放——二次回放 inserted 全 0、15 表摘要不变  1890ms
+   ✓ AT-X07 R3：主路线 v2 演练（增量导出→恢复 0091→重放 0092→增量回放） > 断言 G（组 2）：旧栈（ae506fe）读/结算恢复库——准入含无 finance 行资源、逐行读切换前后金额、旧结算落库、窗口聚合、额度读  753ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  14:02:31
+   Duration  26.72s (transform 1.20s, setup 0ms, collect 2.50s, tests 23.82s, environment 0ms, prepare 69ms)
+

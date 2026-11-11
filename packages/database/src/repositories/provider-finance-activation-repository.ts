@@ -381,28 +381,21 @@ export class ProviderFinanceActivationRepository {
   /**
    * 排空证据（PFA-09）。任一计数非零即不得激活。
    *
-   * `options.excludeLedgerLineIds` **只**豁免「未结算/未分类 ledger 行」这一个计数，
-   * 用来放行**候选已经冻结、并将在同一激活事务内被确定性修复**的四字段历史用量行。
-   * 没有这个出口，切换时点之后创建、`settled_at IS NULL` 但已判定可修复的终态行
-   * 会被一律当作「在途结算」，使 PFH-04 的四字段修复主路径在生产上不可达。
-   *
-   * 豁免边界是严格的，调用方（协调器）必须同时满足：
-   * - 已经锁定候选行并验证 GO 结论、TTL、候选哈希与事实水位；
-   * - 传入的 ID 必须逐字等于候选存档的 `usage_repair_baseline` 主键，
-   *   因此预检之后新增的行、以及任何非候选行都拿不到豁免；
-   * - `IN_PROGRESS` 请求、未结束 `upstream_attempt`、`PENDING` 交易**永不豁免**：
-   *   它们是真正的在途工作，不是"等待确定性修复的历史事实"。
-   *
-   * 真正的安全网不在本方法：候选复验会逐行比对修复基准哈希，四字段修复原语
-   * 还会在 `FOR UPDATE` 之后逐行复验非目标哈希，任何变化都会以 `CANDIDATE_STALE`
-   * 让整个事务回滚。
+   * WP2-S4 / AFR-04（plan §4a-R3）：`unpairedUsageLines`/`exoneratedUsageLines` **恒为 0**。
+   * 原计数只统计「切换时点后创建、`api_cost_status IS NULL` 的 API ledger 行」——那是
+   * 纯 API 资金域的在途分类语义；初始化合同切分为套餐所需范围后，候选不再包含任何
+   * API 资金事实，API 用量分类状态与激活完整性无关（AFR-01 场景3：纯套餐初始化不得被
+   * API 残留阻塞），故整段计数 SQL 移除。**在途工作三项（IN_PROGRESS 请求、未结束
+   * upstream_attempt、PENDING ledger_transaction）语义不动**——它们是真实的模式无关在途。
+   * `options.excludeLedgerLineIds` 参数保留以兼容调用点签名（原豁免出口只作用于已移除的
+   * API 计数；候选存档的 `usage_repair_baseline` 仍由协调器逐行复验保护）。
    */
   async collectDrainReport(
     enterpriseId: string, trx?: Transaction<Database>,
     options?: { excludeLedgerLineIds?: readonly string[] },
   ): Promise<QuiescenceDrainReport> {
+    void options;
     const executor = this.executor(trx);
-    const exonerated = options?.excludeLedgerLineIds ?? [];
     const inProgress = await executor.selectFrom("ai_request")
       .select(({ fn }) => fn.countAll<string>().as("count"))
       .where("enterprise_id", "=", enterpriseId)
@@ -413,24 +406,6 @@ export class ProviderFinanceActivationRepository {
       .where("enterprise_id", "=", enterpriseId)
       .where("finished_at", "is", null)
       .executeTakeFirst();
-    // 「未结算/未分类」行的唯一豁免出口。`<> ALL(ARRAY[...]::uuid[])` 必须显式包成数组：
-    // `sql.join` 只产出逗号列表（行表达式），直接写 `<> ALL(...)` 会被 PostgreSQL 以 42809 拒绝。
-    const exclusion = exonerated.length === 0
-      ? sql`true`
-      : sql`line.id <> ALL(ARRAY[${sql.join(exonerated.map((id) => sql`${id}::uuid`))}]::uuid[])`;
-    const countedUsage = sql<{ count: string }>`
-      SELECT COUNT(*)::text AS count FROM ledger_line line
-       WHERE line.enterprise_id=${enterpriseId}::uuid
-         AND line.api_cost_status IS NULL
-         AND line.resource_mode='API'
-         AND line.created_at>=${new Date("2026-08-31T16:00:00.000Z")}`;
-    const inclusion = exonerated.length === 0
-      ? sql`false`
-      : sql`line.id = ANY(ARRAY[${sql.join(exonerated.map((id) => sql`${id}::uuid`))}]::uuid[])`;
-    const [unpairedUsage, exoneratedUsage] = await Promise.all([
-      sql<{ count: string }>`${countedUsage} AND ${exclusion}`.execute(executor),
-      sql<{ count: string }>`${countedUsage} AND ${inclusion}`.execute(executor),
-    ]);
     const pendingTransactions = await executor.selectFrom("ledger_transaction")
       .select(({ fn }) => fn.countAll<string>().as("count"))
       .where("enterprise_id", "=", enterpriseId)
@@ -439,9 +414,9 @@ export class ProviderFinanceActivationRepository {
     const report: QuiescenceDrainReport = {
       inProgressRequests: Number(inProgress?.count ?? 0),
       openAttempts: Number(openAttempts?.count ?? 0),
-      unpairedUsageLines: Number(unpairedUsage.rows[0]?.count ?? 0),
+      unpairedUsageLines: 0,
       pendingLedgerTransactions: Number(pendingTransactions?.count ?? 0),
-      exoneratedUsageLines: Number(exoneratedUsage.rows[0]?.count ?? 0),
+      exoneratedUsageLines: 0,
       drained: false,
     };
     report.drained = report.inProgressRequests === 0 && report.openAttempts === 0
@@ -556,6 +531,10 @@ export class ProviderFinanceActivationRepository {
 
   /**
    * 激活用资源级就绪提升（PFA-04 步骤 11、PFH-07）。
+   *
+   * WP2-S4（plan §4a-R5）：activate 已不再调用本方法——资源级资金就绪随 API 资金管理
+   * 退役，激活不再对 scope 内 API 资源 promote READY。方法**保留存档**（合同明示），
+   * 供历史核对与测试直插使用；无生产调用方。
    *
    * 与 `markResourceFinanceReady` 的区别：后者只允许把**已纳入门禁的 PENDING 行**置为 READY，
    * 用于企业激活后新增的 API 资源；而企业激活本身要为激活范围内的历史 API 资源

@@ -1,0 +1,48 @@
+# R2-1 clock skew probe — 2026-11-05T11:48:24Z
+# host: arm64 / 27.2 / colima docker.sock
+HOST_DATE_LOCAL=2026-11-05 19:48:24 +0800
+HOST_DATE_UTC=2026-11-05T11:48:24.893855000Z
+PG_DATE_LOCAL=2026-11-05 11:48:26 +0000
+PG_DATE_UTC=2026-11-05T11:48:26.
+--- probe(qianliu-pg) ---
+{"probe":"clock-skew-probe (R2-1 / C1)","target":"qianliu-pg 127.0.0.1:55432/qianliu","node":"v22.17.1","nodeTZ":"Asia/Taipei","dockerHost":"unix:///Users/mac/.colima/default/docker.sock","dbServerVersion":"17.11","dbTimeZone":"UTC","dbClockFirstRead":"2026-11-05 11:48:27.796637+00","samples":9}
+{"i":0,"host_before_ms":1793879306616,"host_after_ms":1793879306623,"host_mid_ms":1793879306619.5,"db_ms":1793879307837.099,"skew_ms":1217.599,"db_clock_text":"2026-11-05 11:48:27.837276+00","host_mid_iso":"2026-11-05T11:48:26.619Z","rtt_ms":7}
+{"i":1,"host_before_ms":1793879306746,"host_after_ms":1793879306747,"host_mid_ms":1793879306746.5,"db_ms":1793879307961.774,"skew_ms":1215.274,"db_clock_text":"2026-11-05 11:48:27.961778+00","host_mid_iso":"2026-11-05T11:48:26.746Z","rtt_ms":1}
+{"i":2,"host_before_ms":1793879306869,"host_after_ms":1793879306870,"host_mid_ms":1793879306869.5,"db_ms":1793879308084.484,"skew_ms":1214.984,"db_clock_text":"2026-11-05 11:48:28.08449+00","host_mid_iso":"2026-11-05T11:48:26.869Z","rtt_ms":1}
+{"i":3,"host_before_ms":1793879306992,"host_after_ms":1793879306994,"host_mid_ms":1793879306993,"db_ms":1793879308208.386,"skew_ms":1215.386,"db_clock_text":"2026-11-05 11:48:28.208393+00","host_mid_iso":"2026-11-05T11:48:26.993Z","rtt_ms":2}
+{"i":4,"host_before_ms":1793879307116,"host_after_ms":1793879307122,"host_mid_ms":1793879307119,"db_ms":1793879308336.326,"skew_ms":1217.326,"db_clock_text":"2026-11-05 11:48:28.336331+00","host_mid_iso":"2026-11-05T11:48:27.119Z","rtt_ms":6}
+{"i":5,"host_before_ms":1793879307244,"host_after_ms":1793879307245,"host_mid_ms":1793879307244.5,"db_ms":1793879307244.642,"skew_ms":0.142,"db_clock_text":"2026-11-05 11:48:27.244646+00","host_mid_iso":"2026-11-05T11:48:27.244Z","rtt_ms":1}
+{"i":6,"host_before_ms":1793879307366,"host_after_ms":1793879307373,"host_mid_ms":1793879307369.5,"db_ms":1793879307371.763,"skew_ms":2.263,"db_clock_text":"2026-11-05 11:48:27.371768+00","host_mid_iso":"2026-11-05T11:48:27.369Z","rtt_ms":7}
+{"i":7,"host_before_ms":1793879307494,"host_after_ms":1793879307497,"host_mid_ms":1793879307495.5,"db_ms":1793879307496.041,"skew_ms":0.541,"db_clock_text":"2026-11-05 11:48:27.496047+00","host_mid_iso":"2026-11-05T11:48:27.495Z","rtt_ms":3}
+{"i":8,"host_before_ms":1793879307622,"host_after_ms":1793879307624,"host_mid_ms":1793879307623,"db_ms":1793879307623.627,"skew_ms":0.627,"db_clock_text":"2026-11-05 11:48:27.62363+00","host_mid_iso":"2026-11-05T11:48:27.623Z","rtt_ms":2}
+{"summary":{"skew_min_ms":0.142,"skew_max_ms":1217.599,"skew_mean_ms":676.016,"direction":"DB_LEADS_HOST","rtt_max_ms":7,"same_instant_example":{"db_clock_text":"2026-11-05 11:48:27.62363+00","host_iso_at_same_instant":"2026-11-05T11:48:27.623Z"}}}
+EXIT_QIANLIU_PG=0
+--- probe(temp-testcontainer) ---
+PROBE_FAILED Error: (HTTP code 500) server error - error while creating mount source path '/Users/mac/.colima/default/docker.sock': mkdir /Users/mac/.colima/default/docker.sock: operation not supported 
+    at /Users/mac/Projects/仟流智算-api-decouple/node_modules/.pnpm/docker-modem@5.0.7/node_modules/docker-modem/lib/modem.js:389:17
+    at getCause (/Users/mac/Projects/仟流智算-api-decouple/node_modules/.pnpm/docker-modem@5.0.7/node_modules/docker-modem/lib/modem.js:424:7)
+    at Modem.buildPayload (/Users/mac/Projects/仟流智算-api-decouple/node_modules/.pnpm/docker-modem@5.0.7/node_modules/docker-modem/lib/modem.js:385:5)
+    at IncomingMessage.<anonymous> (/Users/mac/Projects/仟流智算-api-decouple/node_modules/.pnpm/docker-modem@5.0.7/node_modules/docker-modem/lib/modem.js:353:16)
+    at IncomingMessage.emit (node:events:530:35)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  reason: 'server error',
+  statusCode: 500,
+  json: {
+    message: "error while creating mount source path '/Users/mac/.colima/default/docker.sock': mkdir /Users/mac/.colima/default/docker.sock: operation not supported"
+  }
+}
+EXIT_TESTCONTAINER=1
+--- probe(temp-testcontainer, RYUK disabled retry) --- 2026-11-05T11:48:45Z
+{"probe":"clock-skew-probe (R2-1 / C1)","target":"temp-testcontainer (postgres:17-alpine, @qianliu/testing digest)","node":"v22.17.1","nodeTZ":"Asia/Taipei","dockerHost":"unix:///Users/mac/.colima/default/docker.sock","dbServerVersion":"17.10","dbTimeZone":"UTC","dbClockFirstRead":"2026-11-05 11:48:49.990057+00","samples":9}
+{"i":0,"host_before_ms":1793879328677,"host_after_ms":1793879328679,"host_mid_ms":1793879328678,"db_ms":1793879330004.832,"skew_ms":1326.832,"db_clock_text":"2026-11-05 11:48:50.004898+00","host_mid_iso":"2026-11-05T11:48:48.678Z","rtt_ms":2}
+{"i":1,"host_before_ms":1793879328801,"host_after_ms":1793879328803,"host_mid_ms":1793879328802,"db_ms":1793879330128.543,"skew_ms":1326.543,"db_clock_text":"2026-11-05 11:48:50.128547+00","host_mid_iso":"2026-11-05T11:48:48.802Z","rtt_ms":2}
+{"i":2,"host_before_ms":1793879328923,"host_after_ms":1793879328925,"host_mid_ms":1793879328924,"db_ms":1793879330250.5,"skew_ms":1326.5,"db_clock_text":"2026-11-05 11:48:50.250505+00","host_mid_iso":"2026-11-05T11:48:48.924Z","rtt_ms":2}
+{"i":3,"host_before_ms":1793879329047,"host_after_ms":1793879329050,"host_mid_ms":1793879329048.5,"db_ms":1793879330375.691,"skew_ms":1327.191,"db_clock_text":"2026-11-05 11:48:50.37571+00","host_mid_iso":"2026-11-05T11:48:49.048Z","rtt_ms":3}
+{"i":4,"host_before_ms":1793879329171,"host_after_ms":1793879329173,"host_mid_ms":1793879329172,"db_ms":1793879330498.291,"skew_ms":1326.291,"db_clock_text":"2026-11-05 11:48:50.498294+00","host_mid_iso":"2026-11-05T11:48:49.172Z","rtt_ms":2}
+{"i":5,"host_before_ms":1793879329294,"host_after_ms":1793879329295,"host_mid_ms":1793879329294.5,"db_ms":1793879330620.975,"skew_ms":1326.475,"db_clock_text":"2026-11-05 11:48:50.620981+00","host_mid_iso":"2026-11-05T11:48:49.294Z","rtt_ms":1}
+{"i":6,"host_before_ms":1793879329417,"host_after_ms":1793879329419,"host_mid_ms":1793879329418,"db_ms":1793879330744.366,"skew_ms":1326.366,"db_clock_text":"2026-11-05 11:48:50.744371+00","host_mid_iso":"2026-11-05T11:48:49.418Z","rtt_ms":2}
+{"i":7,"host_before_ms":1793879329539,"host_after_ms":1793879329541,"host_mid_ms":1793879329540,"db_ms":1793879330866.697,"skew_ms":1326.697,"db_clock_text":"2026-11-05 11:48:50.866701+00","host_mid_iso":"2026-11-05T11:48:49.540Z","rtt_ms":2}
+{"i":8,"host_before_ms":1793879329661,"host_after_ms":1793879329664,"host_mid_ms":1793879329662.5,"db_ms":1793879330988.779,"skew_ms":1326.279,"db_clock_text":"2026-11-05 11:48:50.988783+00","host_mid_iso":"2026-11-05T11:48:49.662Z","rtt_ms":3}
+{"summary":{"skew_min_ms":1326.279,"skew_max_ms":1327.191,"skew_mean_ms":1326.575,"direction":"DB_LEADS_HOST","rtt_max_ms":3,"same_instant_example":{"db_clock_text":"2026-11-05 11:48:50.988783+00","host_iso_at_same_instant":"2026-11-05T11:48:50.988Z"}}}
+EXIT_TESTCONTAINER=0

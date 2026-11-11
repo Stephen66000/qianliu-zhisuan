@@ -7,7 +7,12 @@ import { createAnalysisFixture, seedAnalysisUsage } from "./fixtures/operating-a
 let pg: PostgresTestInstance;
 let db: ReturnType<typeof createKysely>;
 beforeAll(async () => { pg = await startPostgresContainer(); db = createKysely(pg.connectionString); await migrateToLatest(db); }, 120000);
-afterAll(async () => { await db?.destroy(); await pg?.stop(); });
+afterAll(async () => { await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1
+  // （R2-2 干净复跑 a2 批实测，见 r2-12 日志）。
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await pg?.stop(); });
 const now = new Date("2026-09-07T00:00:00Z");
 
 it("three months of data use three as denominator; zero-consumption failed audit rows do not taint month quality", async () => {
@@ -144,7 +149,10 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   await db.updateTable("upstream_attempt").set({response_committed:false}).where("ai_request_id","=",failed).execute();
   await db.updateTable("ledger_line").set({api_cost:null,api_cost_currency:null,api_cost_status:"UNKNOWN_COST"}).where("ai_request_id","=",failed).execute();
   expect(await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now)).toMatchObject({state:"INCOMPLETE_USAGE_COST",balance:null});
-  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:null});
+  // 断言迁移（WP2-S5 B / WP1 合同 §4 裁定 2 / ACE-04）：账单 summary 金额权威切同源
+  // 估算——已计价 2.50 CNY 照出（KNOWN_PARTIAL 单币种已知部分不因未计价记录隐藏，
+  // 缺口由 apiSpendReason 估算缺口码说明），不再按资金域 fail-closed 整体置 null。
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
   let report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.summary.companyTokens).toBe("100");
   expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
@@ -153,7 +161,7 @@ it("failed zero-consumption API record cannot hide known spending; a real unpric
   expect((await finance.getCurrentBalance(t.enterpriseId,resourceId,"CNY",now))?.state).toBe("INCOMPLETE_USAGE_COST");
   report=await loadOperatingAnalysis(db,t.enterpriseId,"2026-09",now);
   expect(report.apiAccounts[0]?.months[8]).toMatchObject({apiSpend:"2.50",apiSpendComplete:false});
-  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:null});
+  expect((await new OperatingBillRepository(db,"ACTIVE").getBill(t.enterpriseId,"2026-09")).summary).toMatchObject({apiCost:"2.50000000"});
   const accounts=await new OperatingBillAccountRepository(db).listAccounts(t.enterpriseId,"2026-09","EMPLOYEE",{limit:20,offset:0});
   expect(accounts.totals).toMatchObject({apiCost:null,knownApiCost:"2.50000000"});
   const departments=await loadOperatingDepartmentAccounts(db,t.enterpriseId,"2026-09");

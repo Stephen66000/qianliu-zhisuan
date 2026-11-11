@@ -1,0 +1,20 @@
+文件                                               行   C cov01    CRAP
+repositories/official-balance-sync-writes.ts    20  17     1    17.0
+provider-operating-sync/runner.ts              101  14     1    14.0
+repositories/official-balance-refresh-repository.ts    74   9     1     9.0
+repositories/official-balance-states.ts         88   8     1     8.0
+repositories/api-cost-estimation.ts            369   8     1     8.0
+repositories/official-balance-refresh-repository.ts    35   5     1     5.0
+repositories/api-cost-estimation.ts            241   4     1     4.0
+repositories/api-cost-estimation.ts            161   4     1     4.0
+provider-operating-sync/runner.ts               81   4     1     4.0
+provider-operating-sync/runner.ts               63   4     1     4.0
+provider-operating-sync/runner.ts               40   4     1     4.0
+repositories/official-balance-sync-writes.ts    84   3     1     3.0
+repositories/api-cost-estimation.ts            293   3     1     3.0
+providers/official-balance-routes.ts            36   3     1     3.0
+provider-operating-sync/runner.ts               51   2     1     2.0
+repositories/official-balance-sync-writes.ts   127   1     1     1.0
+
+函数总数 41；可算 CRAP 26（N/A＝eslint 上报行与 istanbul 声明行 ±3 未匹配）
+取数法：复杂度＝eslint --rule complexity:0 逐函数上报（内联分析规则，未改配置文件）；覆盖率＝istanbul coverage-final.json 的 f 计数器（函数被调布尔 0/1）；CRAP＝c²(1−cov)³+c（cov 0–1）。限制如实标注：istanbul 函数覆盖为调用布尔而非连续比例，CRAP 数值按布尔口径；未用文件级覆盖率冒充函数级。未覆盖函数（cov=0）与高复杂度项见上表排序。

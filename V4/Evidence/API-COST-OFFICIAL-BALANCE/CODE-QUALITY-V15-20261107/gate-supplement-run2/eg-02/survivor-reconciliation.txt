@@ -1,0 +1,8 @@
+报告总变异 7；killed None；survived 7
+id=0 ?:166 [BooleanLiteral] -> 'true' status=Survived
+id=174 ?:174 [ConditionalExpression] -> 'false' status=Survived
+id=175 ?:174 [EqualityOperator] -> 'a.getTime() >= b.getTime()' status=Survived
+id=206 ?:205 [MethodExpression] -> 'states' status=Survived
+id=207 ?:205 [ArrowFunction] -> '() => undefined' status=Survived
+id=16 ?:250 [ArithmeticOperator] -> 'aggregate.not_migrated_rows + aggregate.' status=Survived
+id=61 ?:377 [ConditionalExpression] -> 'false' status=Survived

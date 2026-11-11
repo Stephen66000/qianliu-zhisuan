@@ -98,6 +98,8 @@ export interface UsageOverview {
     activeSubjects: number; requestCount: string; inputTokens: string; outputTokens: string;
     realTokens: string; cacheTokens: string; reasoningTokens: string;
     apiCost: string | null; apiCostStatus?: string; deductedQuota: string;
+    /** S2B（R7 裁定）：窗口级价格依据待核实（企业级同窗口，仅汇总级；主体行/趋势点不透出）。 */
+    priceBasisUnverified?: boolean;
     usageQuality: "NO_DATA" | "PROVIDER_REPORTED" | "ESTIMATED" | "ACCOUNT_AGGREGATED" | "MIXED" | "UNKNOWN";
     providerReportedCount: number; estimatedCount: number; accountAggregatedCount: number;
     mixedCount: number; unknownCount: number;

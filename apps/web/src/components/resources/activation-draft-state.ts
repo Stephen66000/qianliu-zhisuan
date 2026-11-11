@@ -108,10 +108,12 @@ export interface ActivationDraftState {
 
 export type DraftSection = keyof ActivationDraftState;
 
+// WP4-S3 / AFR-01：三类 API 资金草稿区编辑 UI 已退役，标签保留（Record 类型完整）并
+// 标注退役；历史本机草稿中的 API 行仍会以此口径出现在校验提示里。
 export const DRAFT_SECTION_LABELS: Record<DraftSection, string> = {
-  apiOpeningBalances: "API 期初余额",
-  historicalApiRecharges: "历史 API 充值",
-  historicalApiCosts: "历史 API 消耗",
+  apiOpeningBalances: "API 期初余额（已退役）",
+  historicalApiRecharges: "历史 API 充值（已退役）",
+  historicalApiCosts: "历史 API 消耗（已退役）",
   codingPlanPurchases: "Coding Plan 购买/续费",
   codingPlanCarryovers: "跨切换周期",
   legacyResolutions: "旧购买记录关闭",

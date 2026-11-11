@@ -1,0 +1,18 @@
+{"level":30,"time":1793854070420,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-7","req":{"method":"PATCH","url":"/provider-resources/1e679a5b-91c3-47f8-a871-76d825100c2a","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070429,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-7","res":{"statusCode":400},"responseTime":9.381500000000415,"msg":"request completed"}
+
+{"level":30,"time":1793854070442,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-9","req":{"method":"POST","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070447,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-9","res":{"statusCode":400},"responseTime":4.902541000000383,"msg":"request completed"}
+
+{"level":30,"time":1793854070450,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-a","req":{"method":"POST","url":"/provider-resources/onboard","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070455,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-a","res":{"statusCode":400},"responseTime":4.512958000000253,"msg":"request completed"}
+
+{"level":30,"time":1793854070516,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-g","req":{"method":"POST","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070520,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-g","res":{"statusCode":400},"responseTime":3.6905420000002778,"msg":"request completed"}
+
+{"level":30,"time":1793854070520,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-h","req":{"method":"POST","url":"/provider-resources","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070524,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-h","res":{"statusCode":400},"responseTime":3.9895409999999174,"msg":"request completed"}
+
+{"level":30,"time":1793854070900,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-14","req":{"method":"POST","url":"/provider-resources/f3f23fc1-5093-4077-aad7-73c2b41533ab/routes/ef46accc-2ae9-4adb-a99f-c76a039aa412/restore","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1793854070906,"pid":61475,"hostname":"Stephen-macbook.local","reqId":"req-14","res":{"statusCode":400},"responseTime":5.946249999999964,"msg":"request completed"}
+

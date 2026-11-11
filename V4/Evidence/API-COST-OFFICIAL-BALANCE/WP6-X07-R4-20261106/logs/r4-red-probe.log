@@ -1,0 +1,94 @@
+{
+  "phase": "RED(R3 现状)",
+  "checks": [
+    {
+      "id": "A-head",
+      "desc": "回放后水位",
+      "contract": "0092_employee_monthly_quota",
+      "actual": "0092_employee_monthly_quota",
+      "pass": true
+    },
+    {
+      "id": "A1-inflight-request",
+      "desc": "缺口①：in-flight 请求行更新保全（切换后完成结算）",
+      "contract": "status=SUCCEEDED ∧ finished_at 非空",
+      "actual": "status=IN_PROGRESS finished_at=null",
+      "pass": false
+    },
+    {
+      "id": "A2-inflight-attempt",
+      "desc": "缺口①：in-flight attempt 行更新保全",
+      "contract": "finished_at 非空 ∧ response_committed=true",
+      "actual": "finished_at=null committed=false",
+      "pass": false
+    },
+    {
+      "id": "A3-grant-update",
+      "desc": "缺口①：principal_grant 更新保全（额度域配置收紧）",
+      "contract": "quota_value=100000 ∧ allow_overage=false ∧ pool_model_alias='*' ∧ quota_basis='RAW_TOKEN'",
+      "actual": "{\"quota_value\":\"1000000\",\"allow_overage\":true,\"pool_model_alias\":null,\"quota_basis\":null}",
+      "pass": false
+    },
+    {
+      "id": "A4-enterprise-quota-from",
+      "desc": "缺口①：enterprise.employee_quota_monthly_from 保全（0092 域按迁移定义）",
+      "contract": "非空（2026-11-01）",
+      "actual": "null",
+      "pass": false
+    },
+    {
+      "id": "A5-finance-zero",
+      "desc": "红线：期初/充值类 finance 事件＝0",
+      "contract": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "id": "B1-replay-fk-fail",
+      "desc": "缺口②：引用备份后新建订阅周期（白名单外表）的消费使回放失败（fail-closed；period 归属触发器/FK 任一拦截）",
+      "contract": "exit≠0",
+      "actual": "exit=6",
+      "pass": true
+    },
+    {
+      "id": "B2-live-destroyed",
+      "desc": "缺口②红证：回放失败时原 live 已被覆盖（『失败中止库不动』不成立）",
+      "contract": "水位＝0096 且切换后消费仍在（live 未动）",
+      "actual": "水位=0092_employee_monthly_quota（0091＝已被备份点覆盖）",
+      "pass": false
+    },
+    {
+      "id": "B3-consumption-lost",
+      "desc": "缺口②红证：切换后消费随整库覆盖消失",
+      "contract": "request4 行仍在",
+      "actual": "count=0",
+      "pass": false
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh export --container wp6-r4-red-pg --db-live wp6_r4_red_live --db-ref wp6_r4_red_ref --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/a.dump --out-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/a-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh restore --container wp6-r4-red-pg --db-target wp6_r4_red_shadow --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/a.dump",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh replay --container wp6-r4-red-pg --db-target wp6_r4_red_shadow --manifest /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/a-out/manifest.tsv --delta-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/a-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh export --container wp6-r4-red-pg --db-live wp6_r4_red_b_live --db-ref wp6_r4_red_b_ref --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/b.dump --out-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/b-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh restore --container wp6-r4-red-pg --db-target wp6_r4_red_b_live --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/b.dump",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh replay --container wp6-r4-red-pg --db-target wp6_r4_red_b_live --manifest /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/b-out/manifest.tsv --delta-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-Uf47y0/b-out",
+      "exit": 6
+    }
+  ]
+}

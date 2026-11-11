@@ -1,0 +1,9 @@
+runtime node=v22.23.4 start=11:25:58
+=== quality:coverage 全池 ===
+exit[coverage-all]=1
+=== ratchet ===
+exit[ratchet]=1
+pool043-web-operating-bill-accounts: 缺少覆盖率报告 apps/web/coverage/pool043-web/coverage-summary.json（ENOENT）
+pool040-gateway-revoked-settlement: 缺少覆盖率报告 apps/gateway/coverage/pool040-gateway/coverage-summary.json（ENOENT）
+[ELIFECYCLE] Command failed with exit code 1.
+end=11:27:10

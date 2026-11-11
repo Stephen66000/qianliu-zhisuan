@@ -73,6 +73,14 @@ describe("W20-04 用量概览 Web", () => {
     expect(screen.getByRole("combobox", { name: "指定用量主体" })).toHaveValue(projectId);
   });
 
+  // ACE-01（WP4-S2 合同 5）：指标卡与排名表头统一"API费用估算"措辞，不宣称实际扣款。
+  it("指标卡与排名表头使用 API费用估算 命名", () => {
+    renderPanel();
+    expect(screen.getAllByText("API费用估算").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("columnheader", { name: "API费用估算" })).toBeInTheDocument();
+    expect(screen.queryByText("API 费用")).not.toBeInTheDocument();
+  });
+
   it("指标保留数值，移除计量说明与技术来源文案", () => {
     useUsageOverviewMock.mockReturnValue({
       isLoading: false, error: null, refetch: vi.fn(),
@@ -105,6 +113,29 @@ describe("W20-04 用量概览 Web", () => {
       from: "2026-08-09T16:00:00.000Z",
       to_exclusive: "2026-08-16T16:00:00.000Z",
     });
+  });
+
+  // S2B（R7 裁定）：窗口内存在 UNVERIFIED 规则计价行 → API费用估算旁"价格依据待核实"角标。
+  it("汇总级 priceBasisUnverified=true 时 API费用估算显示价格依据待核实角标", () => {
+    useUsageOverviewMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: overview({ metrics: { ...overview().metrics, priceBasisUnverified: true } }),
+    });
+    renderPanel();
+    expect(screen.getByText("价格依据待核实")).toBeInTheDocument();
+  });
+
+  it("priceBasisUnverified 缺省或 false 不显示角标，排名主体行不拆分角标", () => {
+    useUsageOverviewMock.mockReturnValue({
+      isLoading: false, error: null, refetch: vi.fn(),
+      data: overview({ metrics: { ...overview().metrics, priceBasisUnverified: false } }),
+    });
+    renderPanel();
+    expect(screen.queryByText("价格依据待核实")).not.toBeInTheDocument();
+    // 旧后端缺字段（undefined）同样不显示
+    useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, refetch: vi.fn(), data: overview() });
+    renderPanel();
+    expect(screen.queryByText("价格依据待核实")).not.toBeInTheDocument();
   });
 
   it("主体选择器使用服务端搜索与分页", async () => {

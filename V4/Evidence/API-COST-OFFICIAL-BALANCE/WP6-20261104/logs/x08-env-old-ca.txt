@@ -1,0 +1,7 @@
+DATABASE_URL=postgres://postgres:qianliu@127.0.0.1:55434/wp6_x08_drill
+CONTROL_API_PORT=18788
+CONTROL_API_HOST=127.0.0.1
+GATEWAY_KEY_PEPPER=x08-drill-pepper-32bytes-length-ok
+CREDENTIAL_KEK=ZGV2LW9ubHkta2VrLXJlcGxhY2UtaW4tcGlsb3QAAAA=
+COOKIE_SECRET=x08-drill-cookie-secret-at-least-32-bytes!
+PROVIDER_FINANCE_MODE=ACTIVE

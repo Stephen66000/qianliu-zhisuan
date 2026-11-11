@@ -1,0 +1,80 @@
+{
+  "package": "simplify-api-cost-and-official-balance",
+  "task": "X07 R3 重开返修（WP6 主路线 v2＝整库备份恢复＋增量回放）实施＋演练证据",
+  "date": "2026-11-06",
+  "candidate_head_at_impl": "a7a92b9b7a980242fc50bf8523226b1f46358f56",
+  "deliverables": {
+    "script": "deploy/scripts/rollback-delta-20261106.sh (sha256=f7f5ce92a1bea0e554116c49172ff0beef891dbe62ce45c2b706332ed0becf3f)",
+    "drill_test": "packages/database/src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts (sha256=7315ab5baf857fe19765efa9da159d3aa95d8755a52476ae512133160e82d3d2)",
+    "legacy_check": "V4/Evidence/API-COST-OFFICIAL-BALANCE/WP6-X07-R3-20261106/scripts/wp6-r3-legacy-read-check.ts",
+    "fk_closure_basis": "logs/fk-closure-dump.log（0096 水位 343 条 FK 边实测＋闭包计算）",
+    "doc": "openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP6/release-candidate.md §6.1/§6.5"
+  },
+  "whitelist_final": {
+    "replay_order": [
+      "provider",
+      "unified_model",
+      "principal",
+      "principal_key",
+      "provider_resource",
+      "billing_rule",
+      "model_route",
+      "ai_request",
+      "upstream_attempt",
+      "usage_event",
+      "ledger_line",
+      "ledger_transaction",
+      "principal_grant",
+      "principal_quota_period",
+      "principal_quota_usage"
+    ],
+    "fk_forced_additions_beyond_contract_seeds": [
+      "usage_event（ledger_line.usage_event_id NOT NULL→usage_event，0009:26；X07 受保护行集原有成员）",
+      "principal_grant（0092:6 加列＋principal_quota_usage.grant_id NOT NULL FK，0092:31）"
+    ],
+    "resource_pool_resolution": "非独立表——仅 provider_resource.resource_pool_id varchar 列（0010:23），「如存在」分支落空",
+    "external_fk_parents_pre_backup": [
+      "enterprise",
+      "person",
+      "admin_user",
+      "historical_import_run",
+      "employee_model_rule_version",
+      "provider_finance_legacy_cost_resolution",
+      "provider_subscription_period"
+    ],
+    "not_in_replay_face_derived_state": "provider_resource_operating_snapshot/_sync_attempt、usage_bucket_aggregate、quota_counter、dispatch_decision、route_candidate、concurrency_lease、request_attribution_snapshot 等（fk-closure-dump.log reverse-only 清单）"
+  },
+  "drill": {
+    "test_file": "wp6-rollback-replay-drill.integration.test.ts",
+    "results": "7/7 passed（wp6-rollback-replay-drill.log 最终版；复跑 7/7 wp6-rollback-replay-drill.rerun.log）",
+    "scenario": "0091 水位 T0 播种→pg_dump -Fc 备份→migrateToLatest 0092→0096→切换后新消费×2＋额度域＋无期初新资源＋0093 drift 探针计价行→脚本 export→负向（导出失败中止＋restore 确认门）→脚本 restore→重放 0092→脚本 replay→幂等二次回放→断言组→legacy（ae506fe）子进程读/结算",
+    "assertion_groups": {
+      "A_导出组": "check-contract 库内实测 OK＋15 表主键反连接增量行数/sha256/ref_present/0092 域全量逐表与期望一致",
+      "B_负向组": "导出失败 exit 非 0＋live 水位/15 表摘要不动＋既有清单 sha 闭环未污染＋restore 无确认门拒绝（exit 5）",
+      "C_恢复组": "备份点 0091 水位＋白名单摘要＝T0 逐字＋0092 域表不存在＋finance 期初/充值＝0＋种入触发器在位",
+      "D_回放组(断言组1)": "重放 0092→回放 inserted 与清单一致（10 表）＋15 表 live 摘要＝回放后摘要（逐字在库；billing_rule 剔除 0093 source_status drift 列后逐字）＋finance 事件＝0＋候选读侧窗口估算 0.00204000 KNOWN_COMPLETE",
+      "E_幂等组": "二次回放 inserted 全 0＋15 表摘要不变",
+      "F_组3加组5": "period limit=1000000/used=1900/RAW_TOKEN/allow_overage＋两笔 SETTLED usage(1200/700)＋同键第二 period 拒绝＋回放资源无 finance 行＋备份点 READY/PENDING 逐字＋恢复后新建资源被种入 PENDING＋触发器恢复 ENABLED",
+      "G_组2旧栈": "ae506fe 子进程：准入（READY 含/无 finance 行含/PENDING 排除/回放后新建 PENDING 排除）＋逐行读 0.00104000/0.00060000/0.00040000 逐字＋旧结算落库 created=true 0.00052000 可读＋窗口聚合可读 0.00204000＋额度读 limit 1000000/used 1900/RAW_TOKEN＋finance 事件仍 0"
+    },
+    "regression": "既有 wp6-rollback-drill.integration.test.ts（X07 down 链）7/7 仍绿、断言零改动（wp6-rollback-drill-x07-regression.log）"
+  },
+  "redlines": {
+    "no_finance_fabrication": "provider_finance_event 不在白名单（增量面恒空）；演练全程期初/充值/更正类 finance 事件＝0（C/D/E/G 各点断言）",
+    "no_migration_touch": "0092-0096 迁移文件零触碰；rollback.sh 既有段零触碰（git status 仅新增文件）",
+    "export_fail_abort": "红线 4 已入 §6.5 与脚本 FAIL-CLOSED 门（B 组实测 exit 4/非 0、live 不动）"
+  },
+  "artifacts": {
+    "commands_and_outputs": "logs/wp6-rollback-replay-drill-commands.json（每次脚本调用的 cmd/exit/stdout/stderr 留痕）",
+    "drill_log": "logs/wp6-rollback-replay-drill.log（7/7）＋ rerun",
+    "legacy_result": "logs/wp6-r3-legacy-read-check.result.json",
+    "selfcheck": "logs/script-selfcheck.log（bash -n EXIT=0＋check-contract 静态 EXIT=0）",
+    "x07_regression": "logs/wp6-rollback-drill-x07-regression.log"
+  },
+  "known_boundaries": [
+    "billing_rule.source_status（0093 新栈元数据列）随 schema 回退不保留；重升 0093 时按 DEFAULT 'UNVERIFIED' 重建——非消费事实，§6.1 v2 已书",
+    "ledger_line.subscription_period_id（CODING_PLAN 窗口）若引用备份后新建周期，回放 FK 失败＝fail-closed 中止（已知边界，不产生半途状态）",
+    "白名单外表（enterprise/person/admin_user 等）以「先于备份点存在」为前提（切换窗口消费路径不新建，gateway 结算写路径不触这些表）；若运维在窗口内新建企业/员工，回放将 FK 失败＝fail-closed 中止",
+    "演练 restore 落在独立库名（wp6_r3_replay）以保留 live 对照；生产编排由 §6.1 v2 操作单将恢复目标指向原库"
+  ]
+}

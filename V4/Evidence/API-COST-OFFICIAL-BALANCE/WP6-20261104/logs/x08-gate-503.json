@@ -1,0 +1,1 @@
+{"error":{"message":"该企业正在进行资金账本初始化静默期，暂时停止新的模型调用，请稍后重试","type":"service_unavailable_error","code":"enterprise_maintenance","param":null,"retryable":true,"request_id":"b74db162-b79f-41e6-b802-599816cfa584","maintenance_until":"2026-11-04T16:56:43.133Z"}}

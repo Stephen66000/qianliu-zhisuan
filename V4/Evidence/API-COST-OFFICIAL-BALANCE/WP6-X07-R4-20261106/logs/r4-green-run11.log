@@ -1,0 +1,112 @@
+PASS [A-head] 回放后水位
+  contract=0092_employee_monthly_quota
+  actual  =0092_employee_monthly_quota
+PASS [A1-inflight-request] 缺口①：in-flight 请求行更新保全（切换后完成结算）
+  contract=status=SUCCEEDED ∧ finished_at 非空
+  actual  =status=SUCCEEDED finished_at=Wed Nov 04 2026 17:45:00 GMT+0800 (Taiwan Standard Time)
+PASS [A2-inflight-attempt] 缺口①：in-flight attempt 行更新保全
+  contract=finished_at 非空 ∧ response_committed=true
+  actual  =finished_at=Wed Nov 04 2026 17:45:00 GMT+0800 (Taiwan Standard Time) committed=true
+PASS [A3-grant-update] 缺口①：principal_grant 更新保全（额度域配置收紧）
+  contract=quota_value=100000 ∧ allow_overage=false ∧ pool_model_alias='*' ∧ quota_basis='RAW_TOKEN'
+  actual  ={"quota_value":"100000","allow_overage":false,"pool_model_alias":"*","quota_basis":"RAW_TOKEN"}
+PASS [A4-enterprise-quota-from] 缺口①：enterprise.employee_quota_monthly_from 保全（0092 域按迁移定义）
+  contract=非空（2026-11-01）
+  actual  =Sun Nov 01 2026 08:00:00 GMT+0800 (Taiwan Standard Time)
+PASS [A5-finance-zero] 红线：期初/充值类 finance 事件＝0
+  contract=0
+  actual  =0
+  script exit=6 stderr=ERROR:  ledger line subscription period does not cover settlement time
+CONTEXT:  PL/pgSQL function provider_finance_validate_ledger_period_link() line 16 at RAISE
+FAIL-CLOSED[6]: 回放执行失败（影子已删、事务已回滚，live 未动）
+
+PASS [B1-replay-fk-fail] 缺口②：引用白名单外表的消费使影子回放失败（fail-closed）
+  contract=exit≠0（FK 失败）
+  actual  =exit=6
+PASS [B2-live-intact] 缺口②绿证：回放失败时 live 未动
+  contract=水位＝0096
+  actual  =水位=0096_official_balance_refresh_request
+PASS [B3-consumption-intact] 缺口②绿证：切换后消费仍在 live
+  contract=request4 行仍在
+  actual  =count=1
+PASS [B4-shadow-dropped] 缺口②绿证：失败后影子库已删除
+  contract=影子不存在
+  actual  =exists=false
+== PG LOG TAIL ==
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.utf8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/data ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /var/lib/postgresql/data -l logfile start
+
+waiting for server to start....2026-11-06 09:11:14.097 UTC [139] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 09:11:14.099 UTC [139] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 09:11:14.105 UTC [158] LOG:  database system was shut down at 2026-11-06 09:11:14 UTC
+2026-11-06 09:11:14.112 UTC [139] LOG:  database system is ready to accept connections
+ done
+server started
+CREATE DATABASE
+
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+waiting for server to shut down....2026-11-06 09:11:14.224 UTC [139] LOG:  received fast shutdown request
+2026-11-06 09:11:14.227 UTC [139] LOG:  aborting any active transactions
+2026-11-06 09:11:14.230 UTC [139] LOG:  background worker "logical replication launcher" (PID 164) exited with exit code 1
+2026-11-06 09:11:14.230 UTC [156] LOG:  shutting down
+2026-11-06 09:11:14.233 UTC [156] LOG:  checkpoint starting: shutdown immediate
+2026-11-06 09:11:14.278 UTC [156] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.029 s, sync=0.014 s, total=0.048 s; sync files=301, longest=0.005 s, average=0.001 s; distance=4266 kB, estimate=4266 kB; lsn=0/191C7C8, redo lsn=0/191C7C8
+2026-11-06 09:11:14.281 UTC [139] LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+sh: locale: not found
+2026-11-06 09:11:13.754 UTC [66] WARNING:  no usable system locales were found
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-11-06 09:11:14.340 UTC [1] LOG:  starting PostgreSQL 17.10 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-11-06 09:11:14.341 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-11-06 09:11:14.341 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-11-06 09:11:14.343 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-06 09:11:14.345 UTC [203] LOG:  database system was shut down at 2026-11-06 09:11:14 UTC
+2026-11-06 09:11:14.348 UTC [1] LOG:  database system is ready to accept connections
+2026-11-06 09:11:32.387 UTC [2292] ERROR:  ledger line subscription period does not cover settlement time
+2026-11-06 09:11:32.387 UTC [2292] CONTEXT:  PL/pgSQL function provider_finance_validate_ledger_period_link() line 16 at RAISE
+2026-11-06 09:11:32.387 UTC [2292] STATEMENT:  WITH ins AS (INSERT INTO ledger_line (id,ai_request_id,enterprise_id,usage_event_id,upstream_attempt_id,provider_resource_id,principal_id,resource_mode,raw_input_tokens,raw_output_tokens,raw_cache_tokens,deducted_quota,api_cost,usage_quality,created_at,billing_rule_id,rule_version,multiplier,raw_reasoning_tokens,billing_rule_snapshot,api_cost_currency,api_cost_status,subscription_period_id,settled_at,legacy_cost_resolution_id) SELECT id,ai_request_id,enterprise_id,usage_event_id,upstream_attempt_id,provider_resource_id,principal_id,resource_mode,raw_input_tokens,raw_output_tokens,raw_cache_tokens,deducted_quota,api_cost,usage_quality,created_at,billing_rule_id,rule_version,multiplier,raw_reasoning_tokens,billing_rule_snapshot,api_cost_currency,api_cost_status,subscription_period_id,settled_at,legacy_cost_resolution_id FROM stage_ledger_line ON CONFLICT (id) DO UPDATE SET ai_request_id = EXCLUDED.ai_request_id, enterprise_id = EXCLUDED.enterprise_id, usage_event_id = EXCLUDED.usage_event_id, upstream_attempt_id = EXCLUDED.upstream_attempt_id, provider_resource_id = EXCLUDED.provider_resource_id, principal_id = EXCLUDED.principal_id, resource_mode = EXCLUDED.resource_mode, raw_input_tokens = EXCLUDED.raw_input_tokens, raw_output_tokens = EXCLUDED.raw_output_tokens, raw_cache_tokens = EXCLUDED.raw_cache_tokens, deducted_quota = EXCLUDED.deducted_quota, api_cost = EXCLUDED.api_cost, usage_quality = EXCLUDED.usage_quality, created_at = EXCLUDED.created_at, billing_rule_id = EXCLUDED.billing_rule_id, rule_version = EXCLUDED.rule_version, multiplier = EXCLUDED.multiplier, raw_reasoning_tokens = EXCLUDED.raw_reasoning_tokens, billing_rule_snapshot = EXCLUDED.billing_rule_snapshot, api_cost_currency = EXCLUDED.api_cost_currency, api_cost_status = EXCLUDED.api_cost_status, subscription_period_id = EXCLUDED.subscription_period_id, settled_at = EXCLUDED.settled_at, legacy_cost_resolution_id = EXCLUDED.legacy_cost_resolution_id RETURNING 1)
+	SELECT 'REPLAY_RESULT table=ledger_line applied=' || count(*)::text FROM ins;
+2026-11-06 09:11:32.428 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.497 UTC [201] LOG:  checkpoint complete: wrote 7340 buffers (44.8%); 0 WAL file(s) added, 0 removed, 4 recycled; write=0.109 s, sync=0.957 s, total=1.070 s; sync files=4808, longest=0.018 s, average=0.001 s; distance=63149 kB, estimate=63149 kB; lsn=0/56C7D30, redo lsn=0/56C7CD8
+2026-11-06 09:11:33.527 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.531 UTC [201] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=56834 kB; lsn=0/56C85C0, redo lsn=0/56C8568
+2026-11-06 09:11:33.546 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.551 UTC [201] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.006 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=51151 kB; lsn=0/56C8E38, redo lsn=0/56C8DE0
+2026-11-06 09:11:33.565 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.568 UTC [201] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=46036 kB; lsn=0/56C96B0, redo lsn=0/56C9658
+2026-11-06 09:11:33.578 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.581 UTC [201] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=41432 kB; lsn=0/56C9F28, redo lsn=0/56C9ED0
+2026-11-06 09:11:33.592 UTC [201] LOG:  checkpoint starting: immediate force wait
+2026-11-06 09:11:33.595 UTC [201] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=3, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=37289 kB; lsn=0/56CA7B8, redo lsn=0/56CA760
+
+
+== GREEN(R4 修复后) == RED=0 PASS=10

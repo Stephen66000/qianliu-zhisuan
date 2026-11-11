@@ -87,17 +87,26 @@ describe.sequential("PF-INIT WP02：只读候选投影与事实水位", () => {
     return { enterpriseId, adminId, providerId, apiResourceId, planResourceId, principalId, principalKeyId };
   }
 
-  function draftFor(apiResourceId: string): ActivationDraft {
+  /**
+   * 纯套餐最小草稿（WP2-S4 / AFR-01 场景3）：初始化合同已切分为套餐所需范围，
+   * 原混合草稿（API 期初）在 CA 预检合同处即被拒绝——DB 层夹具改用纯套餐形态，
+   * 依据 AT-AFR-03（CP 独立初始化）。
+   */
+  function draftFor(planResourceId: string): ActivationDraft {
     return {
       schema_version: "1",
-      api_opening_balances: [{
-        resource_id: apiResourceId, account_currency: "CNY", account_amount: "100",
-        occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
-        evidence_ref: "evidence://opening", source_record_id: null,
-      }],
-      historical_api_costs: [],
+      api_opening_balances: [],
       historical_api_recharges: [],
-      coding_plan_purchases: [],
+      historical_api_costs: [],
+      coding_plan_purchases: [{
+        resource_id: planResourceId, kind: "PURCHASE", product_name: "合成套餐",
+        account_amount: "100", account_currency: "CNY", cash_paid_cny: "100.00",
+        service_period_start: "2026-09-05", service_period_end: null,
+        occurred_at: "2026-09-05T02:00:00.000Z", external_reference: "ORD-PLAN-S4",
+        auto_renew: false, description: "套餐购买", evidence_ref: "evidence://plan-purchase",
+        source_record_id: null, carryover_snapshot_id: null,
+        record_idempotency_key: "plan-purchase-s4-preview",
+      }],
       coding_plan_carryovers: [],
       legacy_purchase_resolutions: [],
     };
@@ -165,7 +174,7 @@ describe.sequential("PF-INIT WP02：只读候选投影与事实水位", () => {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pfinit_preview");
       const repo = new ProviderFinanceActivationPreviewRepository(db);
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
 
       const before = await financeCounts(db, seeded.enterpriseId);
 
@@ -283,7 +292,7 @@ describe.sequential("PF-INIT WP02：只读候选投影与事实水位", () => {
       await migrateToLatest(db);
       const seeded = await seedEnterprise(db, "pfinit_repair");
       const repo = new ProviderFinanceActivationPreviewRepository(db);
-      const draft = draftFor(seeded.apiResourceId);
+      const draft = draftFor(seeded.planResourceId);
 
       // 切换时点后、缺少结算时间的 API 用量行 → 资格修复行（修复 settled_at）。
       const originalLine = await insertApiLedgerLine(db, seeded, {
@@ -313,6 +322,37 @@ describe.sequential("PF-INIT WP02：只读候选投影与事实水位", () => {
       // 行集稳定排序：按 ledgerLineId 升序。
       const ids = secondProjection.usageRepairBaseline.map((row) => row.ledgerLineId);
       expect([...ids].sort()).toEqual(ids);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it("API 资源＋已定价用量＋无任何期初：纯套餐草稿预检出 GO，不因 API 资金缺口阻断（WP2-S4 / R5＋R8 / AFR-04）", async () => {
+    const db = createKysely(pg.connectionString);
+    try {
+      await migrateToLatest(db);
+      const seeded = await seedEnterprise(db, "pfinit_r5_no_opening");
+      const repo = new ProviderFinanceActivationPreviewRepository(db);
+      // 已定价 API 用量行（含币种），无任何期初/资金事件。
+      const line = await insertApiLedgerLine(db, seeded, {
+        settledAt: new Date("2026-09-10T04:00:00.000Z"), createdAt: new Date("2026-09-10T04:00:01.000Z"),
+      });
+      await sql`UPDATE ledger_line SET api_cost='2.00', api_cost_currency='CNY',
+                 api_cost_status='PRICED_USAGE' WHERE id=${line}::uuid`.execute(db);
+      const projection = await repo.buildCandidateProjection({
+        enterpriseId: seeded.enterpriseId, adminId: seeded.adminId,
+        draft: draftFor(seeded.planResourceId), now: SNAPSHOT,
+      });
+      // R5：API 资源的资金前置要求已退役，纯套餐预检不因 API 资源出这两类缺口。
+      expect(projection.gaps.some((entry) => entry.code === "REQUIRED_CURRENCY_UNRESOLVED")).toBe(false);
+      expect(projection.gaps.some((entry) => entry.code === "MISSING_OPENING_BALANCE")).toBe(false);
+      // 断言反转（总指挥 R8 裁定 / AFR-04）：已定价用量 2.00 无资金来源时，API 账户
+      // 的余额守恒缺口（NEGATIVE_BALANCE/BALANCE_FORMULA_MISMATCH）随资金守恒退役
+      // 一并摘除——纯套餐预检出 GO，不被 API 无期初阻断。
+      expect(projection.gaps.some((entry) => entry.code === "NEGATIVE_BALANCE")).toBe(false);
+      expect(projection.gaps.some((entry) => entry.code === "BALANCE_FORMULA_MISMATCH")).toBe(false);
+      expect(projection.gaps).toEqual([]);
+      expect(projection.decision).toBe("GO_CANDIDATE");
     } finally {
       await db.destroy();
     }

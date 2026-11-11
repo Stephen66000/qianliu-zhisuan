@@ -84,7 +84,9 @@ const COST_GAP_LABELS: Array<[string, string]> = [
   ["API_COST_UNKNOWN", "存在未知 API 费用"],
   ["API_COST_CURRENCY_MISSING", "有费用缺少币种"],
   ["API_COST_CURRENCY_CONFLICT", "有费用币种与计价规则冲突"],
-  ["OPENING_BALANCE_MISSING", "有账户缺少期初余额"],
+  // WP4-S4（AFR-07／WP2 遗留①）：OPENING_BALANCE_MISSING 映射删除——后端已停产该码
+  // （provider-finance-gaps.ts 恒 0、monthly-operating-cost.ts 不再产出），现行视图
+  // 退出"缺少期初余额"待补提示；:91 CASH_PAID_CNY_MISSING 为资金域仍产码，保留不动。
   ["SUBSCRIPTION_PERIOD_AMBIGUOUS", "有套餐用量匹配多个订阅周期"],
   ["SUBSCRIPTION_FEE_MISSING", "有订阅周期缺少已确认套餐费用"],
   ["SUBSCRIPTION_PERIOD_MISSING", "有套餐用量缺少订阅周期"],

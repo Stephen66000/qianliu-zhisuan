@@ -1,0 +1,643 @@
+diff --git a/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts b/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+index 46d5658..db54ed6 100644
+--- a/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
++++ b/apps/control-api/src/__tests-integration__/w18-dashboard-usage.test.ts
+@@ -570,6 +570,11 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
+         principal_id: seededPrincipalId, resource_mode: input.mode, raw_input_tokens: 1n,
+         raw_output_tokens: 1n, raw_cache_tokens: 0n, raw_reasoning_tokens: 0n,
+         api_cost: input.cost, usage_quality: "PROVIDER_REPORTED", created_at: input.at,
++        // S3a：首页/总览 API 费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
++        // 夹具补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
++        ...(input.mode === "API" ? {
++          settled_at: input.at, api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
++        } : {}),
+       }).execute();
+       await db.insertInto("ledger_transaction").values({
+         ai_request_id: requestId, enterprise_id: ENT_ID, principal_id: seededPrincipalId,
+@@ -666,6 +671,8 @@ describe("W18 有数据场景（seed 完整数据后）", () => {
+       principal_id: seededPrincipalId, resource_mode: "API", raw_input_tokens: 100n,
+       raw_output_tokens: 20n, raw_cache_tokens: 40n, raw_reasoning_tokens: 5n,
+       api_cost: "0.24", usage_quality: "PROVIDER_REPORTED", created_at: usedAt,
++      // S3a：同上，补齐生产结算链必写的结算与计价字段。
++      settled_at: usedAt, api_cost_status: "PRICED_USAGE", api_cost_currency: "CNY",
+     }).execute();
+ 
+     const response = await app.inject({
+diff --git a/apps/control-api/src/provider-finance/consumer-projection.test.ts b/apps/control-api/src/provider-finance/consumer-projection.test.ts
+index 7d9defc..0413e42 100644
+--- a/apps/control-api/src/provider-finance/consumer-projection.test.ts
++++ b/apps/control-api/src/provider-finance/consumer-projection.test.ts
+@@ -21,6 +21,8 @@ const planFinance: ResourceFinanceView = { resourceId: "plan-1", providerCode: "
+     requestCount: "200",
+   } };
+ 
++// projectFinanceUtilization 属资源复盘路由（resource-insights/routes.ts），不在 S3a 合同
++// 范围（其 API 余额/费用投影走资金读模型，处置归 WP2/WP4），既有断言原样保留。
+ it("projects the same API balance and cost into utilization", () => {
+   const row = { resourceId: "resource-1", mode: "API", budgetStatus: "ACTIVE",
+     budgetAmount: "200", budgetCurrency: "CNY" } as ResourceUtilizationRow;
+@@ -30,18 +32,80 @@ it("projects the same API balance and cost into utilization", () => {
+   });
+ });
+ 
+-it("projects the same balance into provider and model overview", () => {
+-  const overview = { providerSummaries: [{ providerCode: "deepseek", mode: "API" }],
++/**
++ * S3a 迁移（依据：WP0 contracts.md §1 C1 约束“finance-usage-overview.ts 的 remainingQuota
++ * 覆盖行为移除，余额走 C2”＋ACE-06“不把货币余额放进 Token/套餐剩余额度、全部消费视图
++ * 采用同源费用”）：
++ *   a) API 汇总行的 monthlyCost/monthlyCostReason/currency 由基础层 loadApiCostEstimation
++ *      同源供给，本投影不得用资金账户 monthlyApiCost 覆盖；
++ *   b) rechargeAmount/currentBalance 不再从资金账户覆盖 API 汇总行，保留基础层厂商经营
++ *      快照事实（官方余额域走 C2）；
++ *   c) API 模型行 remainingQuota/currency 不被账户余额覆盖。
++ * 由此 finance 开（投影后）与 finance 关（基础层原样）两条路径的 API 字段同源同值。
++ */
++it("keeps API overview fields同源：finance projection must not override API cost or balance fields", () => {
++  const baseOverview = {
++    providerSummaries: [{ providerCode: "deepseek", mode: "API",
++      monthlyCost: "12.34000000", monthlyCostReason: null, currency: "CNY",
++      rechargeAmount: "80.00000000", currentBalance: "87.66000000" }],
+     modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API",
+-      remainingQuota: "old", currency: "USD" }] } as unknown as ResourceUsageOverview;
+-  const projected = projectFinanceUsageOverview(overview, [apiFinance]);
++      remainingQuota: "87.66000000", currency: "CNY", monthlyCost: "12.34000000" }],
++  } as unknown as ResourceUsageOverview;
++  const projected = projectFinanceUsageOverview(baseOverview, [apiFinance]);
++  // a+b) API 汇总行：资金账户的 108.43/600/498.4 不得覆盖同源估算与快照事实。
+   expect(projected.providerSummaries[0]).toMatchObject({
+-    currentBalance: "498.40000000", monthlyCost: "108.43000000",
+-    rechargeAmount: "600.00000000", currency: "CNY",
++    monthlyCost: "12.34000000", monthlyCostReason: null, currency: "CNY",
++    rechargeAmount: "80.00000000", currentBalance: "87.66000000",
++  });
++  expect(projected.providerSummaries[0]).not.toMatchObject({ monthlyCost: "108.43000000" });
++  // c) API 模型行：remainingQuota/currency 保持基础层快照值，不被账户余额 498.4/CNY 覆盖。
++  expect(projected.modelDetails[0]).toMatchObject({
++    remainingQuota: "87.66000000", currency: "CNY",
+   });
+-  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: "498.4", currency: "CNY" });
++  // finance 关路径＝基础层原样返回：与上面投影后的 API 字段逐字段相等（双路同源同值）。
++  expect(baseOverview.providerSummaries[0]).toEqual(projected.providerSummaries[0]);
++  expect(baseOverview.modelDetails[0]).toEqual(projected.modelDetails[0]);
+ });
+ 
++/**
++ * S3a 迁移：原用例断言“期初余额缺失时仍从资金账户透出 monthlyApiCost”——该前提随 C1
++ * 约束退役（API 费用不再来自资金账户；同源估算不依赖期初/资金初始化，ACE-03）。改断言：
++ * 账户月费用/币种不进入 API 行，基础层字段（含模型行 remainingQuota=null 的事实）原样透传。
++ */
++it("keeps API cost同源 even when the funding account lacks opening balance but knows usage costs", () => {
++  const missingOpeningFinance: ResourceFinanceView = {
++    resourceId: "resource-1",
++    providerCode: "deepseek",
++    mode: "API",
++    accounts: [{
++      currency: "CNY",
++      balanceState: "MISSING_OPENING_BALANCE",
++      balance: null,
++      monthOpeningState: "MISSING_OPENING_BALANCE",
++      monthOpeningBalance: null,
++      monthlyRecharge: "0",
++      monthlyApiCost: "0.07",
++    }],
++    monthlyPlanCashCny: "0",
++    currentPeriod: null,
++  };
++  const overview = {
++    providerSummaries: [{ providerCode: "deepseek", mode: "API",
++      monthlyCost: "0.05000000", monthlyCostReason: null, currency: "CNY",
++      rechargeAmount: null, currentBalance: null }],
++    modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API",
++      remainingQuota: null, currency: "CNY" }],
++  } as unknown as ResourceUsageOverview;
++  const projected = projectFinanceUsageOverview(overview, [missingOpeningFinance]);
++  // 资金账户的 0.07/CNY 不覆盖 API 行；基础层估算值与快照事实（null 余额）原样保留。
++  expect(projected.providerSummaries[0]).toMatchObject({
++    monthlyCost: "0.05000000", monthlyCostReason: null, currency: "CNY",
++    currentBalance: null, rechargeAmount: null,
++  });
++  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: null, currency: "CNY" });
++});
++
++// 套餐分支行为不变（C4/W5-W6 合同原样；S3a 未触碰 CODING_PLAN 分支）。
+ it("projects active carryover subscription cost and ledger quota independently from monthly cash", () => {
+   const row = { resourceId: "plan-1", mode: "CODING_PLAN", totalQuota: "300000000",
+     usedQuota: null, remainingQuota: null, currency: "CNY" } as ResourceUtilizationRow;
+@@ -93,34 +157,3 @@ it("does not mix current-period usage with another snapshot or mislabel CNY cash
+     notCalculableReason: "SUBSCRIPTION_DEDUCTION_FACT_INCOMPLETE",
+   });
+ });
+-
+-it("projects monthlyCost even when API opening balance is missing but usage costs are known", () => {
+-  const missingOpeningFinance: ResourceFinanceView = {
+-    resourceId: "resource-1",
+-    providerCode: "deepseek",
+-    mode: "API",
+-    accounts: [{
+-      currency: "CNY",
+-      balanceState: "MISSING_OPENING_BALANCE",
+-      balance: null,
+-      monthOpeningState: "MISSING_OPENING_BALANCE",
+-      monthOpeningBalance: null,
+-      monthlyRecharge: "0",
+-      monthlyApiCost: "0.07",
+-    }],
+-    monthlyPlanCashCny: "0",
+-    currentPeriod: null,
+-  };
+-  const overview = {
+-    providerSummaries: [{ providerCode: "deepseek", mode: "API" }],
+-    modelDetails: [{ resourceId: "resource-1", providerCode: "deepseek", mode: "API", remainingQuota: "old", currency: "USD" }],
+-  } as unknown as ResourceUsageOverview;
+-  const projected = projectFinanceUsageOverview(overview, [missingOpeningFinance]);
+-  expect(projected.providerSummaries[0]).toMatchObject({
+-    currentBalance: null,
+-    monthlyCost: "0.07000000",
+-    monthlyCostReason: null,
+-    currency: "CNY",
+-  });
+-  expect(projected.modelDetails[0]).toMatchObject({ remainingQuota: null, currency: "CNY" });
+-});
+diff --git a/apps/control-api/src/providers/finance-usage-overview.ts b/apps/control-api/src/providers/finance-usage-overview.ts
+index 9643ef2..f2e9028 100644
+--- a/apps/control-api/src/providers/finance-usage-overview.ts
++++ b/apps/control-api/src/providers/finance-usage-overview.ts
+@@ -5,6 +5,15 @@ import { shanghaiDateAt } from "../provider-finance/dashboard-projection.js";
+ const Money = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
+ const fixed = (value: Decimal.Value) => new Money(value).toDecimalPlaces(8).toFixed(8);
+ 
++/**
++ * 资金读模型投影（WP1 S3a 后）：
++ *   - 仅 CODING_PLAN 分支保留资金读模型增强（套餐剩余额度、订阅期、套餐现金口径）；
++ *   - API 模型行与 API 汇总行不再被资金账户余额/费用字段覆盖（WP0 contracts.md §1 C1
++ *     约束"remainingQuota 覆盖行为移除，余额走 C2"＋ACE-06"不把货币余额放进 Token/套餐
++ *     剩余额度"）：API 费用同源来自 loadApiCostEstimation（基础聚合层注入，见
++ *     dashboard-breakdown.ts），API 余额字段保留基础层的厂商经营快照事实（官方余额域，
++ *     走 C2/WP3），因此本投影对 API 行为恒等映射——finance 开/关两条路径 API 字段同源同值。
++ */
+ export function projectFinanceUsageOverview(
+   overview: ResourceUsageOverview,
+   financeViews: ResourceFinanceView[],
+@@ -13,6 +22,7 @@ export function projectFinanceUsageOverview(
+   const modelDetails = overview.modelDetails.map((model) => {
+     const finance = byResource.get(model.resourceId);
+     if (!finance) return model;
++    // CODING_PLAN 套餐分支原样保留（W5/W6 合同不变）。
+     if (model.mode === "CODING_PLAN") {
+       const period = finance.currentPeriod;
+       const remaining = period?.totalQuota === null || period?.totalQuota === undefined
+@@ -21,14 +31,14 @@ export function projectFinanceUsageOverview(
+       return { ...model, remainingQuota: remaining?.toDecimalPlaces(8).toFixed(8) ?? null,
+         quotaUnit: period?.quotaUnit ?? model.quotaUnit };
+     }
+-    const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
+-    return { ...model, currency: account?.currency ?? null,
+-      remainingQuota: account?.balanceState === "NORMAL" ? account.balance : null };
++    // API 模型行：不注入资金账户余额/币种（C1 约束），保留基础层快照事实。
++    return model;
+   });
+   const providerSummaries = overview.providerSummaries.map((summary) => {
+     const views = financeViews.filter((view) =>
+       view.providerCode === summary.providerCode && view.mode === summary.mode
+     );
++    // CODING_PLAN 套餐汇总分支原样保留。
+     if (summary.mode === "CODING_PLAN") {
+       const periods = views.map((view) => view.currentPeriod).filter(
+         (period): period is NonNullable<ResourceFinanceView["currentPeriod"]> => period !== null,
+@@ -61,23 +71,9 @@ export function projectFinanceUsageOverview(
+         subscriptionPeriodEnd: periodFactsComplete && new Set(periods.map((p) => p.periodEndExclusive)).size === 1
+           ? shanghaiDateAt(periods[0]!.periodEndExclusive) : null };
+     }
+-    const accounts = views.flatMap((view) => view.accounts);
+-    const currencies = new Set(accounts.map((account) => account.currency));
+-    const balanceComplete = accounts.length === views.length
+-      && accounts.every((account) => account.balanceState === "NORMAL" && account.balance !== null)
+-      && currencies.size === 1;
+-    const costCalculable = accounts.length === views.length
+-      && accounts.every((account) => account.balanceState !== "INCOMPLETE_USAGE_COST")
+-      && currencies.size === 1;
+-    return { ...summary,
+-      currency: currencies.size === 1 ? [...currencies][0]! : null,
+-      rechargeAmount: currencies.size === 1
+-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyRecharge), new Money(0))) : null,
+-      currentBalance: balanceComplete
+-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.balance!), new Money(0))) : null,
+-      monthlyCost: costCalculable
+-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyApiCost), new Money(0))) : null,
+-      monthlyCostReason: costCalculable ? null : (currencies.size > 1 ? "币种不唯一" : "API 资金账户不完整或币种不唯一") };
++    // API 汇总行：不再从资金账户覆盖 monthlyCost/rechargeAmount/currentBalance/currency
++    // （C1 约束＋ACE-06）；基础层已按同源估算与经营快照供给，恒等透传。
++    return summary;
+   });
+   return { ...overview, providerSummaries, modelDetails };
+ }
+diff --git a/apps/control-api/src/resource-insights/query.ts b/apps/control-api/src/resource-insights/query.ts
+index 744bffa..249ec35 100644
+--- a/apps/control-api/src/resource-insights/query.ts
++++ b/apps/control-api/src/resource-insights/query.ts
+@@ -1,6 +1,7 @@
+ import type { Kysely } from "kysely";
+ import { sql } from "kysely";
+ import {
++  loadApiCostEstimation,
+   loadMonthlyOperatingCosts,
+   operatingBillMonthRange,
+   type Database,
+@@ -326,8 +327,24 @@ export async function listResourceUtilization(
+      ORDER BY p.name, pr.name, pr.id
+   `.execute(db);
+   const range = operatingBillMonthRange(month);
+-  const ledgerCosts = new Map(result.rows.filter((row) => row.mode === "API")
+-    .map((row) => [row.resource_id, row.api_cost]));
++  // S3a（ACE-06）：API 费用证据对齐同源估算——knownLedgerCosts 改由 loadApiCostEstimation
++  // 按该资源范围、与 loadMonthlyOperatingCosts 相同的期间（range）供给，不再取本查询 CTE
++  // 的 COALESCE(settled_at,created_at) 聚合。调查结论（回报详述）：该证据当前仅进入
++  // loadMonthlyOperatingCosts 的 ledgerApiCost 字段，utilization 行输出链路并不消费。
++  const apiRows = result.rows.filter((row) => row.mode === "API");
++  const ledgerCosts = new Map(await Promise.all(apiRows.map(async (row) => {
++    const estimation = await loadApiCostEstimation(db, enterpriseId, {
++      start: range.start,
++      end: range.end,
++      resourceIds: [row.resource_id],
++    });
++    const amount = estimation.amounts.length === 1
++      ? estimation.amounts[0]!.amount
++      : estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL"
++        ? "0.00000000"
++        : null;
++    return [row.resource_id, amount] as const;
++  })));
+   const [windows, monthlyOperating] = await Promise.all([sql<{
+     provider_resource_id: string; window_type: "FIVE_HOUR" | "WEEKLY";
+     limit_value: string | null; used_value: string | null; remaining_value: string | null;
+diff --git a/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts b/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
+index 7b34f4c..6968b5b 100644
+--- a/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
++++ b/packages/database/src/__tests-integration__/pool042-dashboard-resource-usage.integration.test.ts
+@@ -51,7 +51,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+   async function addLine(input: {
+     resourceId: string; modelId: string | null; historicalAlias: string; upstreamModel: string;
+     input: bigint; output: bigint; cache: bigint; reasoning: bigint;
+-    cost: string | null; quality: string; at: Date;
++    cost: string | null; quality: string; at: Date; currency?: string;
+     deductedQuota?: bigint | null;
+     mode?: "API" | "CODING_PLAN";
+     requestStatus?: "SUCCEEDED" | "FAILED";
+@@ -88,6 +88,12 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+       raw_reasoning_tokens: input.reasoning, deducted_quota: input.deductedQuota ?? null,
+       api_cost: input.cost,
+       usage_quality: input.quality, created_at: input.at,
++      // S3a：首页/总览 API 汇总费用改由同源估算（settled_at 窗口 + 分项计价事实）供给，
++      // 已计价夹具行补齐生产结算链必写的结算与计价字段（attempt-usage-settlement.ts / 0085 shape）。
++      ...(input.cost !== null && (input.mode ?? "API") === "API" ? {
++        settled_at: input.at, api_cost_status: "PRICED_USAGE" as const,
++        api_cost_currency: input.currency ?? "CNY",
++      } : {}),
+     }).execute();
+   }
+ 
+@@ -220,6 +226,7 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+             resourceId: resource.id, modelId, historicalAlias: `old-${input.code}`,
+             upstreamModel, input: 10n, output: 0n, cache: 0n, reasoning: 0n,
+             cost: index === 0 ? "0.1" : "0.4", quality: "PROVIDER_REPORTED",
++            currency: input.currencies[index]!,
+             at: new Date(now.getTime() - 30 * 60 * 1000),
+           });
+         }
+@@ -261,7 +268,10 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
+     });
+     expect(items.find((row) => row.providerCode === "multi-currency")).toMatchObject({
+       currentBalance: null, monthlyCost: null, estimatedBalanceTokens: null,
+-      monthlyCostReason: expect.stringMatching(/multi-currency-0 CNY.*multi-currency-1 USD/),
++      // S3a 断言迁移（依据：S3a §1.2 用量总览 API 汇总行费用由 loadApiCostEstimation 同源
++      // 供给＋ACE-07 混币不合并）：混币拒绝语义保留，理由文案改为估算缺口口径的明确币种
++      // 列表（原为逐资源余额桥接行列表）。
++      monthlyCostReason: "币种不一致：CNY、USD",
+       balanceTokenEstimateReason: "PRICE_CURRENCY_MISMATCH",
+     });
+   });
+diff --git a/packages/database/src/repositories/dashboard-breakdown.ts b/packages/database/src/repositories/dashboard-breakdown.ts
+index 3fab691..4ed17fd 100644
+--- a/packages/database/src/repositories/dashboard-breakdown.ts
++++ b/packages/database/src/repositories/dashboard-breakdown.ts
+@@ -3,6 +3,8 @@ import type { Kysely } from "kysely";
+ import { sql } from "kysely";
+ import type { Database } from "../kysely.js";
+ import { decimalTextsEqual, sumDecimalTexts } from "./dashboard-helpers.js";
++import { loadApiCostEstimation } from "./api-cost-estimation.js";
++import { apiEstimationGapText } from "./dashboard-monthly-spend.js";
+ import { loadDashboardResourceUsage } from "./dashboard-resource-usage.js";
+ import type { ResourceBreakdownItem } from "./dashboard-types.js";
+ import type { MonthlyOperatingCostResource } from "./monthly-operating-cost.js";
+@@ -220,6 +222,40 @@ async function latestProviderForecast(
+   };
+ }
+ 
++/**
++ * S3a（ACE-03/04/06/07）：由同源估算推导 API 汇总行费用三元组。
++ * 已知部分保留：有缺口但金额可知时照常透出金额，缺口进 reason；混币不合并（明确不一致）；
++ * ZERO_CONFIRMED/无 API 行为明确零，不冒充未知。
++ */
++function apiCostFromEstimation(
++  estimation: NonNullable<Awaited<ReturnType<typeof loadApiCostEstimation>>>,
++  fallbackCurrency: string | null,
++): { monthlyCost: string | null; monthlyCostReason: string | null; currency: string | null } {
++  const gapText = apiEstimationGapText(estimation.gaps);
++  if (estimation.amounts.length === 1) {
++    return {
++      monthlyCost: estimation.amounts[0]!.amount,
++      monthlyCostReason: gapText,
++      currency: estimation.amounts[0]!.currency,
++    };
++  }
++  if (estimation.amounts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL") {
++    return { monthlyCost: "0.00000000", monthlyCostReason: null, currency: fallbackCurrency };
++  }
++  if (estimation.amounts.length === 0) {
++    return {
++      monthlyCost: null,
++      monthlyCostReason: gapText ?? "API 费用估算不完整",
++      currency: fallbackCurrency,
++    };
++  }
++  return {
++    monthlyCost: null,
++    monthlyCostReason: `币种不一致：${estimation.amounts.map((entry) => entry.currency).join("、")}`,
++    currency: fallbackCurrency,
++  };
++}
++
+ export async function buildResourceBreakdown(
+   db: Kysely<Database>,
+   enterpriseId: string,
+@@ -274,11 +310,27 @@ export async function buildResourceBreakdown(
+       counts[resource.status] = (counts[resource.status] ?? 0) + 1;
+       return counts;
+     }, {});
+-    const [operating, allocatedQuota, forecast] = await Promise.all([
++    const [operating, allocatedQuota, forecast, apiEstimation] = await Promise.all([
+       sumProviderOperatingSnapshot(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
+       sumAllocatedQuota(db, enterpriseId, providerCode, mode, now),
+       latestProviderForecast(db, enterpriseId, providerCode, mode, currentOperatingSnapshots),
++      // S3a（ACE-03/06）：API 汇总行的费用改由同源估算供给（该 providerCode+mode 的
++      // 资源集合范围、企业时区当月期间），资金开/关两条路径读到同一数值；
++      // CODING_PLAN 套餐口径不变。
++      mode === "API"
++        ? loadApiCostEstimation(db, enterpriseId, {
++          start: monthStart,
++          end: monthEnd,
++          resourceIds: groupStatuses.map((resource) => resource.resource_id),
++        })
++        : Promise.resolve(null),
+     ]);
++    const apiCost = apiEstimation
++      ? apiCostFromEstimation(apiEstimation, operating.currency)
++      : { monthlyCost: null, monthlyCostReason: null, currency: null };
++    const apiMonthlyCost = apiCost.monthlyCost;
++    const apiMonthlyCostReason = apiCost.monthlyCostReason;
++    const apiCurrency = apiCost.currency;
+     const usage = usageFor(providerCode, mode, groupStatuses.map((resource) => {
+       const snapshot = operatingSnapshotByResource.get(resource.resource_id);
+       return {
+@@ -299,15 +351,21 @@ export async function buildResourceBreakdown(
+     const costValuesComplete = costValues.every((value) => value !== null);
+     const costCurrenciesComplete = costRows.length > 0 && costCurrencies.size === 1 &&
+       costRows.every((cost) => cost.currency !== null);
+-    const monthlyCost = costValuesComplete && costCurrenciesComplete
+-      ? sumDecimalTexts(costValues as string[])
+-      : null;
+-    const incompleteCost = costRows.find((cost, index) => costValues[index] === null);
+-    const monthlyCostReason = incompleteCost
+-      ? incompleteCost.apiSpendReason ?? `${incompleteCost.resourceName} 套餐费用待补`
+-      : !costCurrenciesComplete
+-        ? `币种不一致：${costRows.map((cost) => `${cost.resourceName} ${cost.currency ?? "缺币种"}`).join("、")}`
++    const monthlyCost = mode === "API"
++      ? apiMonthlyCost
++      : costValuesComplete && costCurrenciesComplete
++        ? sumDecimalTexts(costValues as string[])
+         : null;
++    const monthlyCostReason = mode === "API"
++      ? apiMonthlyCostReason
++      : (() => {
++        const incompleteCost = costRows.find((cost, index) => costValues[index] === null);
++        return incompleteCost
++          ? incompleteCost.apiSpendReason ?? `${incompleteCost.resourceName} 套餐费用待补`
++          : !costCurrenciesComplete
++            ? `币种不一致：${costRows.map((cost) => `${cost.resourceName} ${cost.currency ?? "缺币种"}`).join("、")}`
++            : null;
++      })();
+     breakdown.push({
+       providerCode,
+       providerName: row.provider_name,
+@@ -318,7 +376,9 @@ export async function buildResourceBreakdown(
+       remainingQuota: operating.remaining,
+       quotaUnit: operating.quotaUnit,
+       allocatedQuota,
+-      currency: costCurrencies.size === 1 ? [...costCurrencies][0]! : operating.currency,
++      currency: mode === "API"
++        ? apiCurrency
++        : costCurrencies.size === 1 ? [...costCurrencies][0]! : operating.currency,
+       rechargeAmount: operating.recharge,
+       currentBalance: operating.balance,
+       currentPeriodCost: operating.periodCost,
+diff --git a/packages/database/src/repositories/dashboard-home-costs.ts b/packages/database/src/repositories/dashboard-home-costs.ts
+index c01db5a..0945dd4 100644
+--- a/packages/database/src/repositories/dashboard-home-costs.ts
++++ b/packages/database/src/repositories/dashboard-home-costs.ts
+@@ -2,13 +2,24 @@
+  * 标准版首页费用同期聚合（HOME-STANDARD-20260910 WP02）。
+  *
+  * 上月同期费用为真实同期聚合（显式窗口重跑），禁止把整月费用按天数折算：
+- *   - 资金读模型口径：镜像 loadMonthlyFinanceSummary 的 apiCost / 套餐现金查询面；
++ *   - API 金额：loadApiCostEstimation 同源估算（WP1 S3a，ACE-03/06——不依赖资金账户、
++ *     期初与余额差，与首页/用量总览共享同一聚合入口）；
++ *   - 合法历史费用处置域（AFR-06）：API_LEGACY_COST_ADJUSTMENT / API_HISTORICAL_USAGE_COST
++ *     事件金额原样并入合计；
++ *   - 资金读模型口径：套餐现金查询面保留；
+  *   - 余额桥接口径：loadMonthlyOperatingCosts 本就支持任意窗口（期初/期末按窗口边界取快照）。
+  * 当期费用不做本地重算，由路由层直接采用经营账单 getBill 快照（与月度总览逐字段一致）。
+  *
+  * 已知部分保留原则（R01-F01）：总额不完整（任一资源缺期末余额等）时，不得把已知金额
+  * 丢弃为"不可完整计算"。已计价 API 费用与套餐费用（已知部分）照常合计透出，缺口由
+  * incompleteReason 显式标记——例如上月有 Kimi 套餐时，同期应显示该套餐金额而非空白。
++ *
++ * S3a 合同冲突记录（待总指挥裁定）：incompleteReason 继续沿用 countOperatingExpenseGaps
++ * 的权威缺口码（处置感知、历史聚合覆盖感知、套餐/现金域）。loadApiCostEstimation 的 gaps
++ * 无法表达 OPENING_BALANCE_MISSING / API_COST_CURRENCY_CONFLICT / 套餐缺口，且不具备
++ * 窗口内历史聚合覆盖（AFR-06）与 legacy_cost_resolution 已解决排除语义；standard-home
++ * V14-C2/V14-C3、finance-period-cost-integrity、home-cost-comparison 既有断言钉死这些
++ * 缺口码，直接换用估算 gaps 会回归。故本包仅将金额段切到估算，缺口段保持权威口径不变。
+  */
+ import type { Kysely } from "kysely";
+ import { sql } from "kysely";
+@@ -20,6 +31,7 @@ import {
+ import { summarizeMonthlyOperatingCosts } from "./monthly-operating-summary.js";
+ import { countOperatingExpenseGaps } from "./provider-finance-gaps.js";
+ import { historicalMonthlyFinance } from "./provider-finance-registered-history.js";
++import { loadApiCostEstimation } from "./api-cost-estimation.js";
+ import { Money, money } from "./provider-finance-core.js";
+ import type { CurrencyAmount } from "./dashboard-home-types.js";
+ 
+@@ -39,21 +51,16 @@ export async function loadWindowOperatingFinance(
+   start: Date,
+   end: Date,
+ ): Promise<{ totalSpends: CurrencyAmount[]; incompleteReason: string | null }> {
+-  const [apiCosts, planCash, gapRows, historical] = await Promise.all([
++  const [estimation, legacyEvents, planCash, gapRows, historical] = await Promise.all([
++    // API 费用：同源估算（settled_at 半开窗口，处置投影口径；S3a）。
++    loadApiCostEstimation(db, enterpriseId, { start, end }),
++    // 合法历史费用处置域（AFR-06）：遗留调整/历史聚合事件金额保留并入。
+     sql<{ currency: string; amount: string }>`
+-      SELECT currency, COALESCE(SUM(amount),0)::text AS amount FROM (
+-        SELECT api_cost_currency AS currency, api_cost AS amount
+-          FROM ledger_line
+-         WHERE enterprise_id = ${enterpriseId} AND resource_mode = 'API'
+-           AND api_cost_status = 'PRICED_USAGE'
+-           AND settled_at >= ${start} AND settled_at < ${end}
+-        UNION ALL
+-        SELECT account_currency AS currency, -account_amount AS amount
+-          FROM provider_finance_event
+-         WHERE enterprise_id = ${enterpriseId}
+-           AND event_type IN ('API_LEGACY_COST_ADJUSTMENT','API_HISTORICAL_USAGE_COST')
+-           AND occurred_at >= ${start} AND occurred_at < ${end}
+-      ) cost GROUP BY currency ORDER BY currency
++      SELECT account_currency AS currency, -account_amount AS amount
++        FROM provider_finance_event
++       WHERE enterprise_id = ${enterpriseId}
++         AND event_type IN ('API_LEGACY_COST_ADJUSTMENT','API_HISTORICAL_USAGE_COST')
++         AND occurred_at >= ${start} AND occurred_at < ${end}
+     `.execute(db),
+     sql<{ cash_cny: string }>`
+       SELECT COALESCE(SUM(event.cash_paid_cny),0)::text AS cash_cny
+@@ -73,10 +80,11 @@ export async function loadWindowOperatingFinance(
+     .reduce((sum, row) => sum.plus(row.cash_cny), new Money(0));
+   const totalPlanCash = new Money(planCash.rows[0]?.cash_cny ?? "0").plus(historicalPlanCash);
+   const planCashCny = money(totalPlanCash);
+-  // 缺币种的遗留已计价行（API_COST_CURRENCY_MISSING 缺口）不计入币种合计，
++  // 缺币种的遗留已计价行（估算 CURRENCY_MISSING 缺口）不计入币种合计，
+   // 与权威月度汇总"跳过 null 币种、以缺口呈现"的口径一致。
+   const spends = groupCurrencyAmounts([
+-    ...apiCosts.rows
++    ...estimation.amounts.map((amount) => ({ currency: amount.currency, amount: amount.amount })),
++    ...legacyEvents.rows
+       .filter((row) => row.currency !== null)
+       .map((row) => ({ currency: row.currency, amount: row.amount })),
+     ...(Number(planCashCny) !== 0 ? [{ currency: "CNY", amount: planCashCny }] : []),
+diff --git a/packages/database/src/repositories/dashboard-monthly-spend.ts b/packages/database/src/repositories/dashboard-monthly-spend.ts
+index e203e83..3800dd7 100644
+--- a/packages/database/src/repositories/dashboard-monthly-spend.ts
++++ b/packages/database/src/repositories/dashboard-monthly-spend.ts
+@@ -4,6 +4,10 @@ import type {
+   CurrencyAmount,
+   MonthlyOperatingCostResource,
+ } from "./monthly-operating-cost.js";
++import type {
++  ApiCostEstimation,
++  ApiCostEstimationGap,
++} from "./api-cost-estimation.js";
+ 
+ const MoneyDecimal = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
+ 
+@@ -108,3 +112,50 @@ export function summarizeDashboardMonthlySpend(
+     totalSpends,
+   };
+ }
++
++/** 估算缺口 → 展示文案；PRICE_BASIS_UNVERIFIED 为信息项，不参与完整性（WP1 plan §4.2）。 */
++export function apiEstimationGapText(gaps: ApiCostEstimationGap[]): string | null {
++  const text = gaps
++    .filter((gap) => gap.reason !== "PRICE_BASIS_UNVERIFIED")
++    .map((gap) => `${gap.reason}:${gap.count}`)
++    .join("、");
++  return text.length > 0 ? text : null;
++}
++
++/**
++ * 首页 API 费用分量改由同源估算供给（WP1 S3a / ACE-03/06/07）：
++ *   - monthlyApiCost(s) 直接采用 loadApiCostEstimation 的按币种 amounts（八位小数字面值，
++ *     不混币相加）；已知部分保留——KNOWN_PARTIAL 且有金额时照常透出金额，缺口进 apiCostReason；
++ *   - 套餐分量（packagePayment 系列）不动；资金字段（recharge 等）不在本函数职责内；
++ *   - totalSpend(s) 由套餐分量与估算分量按币种重新合计。
++ */
++export function applyApiCostEstimationToSpend(
++  spend: DashboardMonthlySpend,
++  estimation: Pick<ApiCostEstimation, "amounts" | "completeness" | "gaps">,
++): DashboardMonthlySpend {
++  const apiCosts: CurrencyAmount[] = estimation.amounts.map((amount) => ({
++    currency: amount.currency,
++    amount: amount.amount,
++  }));
++  const apiCost = apiCosts.length === 1
++    ? apiCosts[0]!.amount
++    : apiCosts.length === 0 && estimation.completeness !== "KNOWN_PARTIAL"
++      ? "0.00000000"
++      : null;
++  const apiCostReason = apiCost !== null
++    ? apiEstimationGapText(estimation.gaps)
++    : apiCosts.length > 1
++      ? `币种不一致：${apiCosts.map((entry) => entry.currency).join("、")}`
++      : apiEstimationGapText(estimation.gaps) ?? "API 费用估算不完整";
++  const totalComplete = spend.packagePayment !== null && apiCost !== null;
++  const totalSpends = totalComplete ? group([...spend.packagePayments, ...apiCosts]) : [];
++  const totalSpend = totalComplete ? scalar(totalSpends, true, "0.00000000") : null;
++  return {
++    ...spend,
++    apiCost,
++    apiCosts,
++    apiCostReason,
++    totalSpend,
++    totalSpends,
++  };
++}
+diff --git a/packages/database/src/repositories/dashboard-repository.ts b/packages/database/src/repositories/dashboard-repository.ts
+index 0c82908..d31128b 100644
+--- a/packages/database/src/repositories/dashboard-repository.ts
++++ b/packages/database/src/repositories/dashboard-repository.ts
+@@ -41,7 +41,11 @@ import { buildResourceBreakdown } from "./dashboard-breakdown.js";
+ import { loadResourceModelUsageDetails } from "./resource-model-usage.js";
+ import { loadDashboardResourceStatus } from "./dashboard-resource-status.js";
+ import { loadMonthlyOperatingCosts } from "./monthly-operating-cost.js";
+-import { summarizeDashboardMonthlySpend } from "./dashboard-monthly-spend.js";
++import {
++  applyApiCostEstimationToSpend,
++  summarizeDashboardMonthlySpend,
++} from "./dashboard-monthly-spend.js";
++import { loadApiCostEstimation } from "./api-cost-estimation.js";
+ 
+ export type * from "./dashboard-types.js";
+ 
+@@ -63,10 +67,6 @@ export class DashboardRepository {
+     const monthlyOperatingCosts = await loadMonthlyOperatingCosts(
+       this.db, enterpriseId, monthStart, monthEnd,
+     );
+-    const dashboardSpend = summarizeDashboardMonthlySpend(
+-      monthlyOperatingCosts.resources, monthStart, monthEnd,
+-    );
+-
+     // 并行执行独立聚合查询
+     const [
+       resourceAccountCount,
+@@ -77,6 +77,7 @@ export class DashboardRepository {
+       resourceStatus,
+       overageList,
+       monthlyTokenUsage,
++      apiCostEstimation,
+     ] = await Promise.all([
+       this.countResources(enterpriseId),
+       this.countActiveEmployees(enterpriseId, monthStart, monthEnd),
+@@ -86,7 +87,14 @@ export class DashboardRepository {
+       loadDashboardResourceStatus(this.db, enterpriseId),
+       listDashboardOverages(this.db, enterpriseId),
+       getMonthlyTokenUsage(this.db, enterpriseId, monthStart, monthEnd),
++      // S3a（ACE-03/06）：首页 API 费用分量改由同源估算供给，不依赖资金账户/期初/余额，
++      // 与用量总览、同期窗口共享 loadApiCostEstimation 单一来源。
++      loadApiCostEstimation(this.db, enterpriseId, { start: monthStart, end: monthEnd }),
+     ]);
++    const dashboardSpend = applyApiCostEstimationToSpend(
++      summarizeDashboardMonthlySpend(monthlyOperatingCosts.resources, monthStart, monthEnd),
++      apiCostEstimation,
++    );
+ 
+     return {
+       resourceAccountCount,

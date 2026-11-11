@@ -30,6 +30,10 @@ import {
  *
  * 模式：`OFF` 时整个资金路由不注册（PFA-08）；`DARK` 时只读与预检仍可用，
  * 但不可逆激活与静默租约变更被停写门禁拒绝——运维停写流程要求"先预检，再恢复 ACTIVE"。
+ *
+ * WP2-S4 / AFR-01 场景3：预检草稿合同已切分为纯套餐（activation-contracts.ts 显式拒绝
+ * API 资金事实）；过时候选携带退役 API 事实的激活由协调器
+ * `CANDIDATE_CONTAINS_RETIRED_API_FACTS` 拒绝（本文件仅做映射表透传）。
  */
 
 const ACTIVATION_FAILURE_STATUS: Record<string, number> = {
@@ -48,6 +52,10 @@ const ACTIVATION_FAILURE_STATUS: Record<string, number> = {
   RESOURCE_FINANCE_CONFLICT: 409,
   // Tx 原语的确定性输入校验失败：重试/重新预检都不改变结果，按请求错误返回。
   FACT_WRITE_INVALID: 400,
+  // WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：过时候选携带已退役 API 资金事实
+  // （三类草稿键或引用 API_RECHARGE 旧记录的关闭决定）→ 409 拒绝并说明；
+  // 协调器在任何写入前抛出（零写入），客户端需重新预检纯套餐草稿。
+  CANDIDATE_CONTAINS_RETIRED_API_FACTS: 409,
 };
 
 const FAILURE_AUDIT_ACTIONS = {
@@ -223,6 +231,7 @@ function quiescenceView(
  * 1. 本函数在调用只读投影**之前**执行：租约有效性 + 剩余时间，以及**永不豁免**的
  *    在途工作（`IN_PROGRESS` 请求、未结束 Attempt、待结算交易）。三者任一非零时
  *    连投影都不必算——PFA-09 明确"排空未完成不得生成候选"。
+ *    （WP2-S4 / R3：原「未分类 API 用量行」计数已退役恒 0，不再出现在本门禁。）
  * 2. 投影之后的豁免集排空判定由 `previewActivation({ beforePersist })` 完成：
  *    未结算/未分类 `ledger_line` 中，只有候选自己冻结、且将在同一激活事务内被
  *    确定性修复的行才被豁免（与 WP03 协调器同一规则），其余行仍然阻断。
@@ -270,7 +279,7 @@ export function registerProviderFinanceActivationRoutes(
   /**
    * 不可逆写入门禁：`DARK` 停写时**不可逆激活**与静默租约变更不可用（PFA-08）。
    * 预检（`activation-preview`）不在此列——停写恢复流程要求"修复后重新执行完整
-   * 预检与业务确认，再恢复 ACTIVE"，且预检不产生任何资金事实。
+   * 预检与业务确认，再恢复 ACTIVE"，且预检不产生任何资金事实（PFU-03）。
    */
   const requireWriteEntry = async (_req: FastifyRequest, reply: FastifyReply) => {
     if (options.mode !== "ACTIVE") {

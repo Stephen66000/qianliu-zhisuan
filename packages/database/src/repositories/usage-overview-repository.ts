@@ -10,6 +10,7 @@ import {
   type UsageOverviewRange,
 } from "./usage-overview-facts.js";
 import { type UsageQualitySummary } from "./usage-quality.js";
+import { loadApiCostEstimation, type ApiCostEstimation } from "./api-cost-estimation.js";
 
 export type UsageOverviewSubjectType = "EMPLOYEE" | "PROJECT";
 export type UsageOverviewPeriod = "TODAY" | "WEEK" | "MONTH";
@@ -34,6 +35,14 @@ export interface UsageOverviewMetrics {
   realTokens: string;
   apiCost: string | null;
   apiCostStatus: "PRICED_USAGE" | "CONFIRMED_ZERO_NO_UPSTREAM" | "UNKNOWN_COST" | "NOT_APPLICABLE" | "NOT_MIGRATED";
+  /** S2B（R7 裁定；语义随 R1-F3 更正）：窗口级"价格依据待核实"——对该窗口企业级调一次
+   *  loadApiCostEstimation，期间计价行依据取**结算时冻结快照** sourceStatus（F3：旧行
+   *  快照缺键归 UNVERIFIED，不读规则现值），任一 'UNVERIFIED' 即 true。仅汇总级透出；
+   *  趋势点/主体排名行（Omit 排除）不拆分主体维度，apiCostStatus 五值枚举与金额口径不变。
+   *  仅当 billing_rule.source_status 列存在（0093+）时产出；既有生产 schema（0093 前，
+   *  如 worker 独立报表的 0091 水位）上省略该字段——旧 schema 无"核实"概念，语义是
+   *  "无此信息"而非"已核实"，不得回填 false。 */
+  priceBasisUnverified?: boolean;
   deductedQuota: string;
   usageQuality: UsageQualitySummary;
   providerReportedCount: number;
@@ -43,14 +52,14 @@ export interface UsageOverviewMetrics {
   unknownCount: number;
 }
 
-export interface UsageOverviewPoint extends Omit<UsageOverviewMetrics, "activeSubjects"> {
+export interface UsageOverviewPoint extends Omit<UsageOverviewMetrics, "activeSubjects" | "priceBasisUnverified"> {
   bucketStart: string;
   bucketEnd: string;
   label: string;
   collectionStatus: "COMPLETE" | "MISSING";
 }
 
-export interface UsageOverviewRankingItem extends Omit<UsageOverviewMetrics, "activeSubjects"> {
+export interface UsageOverviewRankingItem extends Omit<UsageOverviewMetrics, "activeSubjects" | "priceBasisUnverified"> {
   subjectId: string;
   subjectName: string;
   departmentLabel: string | null;
@@ -125,10 +134,26 @@ export class UsageOverviewRepository {
       ? buildAggregateUsageFacts(input, range)
       : buildLiveUsageFacts(input, range);
     const aggregate = await this.loadMetrics(facts);
-    const [trend, ranking] = await Promise.all([
+    const [trend, ranking, estimation] = await Promise.all([
       this.loadTrend(input, range, facts, currentTime),
       this.loadRanking(facts, aggregate.metrics.realTokens, input.enterpriseId, range.range_end),
+      // S2B（R7；语义随 R1-F3 更正）：判定源统一＝loadApiCostEstimation（WP1 合同 §1
+      // v1.2：priceBasis 取**结算时冻结快照** sourceStatus，旧行缺键归 UNVERIFIED，
+      // 不再读规则现值）；企业级、同窗口（range 为本仓库已解析的企业时区窗口）。只读
+      // 额外一次 ledger_line（resource_mode='API'）快照键，不改任何聚合口径。
+      // 兼容门（WP5）：loadApiCostEstimation 的 SQL 引用 0093 才有的 billing_rule.source_status，
+      // 在既有生产 schema（0093 前，如 worker 独立报表 migrateTo 0091 水位）上会因缺列报错；
+      // 先做列存在性检查（见 hasBillingRuleSourceStatusColumn），列不存在则返回 null，
+      // priceBasisUnverified 相应省略（undefined 而非 false：旧 schema 无核实概念）。
+      this.loadPriceBasisEstimation(input, range),
     ]);
+    const metrics: UsageOverviewMetrics = {
+      ...aggregate.metrics,
+      ...(estimation && {
+        priceBasisUnverified: estimation.priceBasis
+          .some((basis) => basis.sourceStatus === "UNVERIFIED"),
+      }),
+    };
     return {
       subjectType: input.subjectType,
       subjectId: input.subjectId ?? null,
@@ -136,7 +161,7 @@ export class UsageOverviewRepository {
       anchor: input.anchor.toISOString(),
       timezone: range.timezone,
       range: { from: range.range_start.toISOString(), to: range.range_end.toISOString() },
-      metrics: aggregate.metrics,
+      metrics,
       trend,
       ranking,
       source: useAggregate ? "BUCKET_AGGREGATE" : "LIVE_LEDGER",
@@ -155,6 +180,45 @@ export class UsageOverviewRepository {
         toExclusive: range.range_end.toISOString(),
       },
     };
+  }
+
+  /**
+   * S2B priceBasisUnverified 的兼容门（WP5）：仅当 billing_rule.source_status 列存在
+   * （0093+）时才调用 loadApiCostEstimation 计算"价格依据待核实"。这是 worker 独立报表
+   * （report-facts.ts 经 getOverviewSnapshot，report-facts-legacy.integration.test.ts 按
+   * migrateTo 0091 水位模拟既有生产 schema）上的兼容行为：该报表合同要求不依赖 0093 的
+   * 新表/新列也能出报表。列不存在时返回 null，调用方省略 priceBasisUnverified
+   * （保持 undefined、不回填 false——语义是"无此信息"，不是"已核实"）。
+   */
+  private async loadPriceBasisEstimation(
+    input: UsageOverviewQuery,
+    range: UsageOverviewRange,
+  ): Promise<ApiCostEstimation | null> {
+    if (!(await this.hasBillingRuleSourceStatusColumn())) return null;
+    return loadApiCostEstimation(this.db, input.enterpriseId, {
+      start: range.range_start,
+      end: range.range_end,
+    });
+  }
+
+  /**
+   * billing_rule.source_status 列存在性检查：information_schema.columns 上的普通 SELECT，
+   * 一次 catalog 点查。取舍：不做仓库实例级缓存——getOverview 每次调用都为新事务新建
+   * 仓库实例，worker 报表也是按调用新建（getOverviewSnapshot），实例缓存无收益；模块级
+   * 缓存则会跨连接/跨数据库实例（同一进程内多个 testcontainer、多企业库）串状态，且在
+   * 0093 上线/回滚后有陈旧风险。每次快照多一次轻量 catalog 查询，可接受。
+   */
+  private async hasBillingRuleSourceStatusColumn(): Promise<boolean> {
+    const result = await sql<{ present: boolean }>`
+      SELECT EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = current_schema()
+           AND table_name = 'billing_rule'
+           AND column_name = 'source_status'
+      ) AS present
+    `.execute(this.db);
+    return result.rows[0]?.present ?? false;
   }
 
   private async assertOwnedSubject(input: UsageOverviewQuery): Promise<void> {

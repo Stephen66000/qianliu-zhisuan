@@ -6,6 +6,13 @@ import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
  * 严格账本/激活预检使用本函数；月度汇总与首页同期使用下方现金费用视图。
  * 两者共用 API/现金事实规则；遗漏金额只能标记为缺口，
  * 不得视为已知 0。接受 Kysely 实例或事务（Transaction 满足 Kysely 接口）。
+ *
+ * WP2-S5 缺口码统一（AFR-07＋WP2 plan §4.5，WP1 合同 §4 裁定 1 收口）：
+ * OPENING_BALANCE_MISSING（API 期初缺口）随 API 内部资金管理退役而停产——恒 0，
+ * 仅保留形状（消费方按 count>0 过滤，激活域消费点已由 S4 在 facts.ts 过滤）。
+ * API_USAGE_COST_* 与 API_COST_CURRENCY_*（真实用量/价格缺口，AFR-07"仍展示真实
+ * 存在的用量或价格缺口"）与 SUBSCRIPTION_PERIOD_MISSING/CASH_PAID_CNY_MISSING
+ * （套餐/现金域，含历史 API_RECHARGE 现金证据）保留原计数。
  */
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
@@ -31,22 +38,7 @@ export async function countFinanceGaps(
   const [apiGaps, gapResult] = await Promise.all([
     loadApiCostGaps(db, enterpriseId, start, end),
     sql<{ code: string; count: string }>`
-    SELECT 'OPENING_BALANCE_MISSING' AS code, COUNT(*)::text AS count FROM (
-      SELECT DISTINCT line.provider_resource_id, line.api_cost_currency
-        FROM ledger_line line
-       WHERE line.enterprise_id=${enterpriseId}::uuid AND line.resource_mode='API'
-         AND line.api_cost_status='PRICED_USAGE' AND line.api_cost_currency IS NOT NULL
-         AND line.settled_at>=${effectiveStart} AND line.settled_at<${end}
-         AND NOT EXISTS (
-           SELECT 1 FROM provider_finance_event opening
-            WHERE opening.enterprise_id=line.enterprise_id
-              AND opening.provider_resource_id=line.provider_resource_id
-              AND opening.account_currency=line.api_cost_currency
-              AND opening.event_type='API_OPENING_BALANCE'
-         )
-    ) missing_opening
-    UNION ALL
-    SELECT 'SUBSCRIPTION_PERIOD_MISSING', COUNT(*)::text
+    SELECT 'SUBSCRIPTION_PERIOD_MISSING' AS code, COUNT(*)::text AS count
       FROM ledger_line WHERE enterprise_id=${enterpriseId}::uuid
        AND resource_mode='CODING_PLAN' AND subscription_period_id IS NULL
        AND COALESCE(settled_at, created_at)>=${effectiveStart}
@@ -62,6 +54,8 @@ export async function countFinanceGaps(
     ...API_COST_GAP_CODES.map((code) => ({ code,
       count: apiGaps.filter((gap) => gap.code === code)
         .reduce((sum, gap) => sum + BigInt(gap.count), 0n).toString() })),
+    // OPENING_BALANCE_MISSING 恒 0（AFR-07）：形状保留，位置与退役前一致。
+    { code: "OPENING_BALANCE_MISSING", count: "0" },
     ...gapResult.rows,
   ];
 }

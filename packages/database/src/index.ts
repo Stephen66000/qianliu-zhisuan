@@ -27,6 +27,24 @@ export {
  */
 
 export { type ProbeRunEndpointScope } from "./kysely-operations-tables.js";
+export {
+  OfficialBalanceRefreshConflict,
+  OfficialBalanceRefreshRepository,
+  type ProviderBalanceRefreshRow,
+  type ProviderResourceBalanceRefreshTable,
+} from "./repositories/official-balance-refresh-repository.js";
+export {
+  officialBalanceSyncDay,
+  recordOfficialBalanceSyncSuccess,
+  recordOfficialBalanceSyncAttempt,
+  type OfficialBalanceAttemptIdentity,
+} from "./repositories/official-balance-sync-writes.js";
+export {
+  listOfficialBalanceStates,
+  type OfficialBalanceState,
+  type OfficialBalanceStatus,
+  type OfficialBalanceStatesInput,
+} from "./repositories/official-balance-states.js";
 
 export {
   createProjectMembership, reviseProjectMembership, listProjectMemberships,

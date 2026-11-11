@@ -66,6 +66,49 @@ describe("POOL-043 上游前撤权结算", () => {
     }));
   });
 
+  // F2/ACE-04（返修轮 R4）：规则缺「适用分项」价（cache=600>0 需 hitPrice）→
+  // apiCost=null → 结算落 UNKNOWN_COST＋api_cost/currency NULL（0085 shape 合规），
+  // 且 billing_rule_id/rule_version/快照（含缺失分项价原始 null）仍冻结——聚合层
+  // 据此归 PRICE_MISSING，不再把缺价冒充 0.00044000 完整金额。
+  it("规则缺适用分项价时结算 UNKNOWN_COST，费用与币种为 NULL 但规则与快照仍冻结", async () => {
+    const createUsageAndLedgerLineIfAbsent = vi.fn().mockResolvedValue({
+      line: { deducted_quota: null }, created: true,
+    });
+    await persistAttemptUsageEvidence({
+      ledgerRepo: { createUsageAndLedgerLineIfAbsent } as unknown as GatewayLedgerRepository,
+      requestId: "request-api-missing-price", enterpriseId: "enterprise-1", principalId: "principal-1",
+      attemptId: "attempt-api-missing-price", attemptNo: 1,
+      attemptStartedAt: Date.parse("2026-09-03T00:00:00Z"), resourceId: "resource-api",
+      resourceMode: "API", upstreamModel: "deepseek-chat",
+      outcome: { status: 200, committed: true,
+        usage: { input: 1000, output: 200, cache: 600, quality: "PROVIDER_REPORTED" } },
+      billingRule: {
+        id: "rule-partial", ruleType: "API_PRICE", ruleVersion: "v1",
+        providerResourceId: "resource-api", upstreamModel: "deepseek-chat",
+        effectiveFrom: Date.parse("2026-09-01T00:00:00Z"), effectiveTo: null,
+        timezone: null, daysOfWeek: null, startTime: null, endTime: null,
+        timeWindows: null, multiplier: null, cacheHitPrice: null,
+        cacheMissPrice: "0.0000001", outputPrice: "0.000002", currency: "CNY", priority: 1,
+      },
+    });
+    expect(createUsageAndLedgerLineIfAbsent).toHaveBeenCalledWith(expect.objectContaining({
+      ledger_line: expect.objectContaining({
+        api_cost: null,
+        api_cost_currency: null,
+        api_cost_status: "UNKNOWN_COST",
+        billing_rule_id: "rule-partial",
+        rule_version: "v1",
+        billing_rule_snapshot: expect.objectContaining({
+          baseRuleId: "rule-partial",
+          cacheHitPrice: null,
+          cacheMissPrice: "0.0000001",
+          outputPrice: "0.000002",
+          apiCost: null,
+        }),
+      }),
+    }));
+  });
+
   it("已触达上游的API零Token失败Attempt保持UNKNOWN_COST，不冒充确认零费用", async () => {
     const createUsageAndLedgerLineIfAbsent = vi.fn().mockResolvedValue({
       line: { deducted_quota: null }, created: true,

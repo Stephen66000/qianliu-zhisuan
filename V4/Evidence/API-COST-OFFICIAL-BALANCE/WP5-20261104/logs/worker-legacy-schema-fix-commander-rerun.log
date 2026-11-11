@@ -1,0 +1,11 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/worker
+
+ ✓ src/reporting/__tests__/report-facts-legacy.integration.test.ts (2 tests) 2654ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  20:05:38
+   Duration  4.29s (transform 792ms, setup 0ms, collect 1.43s, tests 2.65s, environment 0ms, prepare 43ms)
+

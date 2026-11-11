@@ -1,0 +1,109 @@
+# WP5 50 条验收矩阵草案（S3b 装配稿）
+
+日期：2026-11-04；基线：worktree `/Users/mac/Projects/仟流智算-api-decouple`，HEAD `d6550c9`＋未提交 S2A/S2B/S3a-1/S3a-2/S3b 改动。
+**状态口径**：本文件所有状态均为**草案**——PASS 候选＝证据指针已配齐且既有运行全绿；待 S5 全量日志确认＝依赖 S5 全量跑批日志落档后由总指挥定稿；BLOCKED-WP6 半段＝该 case 的可执行半段在本包已完成、其余半段归 WP6 演练。最终状态由总指挥在 S5 全量后定稿。
+
+## 0. 证据指针图例（绝对路径前缀省写）
+
+| 缩写 | 全路径 |
+|---|---|
+| `E2E` | `apps/web/e2e/wp4-cost-official-balance.spec.ts`（test 编号 1-16；行号见各指针） |
+| `E2E-LOG` | `V4/Evidence/API-COST-OFFICIAL-BALANCE/WP5-20261104/logs/e2e-wp4-spec-commander-rerun.log`（16 passed / 36.3s，总指挥复跑档） |
+| `SHOTS` | `V4/Evidence/API-COST-OFFICIAL-BALANCE/WP5-20261104/screenshots/`（wp5-*.png 共 11 张＋WP4 既有 wp4-*.png 复用） |
+| `X06` | `V4/Evidence/API-COST-OFFICIAL-BALANCE/WP5-20261104/x06-amount-reconciliation.md` §1 行 1-26（脚本 `x06-amount-reconciliation.ts`，0 待裁定差异） |
+| `S2A/S2B/S3A1/S3A2` | `openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP5/receipts/` 下 `s2a-receipt.md`/`s2b-receipt.md`/`s3a1-receipt.md`/`s3a2-receipt.md`（§号见各指针） |
+| `INV` | 同上目录 `notes/inv-wp5.md` §1 映射表锚点（file:line 均开工时逐一核实） |
+| `DB`/`CA`/`GW`/`WK`/`AD`/`WEB` | 集成层：`packages/database/src/__tests-integration__/`、`apps/control-api/src/__tests-integration__/`、`packages/gateway`（同构）、`packages/worker`、`packages/provider-adapters`、`apps/web/src`（各 file:line 见指针） |
+
+## 0b. 执行命令图例（S5 全量清单＝INV §4 T4 原样＋全量兜底）
+
+| 编号 | 命令（corepack pnpm@11.11.0，worktree 根；E2E 需 4 环境变量＋`DATABASE_URL=qianliu_e2e`） |
+|---|---|
+| CMD-DB | `--filter @qianliu/database run test:integration -- <INV §4 DB 文件清单＋wp5-upgrade-immutability.integration.test.ts>` |
+| CMD-GW | `--filter @qianliu/gateway run test:integration -- <INV §4 GW 文件清单>` |
+| CMD-CA | `--filter @qianliu/control-api run test:integration -- <INV §4 CA 文件清单>` |
+| CMD-WK | `--filter @qianliu/worker run test -- src/provider-operating-sync/runner.test.ts src/subscription-renewal/runner.test.ts` |
+| CMD-AD | `--filter @qianliu/provider-adapters run test -- src/__tests__/provider-operating-facts.test.ts` |
+| CMD-WEB | `--filter @qianliu/web run test -- <INV §4 web 文件清单>` |
+| CMD-E2E | `--filter @qianliu/web exec playwright test --config playwright.config.ts e2e/wp4-cost-official-balance.spec.ts` |
+| CMD-FULL | 各包 `test:integration` 不带文件参数（全量兜底；注意 w20-standard-capacity P95 与 usage-aggregate-migration-capacity 为已知本机容量 flake，隔离复绿） |
+
+已执行记录：S2A（CMD-CA 并集 360/360＋typecheck 0）、S2B（DB 591/593、CA 361/361、WEB 758/758、typecheck/lint 0）、S3A1（5 文件 29/29＋typecheck/lint 0）、S3A2（E2E 16/16＝E2E-LOG、WEB 759/759＋lint/typecheck 0）、S3B（X06 脚本 exit 0，15 端点/26 行/0 待裁定）。
+
+## 1. API 费用估算（AT-ACE-01～14）
+
+| ID | 夹具 | 证据层与证据指针 | 执行命令 | 状态草案 | 备注 |
+|---|---|---|---|---|---|
+| ACE-01 | F01（seed-e2e-wp4 :288-333） | E2E test4 :161-178（用量页两处“API费用估算”表头）＋E2E test8 :245-283（详情页结算汇总命名，G1 补）＋E2E test7 :214-241（CSV 表头）＋E2E-LOG ✓1/✓4/✓7/✓8＋SHOTS wp5-drilldown-f01.png；DB readers-alignment :115（4 读取方命名同源） | CMD-E2E（已跑 16/16）＋CMD-DB | PASS 候选 | G1 已补；“说明可查看且不宣称包含平台外调用”以详情页文案＋截图承载 |
+| ACE-02 | F01 同上 | DB api-cost-estimation.integration.test.ts :160-171（**0.00104000 字面值**，:167 注释即规范公式）＋GW w13-billing.test.ts :128（分项 decimal）＋E2E test4 :171-174（HTTP 0.00104）＋E2E test8 :245-283（0.00104＋600/400/200 三字段，G2 补）＋X06 行 1/3/6/9/12（0.00104 求和成分） | CMD-DB＋CMD-GW＋CMD-E2E | PASS 候选 | 金额链→0.00104000 字面值用例＋X06 表；G2（1200 Token）已由 test8 断言 |
+| ACE-03 | F11 雏形（w13 夹具 v1/v2）＋G3 夹具（S3A1 §2） | DB estimation “h)”（S3A1 §2-G3：生效点分窗 1.00000000/0.50000000＋重读 toEqual＋旧行保留版本 A）＋GW w13 :145（版本冻结） | CMD-DB（5 文件 29/29 已跑）＋CMD-GW | PASS 候选 | S3A1 §2-G3 全绿 |
+| ACE-04 | seed F01 规则 0093 默认 UNVERIFIED | DB :258（PRICE_BASIS_UNVERIFIED）＋:302（0093）＋CA w19 :195＋WEB RequestDrilldown.test.tsx :104,112＋S2B §1.1/1.3（聚合级角标 R2/R7：UsageOverviewPanel/ResourceBreakdown/databreakdown）＋E2E test9 :285-313（指标卡角标）＋test15 :439-451（分解行角标）＋test8 :271（行级“估算 ¥0.00（价格依据待核实）”）＋SHOTS wp5-breakdown-price-basis-badge.png | CMD-DB＋CMD-CA＋CMD-WEB＋CMD-E2E | PASS 候选 | G4a（R2）与 G4b（e2e 角标）均已补；基准 gaps PRICE_BASIS_UNVERIFIED:4＝X06 §3 |
+| ACE-05 | estimation 夹具（零资金表企业） | DB estimation a) :160＋readers-alignment :157＋E2E test8（无资金账户结算读数） | CMD-DB＋CMD-E2E | PASS 候选 | — |
+| ACE-06 | parity 夹具 :39-97 | DB wp2-finance-mode-parity.integration.test.ts :102（strict 两路同源）＋S3A1 §2-G5 新用例（仅插更小官方快照→重读 toEqual＋amounts/completeness/gaps 逐字一致）＋GW gates :320 | CMD-DB（已跑）＋CMD-GW | PASS 候选 | G5 已补（“只改余额→重读逐字不变”） |
+| ACE-07 | seed F02 三行（S3A2 §2：1 CNY/2 CNY/UNKNOWN） | DB estimation c) :218＋:382＋readers-alignment :182＋WEB UsageRow :28-40＋Usage.test :99-100＋E2E test9 :285-313（行级 ¥1/¥2/未知）＋E2E test10 :315-356（账单警示＋HTTP apiSpends=[CNY 3.00104000, USD 0.50000000]）＋X06 行 12/13（apiSpends 逐字一致＋缺口说明）＋SHOTS wp5-usage-unknown-cost-rows.png、wp5-bill-draft-partial-pricing.png | CMD-DB＋CMD-WEB＋CMD-E2E | PASS 候选 | 金额链→X06 表行 12；G6 已补 |
+| ACE-08 | gateway 夹具（dispatch guard） | GW attempt-usage-settlement.test.ts :168（上游前拒绝零费用）＋:310（definite zero＋overage/classification） | CMD-GW | PASS 候选 | — |
+| ACE-09 | attempts 夹具（0.01+0.02） | DB api-cost-estimation-attempts.integration.test.ts :237（§1.1 合计 **0.03**）＋S3A1 §2-G26（§1.2b 回滚→重放仍 0.03000000）＋E2E test8（Attempt 数＝1，G7 补） | CMD-DB＋CMD-E2E | PASS 候选 | 金额链→0.03000000 字面值用例（attempts §1.1/§1.2/§1.2b） |
+| ACE-10 | 直插合法历史处置 | DB attempts §1.3 :319（处置不变）＋CA usage-cost-disposition.http.test.ts :62（三投影一致） | CMD-DB＋CMD-CA | PASS 候选 | — |
+| ACE-11 | 夹具内建 | DB readers-alignment :115（首页/用量/同期/统一入口字面值相等）＋**X06 §1 全表 26 行**（首页/资源分解/用量/账单/年度/部门/项目/CSV 同期同范围对照，0 待裁定） | CMD-DB＋X06 脚本（已跑 exit 0） | PASS 候选 | G8 已由 X06 补齐；跨读取方差异全部归因白名单 (a)/(b)/(c) |
+| ACE-12 | cross-month 固定时钟 | DB wp2-cross-month-attribution :132/:162（11/12 月分列＋额度预占月）＋:233（新月续订）＋GW employee-monthly-quota :81 | CMD-DB＋CMD-GW | PASS 候选 | — |
+| ACE-13 | e2e CLOSED/DRAFT＋catalog 套餐 | CA dashboard-finance-estimation.test.ts :99（总额=套餐+估算）＋E2E test5 :181-194（“综合费用（含 API 估算）”标签）＋E2E test10 :315-356（数值 ¥3.00 / USD 0.50＝seed 常量计算，G9 补）＋X06 行 3/12/14 | CMD-CA＋CMD-E2E | PASS 候选 | G9 已补（页面数值断言）；X06 行 14 另证 CLOSED 月历史口径不套用 |
+| ACE-14 | seed usdRequest/usdLine :356-364 | DB estimation b) :182＋attempts §1.4 :355＋readers-alignment :182＋E2E test10（USD 0.50 独立标识、无 ¥3.50 合并）＋E2E test7（CSV 无跨币种合计列）＋X06 行 12（USD 0.50000000 分列、apiCost=null）＋行 10（CSV USD 列） | CMD-DB＋CMD-E2E | PASS 候选 | G10 已补；混币不合并由 apiCost=null 断言承载 |
+
+## 2. 官方账户余额（AT-OAB-01～14）
+
+| ID | 夹具 | 证据层与证据指针 | 执行命令 | 状态草案 | 备注 |
+|---|---|---|---|---|---|
+| OAB-01 | seed OK 资源（110=赠10+充100） | E2E test1 :62-114（110＋最近成功时间＋无 220）＋:99-113（C2 composition 逐字段）＋AD provider-operating-facts.test.ts :9＋SHOTS wp4-official-balance-ok.png | CMD-AD＋CMD-E2E | PASS 候选 | — |
+| OAB-02 | states 夹具直插 ADMIN 快照 | DB states :151（官方 null、手工不混入）＋forecast :56（official_source_missing） | CMD-DB | PASS 候选 | 浏览器侧无 ADMIN 快照夹具（不需浏览器） |
+| OAB-03 | catalog zhipu 资源 | DB states :162（UNSUPPORTED 全 null）＋WK runner :131（DARK/OFF 仍同步）＋E2E test1 :86-89（暂不支持）＋E2E test11 :358-371（Token 与估算照常统计，G11 补）＋SHOTS wp5-usage-unsupported-tokens.png | CMD-DB＋CMD-WK＋CMD-E2E | PASS 候选 | G11 已补 |
+| OAB-04 | seed failedResource＋expiredResource | WK runner :131（资金 DARK/OFF 仍执行同步写快照）＋E2E test1 :79-83（FAILED 保鲜）＋E2E test12 :373-392（过期标记＋保鲜值 40，G14 补）＋SHOTS wp5-official-balance-expired.png、wp5-resources-expired-full.png | CMD-WK＋CMD-E2E | PASS 候选 | G12 备注：“推进至下一同步时点”为 runner 级 mock tick（非真实调度循环）；验收按 runner 证据＋说明执行，或 WP6 补 WK 集成 |
+| OAB-05 | refresh.http 夹具注入成功响应 | CA official-balance-refresh.http.test.ts :164（成功刷新 ACCEPTED＋快照/attempt 落库＋审计无凭证明文）＋E2E test2 :116-132（409 credential_missing 分支） | CMD-CA＋CMD-E2E | PASS 候选 | G13 备注：浏览器“刷新后变 160”无 e2e（无真实上游）；以 HTTP 层成功路径＋页面 409 分支合成，如需真实演练归 WP6 |
+| OAB-06 | refresh.http 夹具 | CA refresh.http :268（view-only 403＋GET 可读＋422/409/404）＋:365/:417（C2 结构＋请求体校验）；凭证不下发断言 :164/:268 | CMD-CA | PASS 候选 | — |
+| OAB-07 | states 可控时钟（vi.setSystemTime） | DB states :86（T0 成功 50 保鲜＋P2 过期叠加）＋:223（P2 可配置）＋WK runner :192（失败保鲜）＋E2E test12（浏览器过期标记，G14 补） | CMD-DB＋CMD-WK＋CMD-E2E | PASS 候选 | G14 已补（S3A2 seed 过期资源） |
+| OAB-08 | states 夹具＋seed neverResource | DB states :125（NEVER_SYNCED 不显 0）＋CA refresh.http :307（失败留痕/旧快照保留）＋E2E test13 :394-414（暂无官方数据＋401 原因，G15 补）＋SHOTS wp5-official-balance-never-success.png | CMD-DB＋CMD-CA＋CMD-E2E | PASS 候选 | G15 已补 |
+| OAB-09 | states 两资源＋seed 同账户 A/B | DB states :173（各 100 独立无合计）＋E2E test14 :416-437（两行各 ¥100.00、全页无 ¥200.00，G16 补）＋C2 两资源 OK 100 断言＋SHOTS wp5-official-balance-same-account-pair.png | CMD-DB＋CMD-E2E | PASS 候选 | G16 已补（S3A2 §2-G16 落地说明：以 A/B 两资源对达成“无 200 合计”可证断言） |
+| OAB-10 | 同上 | DB states :173（不凭金额自动合并——产品无账户识别逻辑即天然满足）＋资源列表页截图（同账户两行独立） | CMD-DB＋CMD-E2E | PASS 候选 | G17 以 states :173＋SHOTS wp5-official-balance-same-account-pair.png 记录 |
+| OAB-11 | —（机制层） | WP3-S5 grep 证伪 gateway 准入零余额读取＋GW gates :320（正余额不进额度判定）＋WK runner :192（同步失败零资金写入） | CMD-GW＋CMD-WK | PASS 候选 | G18 备注：端到端“失败后模拟请求成功＋上游计数”联调步骤缺；以 GW 电池＋runner 证据合成，浏览器演练可归 WP6 |
+| OAB-12 | runner/w11 夹具 | WK runner :192（恢复链：新证据解除/证据不足不解除/保鲜）＋GW w11-resource-pool.test.ts :146,282,315＋gates :497（EXHAUSTED 恢复原合同→DEGRADED） | CMD-WK＋CMD-GW | PASS 候选 | 隔离前/后证据两条时序已由 :192 覆盖 |
+| OAB-13 | forecast 夹具＋seed expiredForecast | DB forecast :105（官方新鲜值不被 ADMIN 覆盖）＋:56（official_source_missing）＋domain supply-forecast.test.ts＋E2E test16 :453-476（可信度 HIGH＋覆盖 12h＋“不可计算”文案＋“○ 供给预测（算法估算）”图例）＋SHOTS wp5-supply-forecast-not-calculable.png、wp5-quota-window-forecast-legend.png | CMD-DB＋CMD-E2E | PASS 候选 | **浏览器层现有文案断言（可信度/覆盖/不可计算/算法估算）；“仅按已观察速率”专项句子缺位待用户裁定**（S3A2 §8-1，未改组件） |
+| OAB-14 | forecast 可控时钟＋expiredForecast | DB forecast :76（official_balance_expired 不可计算）＋:122（P2 内正常）＋E2E test16（过期资源行 not_calculable_reason 断言，G20 补） | CMD-DB＋CMD-E2E | PASS 候选 | G20 已补 |
+
+## 3. API 资金管理退出（AT-AFR-01～14）
+
+| ID | 夹具 | 证据层与证据指针 | 执行命令 | 状态草案 | 备注 |
+|---|---|---|---|---|---|
+| AFR-01 | seed 历史事件 :586-620 | E2E test3 :134-159（无充值表单/历史只读含来源/退役说明）＋WEB resource-page-display（S3A2 §5 G24 组合断言）＋SHOTS wp4-plan-subscription-panel.png | CMD-WEB＋CMD-E2E | PASS 候选 | G21 备注：“逐项遍历所有操作菜单”未做，以 e2e test3＋组件测试合成 |
+| AFR-02 | pf 夹具＋w20 plan/api 资源 | CA pf :896 it.each（W1-W4/W9-W11 七端点 410）＋:707/:726（W8/W7）＋S2A §1（R1：purchases API_RECHARGE 一律 410 新用例 w20 :999-1073＋既有用例迁移说明）＋WP2/retired-api-funding-contract.md §2 W12 | CMD-CA（43 文件 360/360 已跑） | PASS 候选 | G22=R1 已落地；S2A §4-2 备注 410 优先于 closed 为隐式覆盖（如需显式断言可后续补） |
+| AFR-03 | activ 夹具 | CA activ :371（preview 拒绝含 API 资金草稿 400）＋:584（直插旧候选→409 candidate_contains_retired_api_facts 零写入）＋:538（纯套餐草稿 GO→W5/W6 可用） | CMD-CA | PASS 候选 | — |
+| AFR-04 | pending (a) 夹具 | GW wp2-pending-admission.test.ts :135（新建无资金账户→立即可服务＋用量与估算） | CMD-GW | PASS 候选 | — |
+| AFR-05 | pending＋直插 PENDING | GW pending (b) :163＋DB activ-migration :257/:423（0094 后门禁退役/存量语义不变） | CMD-GW＋CMD-DB | PASS 候选 | — |
+| AFR-06 | pending (c) | GW pending (c) :175（CREDENTIAL_INVALID 仍拒绝零上游）＋gates :470（凭证隔离不被额度同步解除） | CMD-GW | PASS 候选 | — |
+| AFR-07 | cross-month 固定时钟 | DB cross-month :132/:162/:233＋GW employee-monthly-quota :81＋E2E test1 :72（最近成功时间保留） | CMD-DB＋CMD-GW＋CMD-E2E | PASS 候选 | — |
+| AFR-08 | 各夹具内建＋catalog CP 资源 | DB cross-month :233＋DB subscription-auto-renewal.integration（10 例）＋CA subscription-renewal-flow :15＋WK subscription-renewal/runner :8-19（OFF/DARK 不写/ACTIVE 调用） | CMD-DB＋CMD-CA＋CMD-WK | PASS 候选 | — |
+| AFR-09 | gates 夹具（快照 88.88） | GW gates :320（AT-AFR-09 正余额仍 429 provider_quota_exhausted 零上游）＋GW employee-monthly-quota :45 系＋GW w18 :285（F-01-2） | CMD-GW | PASS 候选 | — |
+| AFR-10 | gates 夹具 | GW gates :360（200+overage=true+授权四字段前后相等）＋GW w18 :812（F-01-4） | CMD-GW | PASS 候选 | — |
+| AFR-11 | seed CLOSED 冻结月 :475-585 | CA pool025 :551（冻结不可变版本）＋:201（确认不改写快照/账本）＋DB parity :139＋DB draft-model-alignment :294（逐字节）＋E2E test6 :196-212（CLOSED 横幅·v1＋三卡）＋X06 行 14（CLOSED apiSpends=CNY 96.00000000 零改动）＋SHOTS wp4-bill-closed-banner.png | CMD-CA＋CMD-DB＋CMD-E2E | PASS 候选 | 金额链→X06 表行 14（白名单(c) 桥接历史值） |
+| AFR-12 | draft-model-alignment 夹具＋S3A1 G23 夹具 | DB draft-model-alignment :236（draft 桥接字段照常产出）＋S3A1 §2-G23 新用例（仅余额桥接月份：桥接 30 保留在 sourceFacts、估算域精确 0、全树扫描无 30 误填）＋CA pool025 :151＋CA w20-resource-insights :646（旧 CLOSED JSON 安全投影） | CMD-DB＋CMD-CA | PASS 候选 | G23 已补（S3A1 §2-G23）；导出层不填桥接值由 G23 全树扫描承载 |
+| AFR-13 | e2e DRAFT 现行月 | CA standard-home.integration :434-485（V14 缺口码迁移）＋WEB OperatingBill.test.tsx :178（无“待补期初余额”）＋standard-home-model.test.ts :208-211（死映射删除）＋E2E test5 :181-194（DRAFT 无待补/期初/充值/期末卡） | CMD-CA＋CMD-WEB＋CMD-E2E | PASS 候选 | — |
+| AFR-14 | seed＋catalog | E2E test1（API 官方余额列）＋test3（套餐与订阅保留）＋WEB ResourceBreakdown.pool042.test.tsx（同面板两 mode）＋S3A2 §5 G24 同渲染输出组合断言（API 无资金栏目＋CP 费用/额度保留） | CMD-WEB＋CMD-E2E | PASS 候选 | G24 已补 |
+
+## 4. 八项集成回归（AT-X01～08）
+
+| ID | 夹具 | 证据层与证据指针 | 执行命令 | 状态草案 | 备注 |
+|---|---|---|---|---|---|
+| X01 资金模式矩阵 | parity 夹具＋pending 夹具＋runner/w04 夹具 | **组合现有五套件**：DB parity :102（strict 关/开两路同源＝OFF/ACTIVE 机制）＋WK subscription-renewal/runner :8-19（OFF/DARK 续订门禁）＋WK provider-operating-sync/runner :131（DARK/OFF 仍同步）＋CA w04-provider-route.test.ts :41-47（OFF 路由不注册 404）＋CA activ :891（DARK 停写 404，INV §3-X01 补充）＋GW pending (a)(b)（无账户/PENDING） | CMD-DB＋CMD-WK＋CMD-CA＋CMD-GW（同批执行） | 待 S5 全量日志确认 | **组合矩阵＝分域参数化证据合成，无单一矩阵用例**（INV G25 建议已被总指挥接受）；组合覆盖＝OFF/DARK/ACTIVE×strict 关/开×无账户/旧账户×无状态/PENDING（各分域参数化点见前述指针）；“估算恒 0.00104000”字面值在分域各自断言（estimation a/:160、GW w13 :128、E2E test4/test8、X06 行 1-12），parity 本身用 12.34 |
+| X02 同日多次与冷却 | refresh.http/DB refresh/0095/runner 夹具 | CA refresh.http 7 例（:164 成功/:207 冷却/:227 在途租约/:268 权限/:307 失败后再刷/:365 C2/:417 校验）＋DB wp3-official-balance-refresh 8 例（:73 并发/:104 幂等/:118 冷却/:165 租约/:185 同日多行/:230 down）＋DB wp3-operating-sync-decouple :74,82,113（0095 同日多行＋down 守卫）＋WK runner :54（P1 周期门禁） | CMD-CA＋CMD-DB＋CMD-WK | PASS 候选 | 手动＋定期同时发起＝:227 在途租约＋runner P1 计入节奏；无实质缺口（INV G 系无 X02 缺口） |
+| X03 重复终态 | attempts 夹具 | DB attempts §1.2 :276（dedup 重放不落新行、聚合仍 **0.03**）＋S3A1 §2-G26 §1.2b（事务回滚→重放→仍只计一次、计数 ["2","2","2"]、9.99 幽灵行不存在）＋GW employee-monthly-quota :110（原子月度记账失败零残留）＋GW attempt-usage-settlement :101/:189（单一原子入口/failover 不重复结算） | CMD-DB＋CMD-GW | PASS 候选 | 金额链→0.03000000 字面值用例；G26 两步断言已由 S3A1 §1.2b 补齐 |
+| X04 其他门禁 | gates/w11/cpqw 夹具 | GW gates 9 例 :319-534（禁超额/允许超额/Key 限制/项目限制/CPQW 窗口/人工停用/凭证无效/真实 EXHAUSTED/纯 PENDING 对照）＋GW w11 :74-330＋GW cpqw-quota-window :205-475 | CMD-GW | PASS 候选 | — |
+| X05 升级与历史不变 | S3A1 X05 夹具（0091 水位 F08/F09） | DB wp5-upgrade-immutability.integration.test.ts（新文件 3 用例：6.2a 迁移不变性＋sha256 摘要对比/0093 白名单正向断言；6.2b 退役写入口升级后仍拒绝零写入；6.2c 新库对照）——S3A1 §3 全绿（3/3） | CMD-DB | PASS 候选 | 允许差异白名单（0092 新表/0093 新列默认值）已逐条列明；HTTP 层 410/409 退役合同由 AFR-02 覆盖；“迁移前旧数据摘要保存”以用例内现场基线实现（INV §5-6） |
+| X06 全页和导出同源 | e2e seed 当月 DRAFT＋CLOSED 月 | **X06 §1 核对表 26 行**（脚本 x06-amount-reconciliation.ts exit 0：15 端点/基准 loadApiCostEstimation CNY 3.00104000＋USD 0.50000000 KNOWN_PARTIAL/**0 待裁定差异**；基准 JSON 全文＋15 端点原始响应摘要见 X06 §3/§4）＋DB readers-alignment :115＋draft-model-alignment :142/:159/:184＋operating-analysis.integration（9 例）＋pool043-operating-bill-accounts＋project-allocation-*＋E2E test4/5/6/7 | X06 脚本（已跑）＋CMD-DB＋CMD-E2E | PASS 候选 | 金额链→X06 全表；差异归因：一致 10 行、白名单(b) 双权威 6 行、白名单(a) 范围/期间 7 行、(a)+(b) 组合 4 行、(c) 桥接历史 1 行、核对行（项目/部门分摊域）若干部；CSV 币种缺省标签（costCurrency??"CNY"）与年度页 apiAccounts 覆盖范围两处观察列入回执未决问题 |
+| X07 无账户新消费与回退 | estimation/pending/gates/冻结系夹具 | **可执行半段**：DB estimation a) :160（可读）＋GW pending (a) :135（可结算全链路）＋GW gates :320（受额度约束）＋AFR-11 系（冻结/逐字节，数据保留）＋DB migration-rollback 系（provider-finance-activation-migration :359、wp3-operating-sync-decouple :82/:113、wp5-upgrade-immutability 6.2b）＋WK runner/CA refresh.http :307（官方刷新恢复）＋X06 行 1-26（无期初消费金额可读可核对） | CMD-DB＋CMD-GW＋CMD-CA＋CMD-WK | 半段 PASS 候选＋**BLOCKED-WP6 半段** | **候选版本回退演练（停新版本→回旧版本→数据保留断言/旧服务读新数据）归 WP6**（INV §3-X07）；本包最大半段＝DB 水位回退守卫（已有 down 测试） |
+| X08 切换时任务共存 | pf/activ/quiescence/runner 夹具 | **机制证据（可执行半段）**：CA pf :896（停旧写七端点 410＋四表零增量）＋CA activ :458（未排空拒绝且不落候选）＋GW provider-finance-quiescence-gate :126/:171（租约内 503 零事实/到期自动恢复）＋WK runner gate＋renewal tick＋provider-operating-sync runner（零资金依赖）＋CA refresh.http :307（官方刷新恢复）＋X01 组合套件（OFF/DARK/ACTIVE 各服务共存读数） | CMD-CA＋CMD-GW＋CMD-WK | 半段 PASS 候选＋**BLOCKED-WP6 半段** | **实际候选版本切换时序演练（多进程隔离环境：control-api+gateway+worker+模拟上游）归 WP6**（INV §3-X08、acceptance §1 分工） |
+
+## 5. 统计与装配说明
+
+- 50 行：**PASS 候选 47（ACE 14＋OAB 14＋AFR 14＋X02~X06 5）、待 S5 全量日志确认 1（X01）、BLOCKED-WP6 半段 2（X07/X08，各行内可执行半段另标 PASS 候选）**；无 NOT_RUN 断言行、无 BLOCKED-环境 行。
+- 金额类 case 逐条链接：ACE-02（0.00104000 字面值＋X06 行 1/3/6/9/12）、ACE-07（X06 行 12/13）、ACE-09（0.03000000 attempts §1.1/§1.2b）、ACE-13（X06 行 3/12/14）、ACE-14（X06 行 12/10）、X03（0.03000000 字面值用例）、X06（全表）。
+- X06 表（§1 26 行）一致性分布：同源/口径换算一致 9 行（含 CLOSED 冻结月白名单(c) 零改动）；差异全部可归因——白名单(b) 双权威 2 行（overview/年度页多币种保守置 null）、(a)+(b) 组合 7 行（其中 4 行为请求级域＋缺省币种标签、金额可逐行对平；3 行为资源分解组域收敛）；非金额域核对行 8 行。待裁定差异 0。
+- 用户签认项/缺口白名单引用集中备注：G12（runner 级 mock tick 口径）、G13（无真实上游刷新演练）、G17（机制不存在即天然满足）、G18（GW 电池合成）、G21（菜单遍历合成）、OAB-13（“仅按已观察速率”专项句缺位待用户裁定）、S2A §4（410 优先于 closed 隐式覆盖）。
+- 最终状态定稿：由总指挥在 S5 全量日志（CMD-FULL＋CMD-E2E 落档）后统一改判；本文件仅保证证据指针可追溯。

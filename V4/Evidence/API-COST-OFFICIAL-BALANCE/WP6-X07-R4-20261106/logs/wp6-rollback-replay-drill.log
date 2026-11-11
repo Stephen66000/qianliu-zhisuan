@@ -1,0 +1,28 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-PERIOD-ROW-PRE: "beae28ba-174e-432e-9a6a-93fb16c0f8dc" string
+J-FINAL-SQL: insert into "ledger_line" ("enterprise_id", "ai_request_id", "upstream_attempt_id", "usage_event_id", "provider_resource_id", "principal_id", "resource_mode", "raw_input_tokens", "raw_output_tokens", "raw_cache_tokens", "raw_reasoning_tokens", "api_cost", "api_cost_currency", "api_cost_status", "subscription_period_id", "usage_quality", "settled_at", "created_at") values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+J-FINAL-SPID-IN-SQL: true SPID-PARAM: beae28ba-174e-432e-9a6a-93fb16c0f8dc
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-LL-ROWS: [{"ai_request_id":"65580600-de81-41a2-84ca-3696adde90c1","subscription_period_id":"beae28ba-174e-432e-9a6a-93fb16c0f8dc"},{"ai_request_id":"f4488491-b7dc-41b5-8ef2-5b8aeeba4fd7","subscription_period_id":null}] requestJ: 65580600-de81-41a2-84ca-3696adde90c1
+
+stdout | src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts > AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好
+J-STRICT: {"strict":true}
+
+ ✓ src/__tests-integration__/wp6-rollback-replay-drill.integration.test.ts (10 tests) 28638ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 A：check-contract＋全行比对增量导出——inserted/updated/rows/sha256 与期望逐表一致（缺口①）  7710ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 C：影子恢复——live 物理未动（缺口②），影子＝备份点逐字，0092 域不存在  928ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 D：重放 0092＋增量回放（DO UPDATE）——16 表影子摘要＝live 摘要（含 in-flight 更新逐字）  1543ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 E：幂等回放——二次回放 applied＝清单行数、16 表摘要不变（DO UPDATE 结果不变）  1411ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 G：verify 全过才 swap——单事务改名替换 live，keep＝切换后状态留档（缺口②）  2763ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 I：旧栈（ae506fe）真实路径——准入可服务、消费逐字、窗口聚合、额度门 REJECT_EXHAUSTED、结算累计 used（缺口③④）  556ms
+   ✓ AT-X07 R4：主路线 v3 演练（全行比对增量→影子恢复→重放 0092→DO UPDATE 回放→retire→verify→swap） > 断言 J（缺口②绿证场景）：消费引用备份后新建订阅周期——影子内回放失败＝删影子、live 完好  10316ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  17:43:23
+   Duration  30.38s (transform 795ms, setup 0ms, collect 1.54s, tests 28.64s, environment 0ms, prepare 45ms)
+

@@ -240,6 +240,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await db?.destroy();
+  // teardown 加固（仅测试文件内，不涉断言）：pool.end() 的 socket 关闭是异步的，
+  // destroy() resolve 后 OS 层 socket 可能尚未排空；容器 stop 触发 57P01 未捕获异常导致 vitest 退出码 1。
+  await new Promise((resolve) => setTimeout(resolve, 200));
   await pg?.stop();
 }, 60_000);
 
@@ -929,6 +932,12 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
   });
 
   it("采购记录 append-only，幂等重放不重复现金支出", async () => {
+    // 迁移说明（2026-11-04，用户裁定 R1 补退役）：原正路径为 API_RECHARGE＋API 资源，
+    // 该 purchase_type 已在 POST /provider-resources/:id/purchases 统一 410 退役
+    // （AFR-01/AT-AFR-02/G22，见下方 AT-AFR-02 purchases 参数化负向用例），故正路径
+    // 迁移为 PACKAGE_PURCHASE＋CODING_PLAN 资源（planResourceId）；append-only 触发器、
+    // 幂等重放、审计、跨企业隔离等断言全部保留；mode_mismatch 对照由
+    // "CP 资源＋API_RECHARGE" 改为语义等价的 "API 资源＋PACKAGE_PURCHASE"。
     const apiResource = await db.selectFrom("provider_resource").select("provider_id")
       .where("id", "=", apiResourceId).executeTakeFirstOrThrow();
     planResourceId = (await db.insertInto("provider_resource").values({
@@ -936,40 +945,42 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
       mode: "CODING_PLAN", credential_type: "SUBSCRIPTION_SESSION",
     }).returning("id").executeTakeFirstOrThrow()).id;
     const payload = {
-      purchase_type: "API_RECHARGE", description: "8 月 API 充值", amount: "1000",
+      purchase_type: "PACKAGE_PURCHASE", description: "9 月 Coding Plan 采购", amount: "1000",
       currency: "CNY", purchased_at: "2026-09-01T00:00:00+08:00",
       idempotency_key: "w20-purchase-create-001",
     };
     const created = await app.inject({
-      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
       headers: { cookie: authCookie }, payload,
     });
     expect(created.statusCode).toBe(201);
     firstPurchaseId = created.json().purchase.id;
-    expect(created.json()).toMatchObject({ purchase: { amount: "1000.00000000" }, replayed: false });
+    expect(created.json()).toMatchObject({
+      purchase: { amount: "1000.00000000", purchaseType: "PACKAGE_PURCHASE" }, replayed: false,
+    });
     const replay = await app.inject({
-      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
       headers: { cookie: authCookie }, payload,
     });
     expect(replay.statusCode).toBe(200);
     expect(replay.json()).toMatchObject({ purchase: { id: firstPurchaseId }, replayed: true });
     expect((await app.inject({
-      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
       headers: { cookie: authCookie }, payload: { ...payload, amount: "1001" },
     })).json()).toMatchObject({ error: "idempotency_conflict" });
     const modeMismatch = await app.inject({
-      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
+      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
       headers: { cookie: authCookie },
       payload: { ...payload, idempotency_key: "w20-purchase-mode-002" },
     });
     expect(modeMismatch.statusCode).toBe(409);
     expect(modeMismatch.json()).toMatchObject({ error: "purchase_type_mismatch" });
     expect((await app.inject({
-      method: "GET", url: `/provider-resources/${apiResourceId}/purchases?month=2026-09`,
+      method: "GET", url: `/provider-resources/${planResourceId}/purchases?month=2026-09`,
       headers: { cookie: otherCookie },
     })).statusCode).toBe(404);
     const list = await app.inject({
-      method: "GET", url: `/provider-resources/${apiResourceId}/purchases?month=2026-09`,
+      method: "GET", url: `/provider-resources/${planResourceId}/purchases?month=2026-09`,
       headers: { cookie: authCookie },
     });
     expect(list.statusCode).toBe(200);
@@ -986,6 +997,82 @@ describe("W20-06/07 部门预算、唯一归属与采购记录", () => {
     expect((await app.inject({
       method: "GET", url: `/provider-resources/${apiResourceId}/purchases`,
     })).statusCode).toBe(401);
+  });
+
+  // AT-AFR-02 purchases 参数化负向用例（R1 补退役，用户 2026-11-04 裁定）：
+  // POST /provider-resources/:id/purchases 的 purchase_type=API_RECHARGE 一律 410——
+  // 模式无关（API/CODING_PLAN 资源同判）、优先于幂等回执等一切 repo 分支、零写入；
+  // 未认证 401（requireAuth 先行）；对照 PACKAGE_PURCHASE 保留原 201 合同。
+  it("AT-AFR-02 purchases：API_RECHARGE 一律 410 且零写入，未认证 401，PACKAGE_PURCHASE 不受影响", async () => {
+    const retiredCounts = async () => ({
+      purchases: await db.selectFrom("resource_purchase_record").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      idempotency: await db.selectFrom("resource_purchase_idempotency").select("idempotency_key")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+      audit: await db.selectFrom("operation_log").select("id")
+        .where("enterprise_id", "=", enterpriseId).execute().then((rows) => rows.length),
+    });
+    const retiredPayload = {
+      purchase_type: "API_RECHARGE", description: "退役后的 API 充值尝试", amount: "100",
+      currency: "CNY", purchased_at: "2026-10-02T01:00:00+08:00",
+      idempotency_key: "w20-afr02-retired-001",
+    };
+    const before = await retiredCounts();
+    // 1) API 资源＋API_RECHARGE（合法 body）→ 410＋合同错误码逐字＋三表零增量
+    const apiRetired = await app.inject({
+      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
+      headers: { cookie: authCookie }, payload: retiredPayload,
+    });
+    expect(apiRetired.statusCode).toBe(410);
+    expect(apiRetired.json()).toMatchObject({
+      error: "api_funding_management_retired",
+      message: "API 内部资金管理已退出，请使用官方账户余额与 API费用估算",
+    });
+    expect(await retiredCounts()).toEqual(before);
+    // 2) CODING_PLAN 资源＋API_RECHARGE → 同 410（模式不影响判定）
+    const planRetired = await app.inject({
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
+      headers: { cookie: authCookie }, payload: retiredPayload,
+    });
+    expect(planRetired.statusCode).toBe(410);
+    expect(planRetired.json()).toMatchObject({
+      error: "api_funding_management_retired",
+      message: "API 内部资金管理已退出，请使用官方账户余额与 API费用估算",
+    });
+    expect(await retiredCounts()).toEqual(before);
+    // 3) 未认证 → 401（requireAuth 先行于 410 判定）
+    const unauthenticated = await app.inject({
+      method: "POST", url: `/provider-resources/${apiResourceId}/purchases`,
+      payload: retiredPayload,
+    });
+    expect(unauthenticated.statusCode).toBe(401);
+    // 4) 幂等键已有历史回执（w20-purchase-create-001，上一用例 PACKAGE_PURCHASE 所写）
+    //    再发 API_RECHARGE → 仍 410（退役优先于幂等回放）
+    const replayRetired = await app.inject({
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
+      headers: { cookie: authCookie },
+      payload: { ...retiredPayload, idempotency_key: "w20-purchase-create-001" },
+    });
+    expect(replayRetired.statusCode).toBe(410);
+    expect(replayRetired.json()).toMatchObject({ error: "api_funding_management_retired" });
+    expect(await retiredCounts()).toEqual(before);
+    // 5) 对照：CP 资源＋PACKAGE_PURCHASE → 201 原样（退役不影响 Coding Plan 采购）
+    const control = await app.inject({
+      method: "POST", url: `/provider-resources/${planResourceId}/purchases`,
+      headers: { cookie: authCookie },
+      payload: {
+        purchase_type: "PACKAGE_PURCHASE", description: "AT-AFR-02 对照套餐采购", amount: "88",
+        currency: "CNY",
+        // 对照采购落在 2026-09（本文件前序用例已将 2026-10 关账且未重开，:734），
+        // 避免对照路径吃到与退役无关的 bill_closed 409。
+        purchased_at: "2026-09-05T01:00:00+08:00",
+        idempotency_key: "w20-afr02-control-001",
+      },
+    });
+    expect(control.statusCode).toBe(201);
+    expect(control.json()).toMatchObject({
+      purchase: { purchaseType: "PACKAGE_PURCHASE", amount: "88.00000000" }, replayed: false,
+    });
   });
 
   it("部门预算仍可计算，但警戒线预警不再进入异常中心", async () => {

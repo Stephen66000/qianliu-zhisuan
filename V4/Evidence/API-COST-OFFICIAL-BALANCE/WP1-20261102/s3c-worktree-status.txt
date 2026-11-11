@@ -1,0 +1,8 @@
+ M packages/database/src/__tests-integration__/operating-analysis.integration.test.ts
+ M packages/database/src/repositories/operating-analysis-repository.ts
+?? V4/Evidence/API-COST-OFFICIAL-BALANCE/
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/BLOCKER-glm-flash.md
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/api-estimation-contract.md
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/contracts/
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/plan.md
+?? openspec/changes/simplify-api-cost-and-official-balance/handoff/work-packages/WP1/report.md

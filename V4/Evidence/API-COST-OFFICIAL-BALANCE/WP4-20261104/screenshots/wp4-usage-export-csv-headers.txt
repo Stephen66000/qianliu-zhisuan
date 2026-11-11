@@ -1,0 +1,8 @@
+status: 200
+content-type: text/csv; charset=utf-8
+content-disposition: attachment; filename="usage-records-2026-11-05.csv"
+body-head:
+请求ID,发起主体,主体类型,Agent/工具,统一模型,最终厂商,最终资源,输入Token,输出Token,缓存Token,扣减额度,API费用估算,币种,状态,开始时间,耗时(毫秒)
+00000000-0000-4000-8000-000000000050,E2E 固定员工,EMPLOYEE,UNKNOWN,qianliu-glm,智谱 E2E,E2E 智谱主资源,20,5,0,25,1.00000000,CNY,FAILED,2026-11-05T10:02:48.021Z,1000
+00000000-0000-4000-8000-000000000030,E2E 固定员工,EMPLOYEE,UNKNOWN,qianliu-glm,智谱 E2E,E2E 智谱主资源,200,100,20,320,125.00000000,CNY,SUCCEEDED,2026-11-05T10:02:43.021Z,2500
+00000000-0000-4000-8000-000000000352,E2E 固定员工,EMPLOYEE,UNKNOWN,deepseek-v4-flash,DeepSeek WP4 E2E,DeepSeek 官方余额 E2E,300,50,0,0,,CNY,SUCCEEDED,2026-11-05T09:56:43.021Z,0

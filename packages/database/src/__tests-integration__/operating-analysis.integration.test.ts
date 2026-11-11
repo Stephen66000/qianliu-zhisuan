@@ -178,11 +178,18 @@ describe("经营分析真实数据链", () => {
       totalTokens: "850",
     });
     expect(report.cashSummary).toMatchObject({ yearCash: "448.00" });
+    // S3c 断言迁移（追加合同 §1 / ACE-06）：apiSpend 改由 loadApiCostEstimation 同源估算，
+    // 按 settled_at 半开窗口聚合整个 operatingBillMonthRange、无 asOf 截断（S1 估算合同；
+    // 与经营账单 draft、首页读者同期间语义），故 09-20 结算的已计价行（50.00）计入 9 月
+    // 估算：2+10+50=62.00；不再沿用资金视图 settled_at<=asOf 的旧值 12.00。
+    // opening/recharge/paidCny/ending 为资金域轨迹字段（WP2/WP4 处置），仍走资金视图
+    // asOf 口径，数值不变。
     expect(report.apiAccounts[0]!.months[8]).toMatchObject({
       openingBalance: "100.00",
       recharge: "170.00",
       paidCny: "150.00",
-      apiSpend: "12.00",
+      apiSpend: "62.00",
+      apiSpendComplete: true,
       endingBalance: "258.00",
     });
     expect(report.officialApiBalances).toEqual([
@@ -220,6 +227,144 @@ describe("经营分析真实数据链", () => {
     expect(updated.months[7]!.employeeCount).toBe(1);
     expect(updated.months[8]!.employeeCount).toBe(1);
   }, 30_000);
+
+  // ---- S3c（追加合同 §4）：年度聚合 apiSpend/apiSpendComplete 同源估算对齐用例 ----
+  it("S3c：无资金事件、有已结算已计价行时月度 apiSpend 取估算字面值（ACE-03/06）", async () => {
+    // 不登记任何期初/充值/资金激活事件——估算不依赖资金初始化（ACE-03）。
+    const t = await tenant();
+    await usage(t, t.a, "deepseek", 100n, new Date("2026-09-02T00:00:00Z"), "7.5");
+    const report = await loadOperatingAnalysis(
+      db,
+      t.enterpriseId,
+      "2026-09",
+      new Date("2026-09-06T12:00:00Z"),
+    );
+    const account = report.apiAccounts.find(
+      (row) => row.providerCode === "deepseek",
+    );
+    expect(account).toBeDefined();
+    expect(account!.months[8]).toMatchObject({
+      apiSpend: "7.50",
+      apiSpendComplete: true,
+    });
+    // apiReviews totals 随新源自然更新（合同 §1.2）：1-8 月无 API 行为精确 0，合计不变。
+    expect(account!.totals.apiSpend).toBe("7.50");
+    expect(account!.totals.apiSpendComplete).toBe(true);
+  });
+
+  it("S3c：多币种估算不混加，apiSpend 为 null 且不完整（ACE-07）", async () => {
+    const t = await tenant();
+    await usage(t, t.a, "deepseek", 10n, new Date("2026-09-02T00:00:00Z"), "2");
+    const usd = await usage(
+      t,
+      t.a,
+      "deepseek",
+      10n,
+      new Date("2026-09-03T00:00:00Z"),
+      "3",
+    );
+    await db
+      .updateTable("ledger_line")
+      .set({ api_cost_currency: "USD" })
+      .where("ai_request_id", "=", usd)
+      .execute();
+    const report = await loadOperatingAnalysis(
+      db,
+      t.enterpriseId,
+      "2026-09",
+      new Date("2026-09-06T12:00:00Z"),
+    );
+    const rows = report.apiAccounts.filter(
+      (row) => row.providerCode === "deepseek",
+    );
+    expect(rows.map((row) => row.currency).sort()).toEqual(["CNY", "USD"]);
+    for (const row of rows) {
+      expect(row.months[8]).toMatchObject({
+        apiSpend: null,
+        apiSpendComplete: false,
+      });
+    }
+  });
+
+  it("S3c：混合已知与缺口时保留已计价金额并标记不完整（ACE-04）", async () => {
+    const t = await tenant();
+    await usage(t, t.a, "deepseek", 100n, new Date("2026-09-02T00:00:00Z"), "2.5");
+    const gap = await usage(
+      t,
+      t.a,
+      "deepseek",
+      25n,
+      new Date("2026-09-03T00:00:00Z"),
+      "0",
+      "UNKNOWN",
+    );
+    await db
+      .updateTable("ledger_line")
+      .set({ api_cost: null, api_cost_currency: null, api_cost_status: "UNKNOWN_COST" })
+      .where("ai_request_id", "=", gap)
+      .execute();
+    const report = await loadOperatingAnalysis(
+      db,
+      t.enterpriseId,
+      "2026-09",
+      new Date("2026-09-06T12:00:00Z"),
+    );
+    expect(
+      report.apiAccounts.find((row) => row.providerCode === "deepseek")!.months[8],
+    ).toMatchObject({ apiSpend: "2.50", apiSpendComplete: false });
+  });
+
+  it("S3c：资金轨迹字段（期初/充值/实付/期末）与估算 apiSpend 并存产出", async () => {
+    const t = await tenant();
+    const finance = new ProviderFinanceRepository(db);
+    // F-P2-6 前置事实：企业已激活 + 资源 PENDING（资源级 ADMIN 期初门槛）。
+    await sql`
+      INSERT INTO provider_finance_runtime_state
+        (enterprise_id, strict_writes_enabled, activated_at, activated_by_admin_user_id, updated_at)
+      VALUES (${t.enterpriseId}::uuid, true, now(), ${t.adminId}::uuid, now())
+      ON CONFLICT (enterprise_id) DO NOTHING
+    `.execute(db);
+    await db.insertInto("provider_resource_finance_state").values({
+      enterprise_id: t.enterpriseId,
+      provider_resource_id: t.resources.get("deepseek")!,
+      state: "PENDING",
+    }).execute();
+    await finance.recordOpeningBalance({
+      enterpriseId: t.enterpriseId,
+      adminId: t.adminId,
+      resourceId: t.resources.get("deepseek")!,
+      accountAmount: "80",
+      accountCurrency: "CNY",
+      occurredAt: new Date("2026-09-01T00:00:00+08:00"),
+      idempotencyKey: randomUUID(),
+    });
+    await finance.recordRecharge({
+      enterpriseId: t.enterpriseId,
+      adminId: t.adminId,
+      resourceId: t.resources.get("deepseek")!,
+      accountAmount: "20",
+      accountCurrency: "CNY",
+      cashPaidCny: "20",
+      occurredAt: new Date("2026-09-02T00:00:00+08:00"),
+      idempotencyKey: randomUUID(),
+    });
+    await usage(t, t.a, "deepseek", 10n, new Date("2026-09-02T00:00:00Z"), "4");
+    const report = await loadOperatingAnalysis(
+      db,
+      t.enterpriseId,
+      "2026-09",
+      new Date("2026-09-06T12:00:00Z"),
+    );
+    // 轨迹字段仍由资金域产出（WP2/WP4 处置），apiSpend 已切同源估算（ACE-03/06）。
+    expect(report.apiAccounts[0]!.months[8]).toMatchObject({
+      openingBalance: "80.00",
+      recharge: "20.00",
+      paidCny: "20.00",
+      apiSpend: "4.00",
+      apiSpendComplete: true,
+      endingBalance: "96.00",
+    });
+  });
 
   it("跨企业隔离，未知用量和无人数不伪装为零或人均", async () => {
     const t = await tenant();

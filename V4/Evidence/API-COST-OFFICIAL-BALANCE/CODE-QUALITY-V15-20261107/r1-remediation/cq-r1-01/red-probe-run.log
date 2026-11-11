@@ -1,0 +1,104 @@
+==== CQ-R1-01 RED probes（被测：rollback-delta-20261106.e136e8a-snapshot.sh）====
+──────────────────────────────────────────────────────────
+## CASE 1: red1-swap-unverified-shadow
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: swap: OK live=shadow_ok 影子内容已替换为 live；keep=synthetic_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live (no-stdin) exit=0
+  [0003] psql db=shadow_ok (no-stdin) exit=0
+  [0004] psql db=synthetic_live_pre_rollback_keep (no-stdin) exit=0
+  [0005] psql db=exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres sha256=6fa872042736c481c03ecc0d42b0cca171a3fe134cc37a7a8de331f31d10fa93 bytes=170 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  [0005] ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";;ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";;
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  ASSERT-PASS red1/exit (expect=0 actual=0)
+  ASSERT-PASS red1/rename-count (expect=2 actual=2)
+  ASSERT-PASS red1-swap-unverified-shadow/rename-count (expect=2 actual=2)
+  ASSERT-PASS red1-swap-unverified-shadow/rename-1-live-to-keep (expect=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep"; actual=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";)
+  ASSERT-PASS red1-swap-unverified-shadow/rename-2-shadow-to-live (expect=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live"; actual=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";)
+──────────────────────────────────────────────────────────
+## CASE 2: red2a-verify-digest-mismatch-fails
+argv: verify --container pgtest --db-live synthetic_live --db-shadow shadow_ok --db-ref refdb --manifest /Users/mac/Projects/仟流智算-api-decouple/V4/Evidence/API-COST-OFFICIAL-BALANCE/CODE-QUALITY-V15-20261107/r1-remediation/cq-r1-01/probe-work/red/fixtures/manifest-full.tsv
+env-extra: STUB_SHADOW_DIGEST_ALT=1
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=8
+stderr: FAIL-CLOSED[8]: 白名单表摘要不符（live vs 影子，比对列=id）: enterprise
+stdout-head: verify: 水位=备份点 0091_recorded_cost_accounting_policy 
+== dropdb 调用 ==
+  [0006] dropdb target=shadow_ok exit=0
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=SELECT name FROM kysely_migration ORDER BY timestamp DESC, name DESC LIMIT 1 (no-stdin) exit=0
+  [0003] psql db=SELECT string_agg(column_name, ',' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_schema='public' AND table_name='enterprise' (no-stdin) exit=0
+  [0004] psql db=id (no-stdin) exit=0
+  [0005] psql db=id (no-stdin) exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  ASSERT-PASS red2a/exit (expect=8 actual=8)
+  ASSERT-PASS red2a-verify-digest-mismatch-fails/dropdb-targets (expect=shadow_ok actual=shadow_ok)
+  ASSERT-PASS red2a-verify-digest-mismatch-fails/zero-createdb (expect=0 actual=0)
+  ASSERT-PASS red2a-verify-digest-mismatch-fails/zero-ALTER-DATABASE (expect=0 actual=0)
+──────────────────────────────────────────────────────────
+## CASE 3: red2b-swap-after-verify-failure-still-passes
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_EXISTING_DBS=synthetic_live shadow_ok STUB_SHADOW_DIGEST_ALT=1
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=0
+stderr: 
+stdout-head: swap: OK live=shadow_ok 影子内容已替换为 live；keep=synthetic_live_pre_rollback_keep（切换后状态留档——回退验证完成后由运维清理，期间不得写入） 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  [0002] psql db=synthetic_live (no-stdin) exit=0
+  [0003] psql db=shadow_ok (no-stdin) exit=0
+  [0004] psql db=synthetic_live_pre_rollback_keep (no-stdin) exit=0
+  [0005] psql db=exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres sha256=6fa872042736c481c03ecc0d42b0cca171a3fe134cc37a7a8de331f31d10fa93 bytes=170 exit=0
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  [0005] ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";;ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";;
+== 其他容器调用 ==
+  [0001] require_env-true exit=0
+  ASSERT-PASS red2b/exit (expect=0 actual=0)
+  ASSERT-PASS red2b/rename-count (expect=2 actual=2)
+  ASSERT-PASS red2b-swap-after-verify-failure-still-passes/rename-count (expect=2 actual=2)
+  ASSERT-PASS red2b-swap-after-verify-failure-still-passes/rename-1-live-to-keep (expect=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep"; actual=ALTER DATABASE "synthetic_live" RENAME TO "synthetic_live_pre_rollback_keep";)
+  ASSERT-PASS red2b-swap-after-verify-failure-still-passes/rename-2-shadow-to-live (expect=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live"; actual=ALTER DATABASE "shadow_ok" RENAME TO "synthetic_live";)
+──────────────────────────────────────────────────────────
+## CASE 4: red3-swap-env-unreachable
+argv: swap --container pgtest --db-live synthetic_live --db-shadow shadow_ok
+env-extra: ROLLBACK_DELTA_CONFIRM=YES STUB_FAIL_ENV=1 STUB_EXISTING_DBS=synthetic_live shadow_ok
+env-base: PATH=stub-first DOCKER_HOST=unix:///nonexistent-cq01-guard.sock
+exit=3
+stderr: FAIL-CLOSED[3]: 容器不可达: pgtest
+stdout-head: 
+== dropdb 调用 ==
+  （无）
+== createdb 调用 ==
+  （无）
+== psql 调用（写入/改名执行面）==
+  （无）
+== ALTER DATABASE 改名语句（psql stdin 内）==
+  （无）
+== 其他容器调用 ==
+  [0001] require_env-true exit=1
+  ASSERT-PASS red3/exit (expect=3 actual=3)
+  ASSERT-PASS red3-swap-env-unreachable/zero-ALTER-DATABASE (expect=0 actual=0)
+  ASSERT-PASS red3-swap-env-unreachable/dropdb-targets (expect= actual=)
+  ASSERT-PASS red3-swap-env-unreachable/zero-createdb (expect=0 actual=0)
+──────────────────────────────────────────────────────────
+== SUMMARY mode=red cases=4 asserts-pass=18 asserts-fail=0 ==
+ALL-ASSERTS-PASS
+VERDICT mode=red: PASS

@@ -16,6 +16,12 @@ describe("本月采购按付款记录联动",()=>{
     expect(screen.getByText("Kimi ¥199.00")).toBeInTheDocument();
     expect(screen.getByText("2026-09-01 08:00:00")).toBeInTheDocument();
   });
+  // WP4-S3 / AFR-01：API 充值登记已退役，流水标签保留历史实付事实并标注历史口径。
+  it("API 充值流水以历史口径标签呈现",()=>{
+    render(<MonthlyPayments bill={bill} payments={[{...payment,id:"recharge",eventType:"API_RECHARGE" as const,source:"MIGRATION"}]}/>);
+    expect(screen.getByText("API 充值（历史）")).toBeInTheDocument();
+    expect(screen.queryByText("API 充值（登记）")).not.toBeInTheDocument();
+  });
   it("只有明确系统来源才标系统续订，导入数据保留来源区别",()=>{
     render(<MonthlyPayments bill={bill} payments={[{...payment,id:"system",source:"PROVIDER_SYNC"},{...payment,id:"history",source:"MIGRATION"}]}/>);
     expect(screen.getByText("系统续订")).toBeInTheDocument();

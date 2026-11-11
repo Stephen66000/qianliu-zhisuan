@@ -71,18 +71,20 @@ vi.mock("../api/v2-hooks", () => ({
 }));
 
 describe("POOL-025 经营账单", () => {
-  it("shows a separately labelled provisional balance while keeping unknown-cost warnings", () => {
+  it("DRAFT 现行月退役暂算余额卡，暂算说明仅随历史冻结缺口提示（WP4-S4 / AFR-07）", () => {
     currentBill = { ...bill, summary: { ...bill.summary, endingBalance: null,
       endingBalances: [], provisionalEndingBalances: [{ currency: "CNY", amount: "362.35721028" }] },
       gaps: [{ code: "API_BALANCE_COST_UNKNOWN", providerResourceId: "r1",
         message: "DeepSeek 有5条费用待核实" },
         { code: "API_COST_UNKNOWN", message: "本月有5条未计价请求" }] };
     render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
-    const card = screen.getByText("期末余额（暂算）").closest("article")!;
-    expect(card).toHaveTextContent("¥362.36");
-    expect(screen.getByText(/不代表厂商确认余额/)).toBeInTheDocument();
-    expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
+    // 断言迁移（WP4-S4 合同 2 / AFR-07）：现行月不再渲染"期末余额（暂算）"卡；
+    // BalanceQualityNotice 仅在历史冻结快照携带旧质量码时可达（DRAFT 后端已停产）。
+    expect(screen.queryByText("期末余额（暂算）")).toBeNull();
     expect(screen.queryByText("期末余额", { exact: true })).toBeNull();
+    // 注入的旧质量码（现仅冻结快照可达）仍按 BalanceQualityNotice 既有分支渲染其消息。
+    expect(screen.getByText(/DeepSeek 有5条费用待核实/)).toBeInTheDocument();
+    expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
   });
   it("已知金额格式化与未知金额占位保持不同语义", () => {
     expect(money("12.34")).toBe("¥12.34");
@@ -110,9 +112,16 @@ describe("POOL-025 经营账单", () => {
         <OperatingBillPage />
       </MemoryRouter>,
     );
-    const totalCard = screen.getAllByText("本月总花费")
+    // 断言迁移（WP4-S4 合同 2 / ACE-07）：DRAFT 现行月"本月总花费"更名
+    // "综合费用（含 API 估算）"，期初/充值/期末三卡退役（AFR-07）。
+    const totalCard = screen.getAllByText("综合费用（含 API 估算）")
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(totalCard).toHaveTextContent("—");
+    expect(screen.queryByText("本月总花费")).toBeNull();
+    expect(screen.queryByText("期初余额")).toBeNull();
+    expect(screen.queryByText("本月充值")).toBeNull();
+    expect(screen.queryByText("期末余额")).toBeNull();
+    expect(screen.getAllByText("API费用估算").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥12.34").length).toBeGreaterThan(0);
     expect(screen.getAllByText("¥300.00").length).toBeGreaterThan(0);
     expect(screen.queryByText("期初余额 + 本月充值 - 期末余额")).toBeNull();
@@ -123,7 +132,9 @@ describe("POOL-025 经营账单", () => {
     expect(screen.queryByRole("link", { name: /结账管理/ })).toBeNull();
   });
 
-  it("缺期初余额时保留缺口，移除重复计价说明", () => {
+  it("桥接不可核算（BRIDGE_UNAVAILABLE）显示中性说明，不产资金待补提示（WP4-S4 / AFR-07）", () => {
+    // 夹具迁移（WP4-S4 合同 2）：OPENING_BALANCE_MISSING/"待补期初余额"已随后端停产
+    // （monthly-operating-cost.ts 改产 BRIDGE_UNAVAILABLE：apiSpend 恒 null、reason null）。
     currentBill = {
       ...bill,
       summary: {
@@ -133,8 +144,8 @@ describe("POOL-025 经营账单", () => {
         ledgerApiCost: "12.34",
         openingBalance: null,
         monthlyRecharge: "100",
-        apiSpendStatus: "OPENING_BALANCE_MISSING",
-        apiSpendReason: "待补期初余额",
+        apiSpendStatus: "BRIDGE_UNAVAILABLE",
+        apiSpendReason: null,
         packageCost: "621.10",
         apiSpends: [], packageCosts: [{ currency: "CNY", amount: "621.10" }],
         totalSpends: [],
@@ -150,8 +161,8 @@ describe("POOL-025 经营账单", () => {
         ledgerApiCost: "12.34",
         openingBalance: null,
         rechargeAmount: "100",
-        apiSpendStatus: "OPENING_BALANCE_MISSING",
-        apiSpendReason: "待补期初余额",
+        apiSpendStatus: "BRIDGE_UNAVAILABLE",
+        apiSpendReason: null,
         packageCost: "0",
         totalCost: null,
         endingBalance: "87.66",
@@ -162,21 +173,25 @@ describe("POOL-025 经营账单", () => {
         <OperatingBillPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText("待补期初余额")).toBeInTheDocument();
+    // 中性说明（WP1 合同 §5④：桥接事实不与估算缺口文案混格）。
+    expect(screen.getByText("桥接不可核算（历史资金口径）")).toBeInTheDocument();
+    expect(screen.queryByText("待补期初余额")).toBeNull();
     expect(screen.queryByText("账本 API 计价（核对证据） ¥12.34")).toBeNull();
-    for (const label of ["期初余额", "本月充值", "期末余额", "API 花费", "套餐费用", "本月总花费"]) {
+    // DRAFT 现行月：期初/充值/期末三卡退役；估算卡以中性"—"呈现。
+    for (const label of ["API费用估算", "套餐费用", "综合费用（含 API 估算）"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
-    expect(screen.getAllByText("¥87.66").length).toBeGreaterThan(0);
+    expect(screen.queryByText("期初余额")).toBeNull();
+    expect(screen.queryByText("本月充值")).toBeNull();
+    expect(screen.queryByText("期末余额")).toBeNull();
     expect(screen.getAllByText("¥621.10").length).toBeGreaterThan(0);
-    const totalCard = screen.getAllByText("本月总花费")
+    const totalCard = screen.getAllByText("综合费用（含 API 估算）")
       .map((node) => node.closest("article")).find(Boolean)!;
     expect(totalCard).toHaveTextContent("—");
     expect(totalCard).not.toHaveTextContent("¥621.10");
-    expect(screen.getByRole("link", { name: "厂商资源" })).toHaveAttribute(
-      "href",
-      "/resources",
-    );
+    // AFR-07：不再渲染"期初余额未登记→补充资金记录"行动提示。
+    expect(screen.queryByText(/期初余额未登记/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "厂商资源" })).toBeNull();
   });
 
   it("上月有期初但计价不完整时不误报未登记", () => {
@@ -191,9 +206,12 @@ describe("POOL-025 经营账单", () => {
     expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
   });
 
-  it("本月无未知费用时显示明确零费用，并说明上月待核实记录阻断结转", () => {
+  it("关账历史版本零费用展示旧口径三卡，冻结质量码照旧提示（WP4-S4 / AFR-06）", () => {
+    // 断言迁移（WP4-S4 合同 2）：API_MONTH_OPENING_COST_UNKNOWN/API_BALANCE_COST_UNKNOWN
+    // 对现行期已停产，仅存于关账冻结快照——夹具改为 status CLOSED（历史口径保留，
+    // 期初/充值/期末三卡与 BalanceQualityNotice 均为冻结事实渲染）。
     currentBill = {
-      ...bill, month: "2026-10",
+      ...bill, month: "2026-10", status: "CLOSED",
       summary: { ...bill.summary, openingBalance: null, openingBalances: [],
         endingBalance: null, endingBalances: [], apiCost: "0.00000000", totalCost: "0.00000000",
         apiSpendStatus: "CALCULABLE", apiSpendReason: null, monthlyRecharge: "0.00000000",
@@ -256,7 +274,9 @@ describe("POOL-025 经营账单", () => {
     expect(screen.queryByText(/存在尚未计价的 API 请求/)).toBeNull();
   });
 
-  it("资金缺口明确缺少期初时仍提示登记", () => {
+  it("历史停产缺口码（API_OPENING_BALANCE_MISSING）不再触发登记提示（WP4-S4 / AFR-07）", () => {
+    // 断言迁移（WP4-S4 合同 2）：原断言"仍提示登记"——AFR-07 生效后现行视图
+    // 退出"期初余额未登记→补充资金记录"提示，旧码即使出现也不渲染行动提示。
     currentBill = {
       ...bill,
       providers: [{ ...bill.providers[0]!, mode: "API", openingBalance: null,
@@ -264,10 +284,11 @@ describe("POOL-025 经营账单", () => {
       gaps: [{ code: "API_OPENING_BALANCE_MISSING", message: "未登记期初余额" }],
     };
     render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
-    expect(screen.getByText(/期初余额未登记/)).toBeInTheDocument();
+    expect(screen.queryByText(/期初余额未登记/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "厂商资源" })).toBeNull();
   });
 
-  it("POOL20-039/047：CNY、USD 与跨币种时六项保留各自金额和币种", () => {
+  it("POOL20-039/047：混币月估算卡分列币种，现行月无资金轨迹卡（WP4-S4）", () => {
     currentBill = {
       ...bill,
       summary: {
@@ -292,14 +313,16 @@ describe("POOL-025 经营账单", () => {
     );
     const card = (label: string) => screen.getAllByText(label)
       .map((node) => node.closest("article")).find(Boolean)!;
-    expect(card("期初余额")).toHaveTextContent("USD 100.00");
-    expect(card("本月充值")).toHaveTextContent("¥20.00 / USD 5.00");
-    expect(card("期末余额")).toHaveTextContent("USD 80.00");
-    expect(card("API 花费")).toHaveTextContent("USD 25.00");
+    // 断言迁移（WP4-S4 合同 2 / ACE-07）：DRAFT 现行月退役期初/充值/期末三卡；
+    // "API 花费"→"API费用估算"、"本月总花费"→"综合费用（含 API 估算）"；
+    // 混币分列渲染保持（currencyFacts 逐币种展示，不合并）。
+    expect(screen.queryByText("期初余额")).toBeNull();
+    expect(screen.queryByText("本月充值")).toBeNull();
+    expect(screen.queryByText("期末余额")).toBeNull();
+    expect(card("API费用估算")).toHaveTextContent("USD 25.00");
     expect(card("套餐费用")).toHaveTextContent("¥30.00");
-    expect(card("本月总花费")).toHaveTextContent("—");
-    expect(card("本月总花费")).not.toHaveTextContent("¥30.00");
-    expect(card("期初余额")).not.toHaveTextContent("¥100.00");
+    expect(card("综合费用（含 API 估算）")).toHaveTextContent("—");
+    expect(card("综合费用（含 API 估算）")).not.toHaveTextContent("¥30.00");
   });
 
   it("旧 CLOSED 无币种数组时按 provider 行分别恢复 API 与套餐币种", () => {

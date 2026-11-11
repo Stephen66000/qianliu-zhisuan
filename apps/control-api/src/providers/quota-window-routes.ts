@@ -37,9 +37,25 @@ export function registerProviderQuotaWindowRoutes(app: FastifyInstance): void {
   // 管理员手动触发厂商额度同步（照抄 models/sync 模板）。
   app.post<{ Params: { id: string } }>(
     "/provider-resources/:id/quota-sync", { preHandler: [requireAuth] }, async (req, reply) => {
-      const resource = await app.providerRepo.getResourceForModelDiscovery(
+      const discoverable = await app.providerRepo.getResourceForModelDiscovery(
         req.admin!.enterpriseId, req.params.id,
       );
+      // 智谱额度提前重置后，允许耗尽资源在原恢复时间前手动查询厂商额度。
+      const resource = discoverable ?? await app.db.selectFrom("provider_resource")
+        .innerJoin("provider", (join) => join
+          .onRef("provider.id", "=", "provider_resource.provider_id")
+          .onRef("provider.enterprise_id", "=", "provider_resource.enterprise_id"))
+        .select(["provider_resource.id", "provider_resource.mode",
+          "provider_resource.credential_ciphertext", "provider.code as provider_code"])
+        .where("provider_resource.id", "=", req.params.id)
+        .where("provider_resource.enterprise_id", "=", req.admin!.enterpriseId)
+        .where("provider_resource.status", "=", "EXHAUSTED")
+        .where("provider_resource.mode", "=", "CODING_PLAN")
+        .where("provider_resource.archived_at", "is", null)
+        .where("provider.status", "=", "ACTIVE")
+        .where("provider.archived_at", "is", null)
+        .where((eb) => eb.fn("lower", [eb.ref("provider.code")]), "=", "zhipu")
+        .executeTakeFirst();
       if (!resource || !resource.credential_ciphertext) {
         const isolated = await app.db.selectFrom("provider_resource").select("status")
           .where("id", "=", req.params.id).where("enterprise_id", "=", req.admin!.enterpriseId)

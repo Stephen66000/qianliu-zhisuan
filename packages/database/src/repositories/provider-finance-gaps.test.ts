@@ -15,6 +15,8 @@ describe("countFinanceGaps（资金完整性缺口切账边界）", () => {
 
     expect(end.getTime()).toBeLessThan(PROVIDER_FINANCE_CUTOVER.getTime());
 
+    // WP2-S5（AFR-07）：OPENING_BALANCE_MISSING 行恒 0（生产停产，仅保形状）——
+    // 本断言既核形状也核该行计数恒为 "0"，不受退役影响。
     const result = await countFinanceGaps(dummyDb, "mock-enterprise-id", start, end);
 
     expect(result).toEqual([

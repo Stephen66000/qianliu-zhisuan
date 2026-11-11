@@ -38,6 +38,37 @@ export function readProviderFinanceMode(env: NodeJS.ProcessEnv = process.env): P
   );
 }
 
+/**
+ * 官方余额同步周期（WP3 P1）：runner 两次同步尝试之间的最小间隔，毫秒。
+ * 建议默认值 15 分钟，可配置；P1 按厂商限制可调（DeepSeek 官方限流数值未核实，
+ * 调小前须自行核实厂商侧配额）。消费方：apps/worker provider-operating-sync runner。
+ */
+export function readProviderOperatingSyncIntervalMs(env: NodeJS.ProcessEnv = process.env): number {
+  return readPositiveIntEnv(
+    env, "PROVIDER_OPERATING_SYNC_INTERVAL_MS", 900_000, "毫秒",
+  );
+}
+
+/**
+ * 官方余额数据过期阈值（WP3 P2）：超过该间隔的快照按"已过期"处理（读取/预测侧消费），
+ * 毫秒。建议默认值 30 分钟，可配置。
+ */
+export function readProviderOperatingBalanceExpireMs(env: NodeJS.ProcessEnv = process.env): number {
+  return readPositiveIntEnv(
+    env, "PROVIDER_OPERATING_BALANCE_EXPIRE_MS", 1_800_000, "毫秒",
+  );
+}
+
+/**
+ * 官方余额手动刷新冷却（WP3 P3）：两次手动刷新之间的最小间隔，毫秒。
+ * 建议默认值 30 秒，可配置（用户未逐项确认，按设计建议默认落地）。
+ */
+export function readProviderOperatingBalanceRefreshCooldownMs(env: NodeJS.ProcessEnv = process.env): number {
+  return readPositiveIntEnv(
+    env, "PROVIDER_OPERATING_BALANCE_REFRESH_COOLDOWN_MS", 30_000, "毫秒",
+  );
+}
+
 const FeatureFlagsSchema = z.object({
   FEATURE_DIRECTORY_IMPORT: z.boolean(),
   FEATURE_USAGE_OVERVIEW_V2: z.boolean(),

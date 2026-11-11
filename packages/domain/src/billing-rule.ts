@@ -51,6 +51,8 @@ export interface BillingRule {
   outputPrice: string | null;
   currency: string;
   priority: number; // 数值小优先
+  /** 价格依据核实状态（ACE-02 场景 3）；可选项，读取旧数据/旧构造时缺省按 UNVERIFIED 解释。 */
+  sourceStatus?: "VERIFIED" | "UNVERIFIED";
 }
 
 /** 匹配结果（冻结到 ledger_line）。 */
@@ -211,7 +213,12 @@ export function computeDeductedQuota(rawUsage: number, multiplier: string): stri
  * API 计价（TRD §10.1）：
  *   api_cost = cache_hit_input × hit_price + cache_miss_input × miss_price + output × output_price
  * cache = cache 命中 input；cache_miss_input = input - cache。
- * 价格取匹配到的 API_PRICE 规则（缺失分项按 0 处理）。
+ *
+ * F2/ACE-04（返修轮 R4）：ABSOLUTE/legacy 模式缺「适用分项」（对应用量>0）价格 →
+ * 返回 null（费用部分未知：结算落 UNKNOWN_COST＋api_cost/currency NULL，聚合归
+ * PRICE_MISSING），不再静默按 0 计价把未知冒充完整金额；不适用分项（用量=0，
+ * 如 cache=0 时 hitPrice 缺失）价格缺失不影响——0 × 任意价 = 0。
+ * MULTIPLIER 模式维持更严的既有合同：任一分项缺价抛 incomplete_multiplier_price。
  */
 export function computeApiCostFromRule(
   rule: { cacheHitPrice: string | null; cacheMissPrice: string | null; outputPrice: string | null;
@@ -219,9 +226,14 @@ export function computeApiCostFromRule(
   input: number,
   output: number,
   cache: number,
-): string {
+): string | null {
   const hit = new Decimal(cache);
   const miss = new Decimal(input).minus(hit);
+  if (rule.pricingMode !== "MULTIPLIER") {
+    if (cache > 0 && rule.cacheHitPrice === null) return null;
+    if (miss.gt(0) && rule.cacheMissPrice === null) return null;
+    if (output > 0 && rule.outputPrice === null) return null;
+  }
   const cost = hit
     .times(new Decimal(rule.cacheHitPrice ?? "0"))
     .plus(miss.times(new Decimal(rule.cacheMissPrice ?? "0")))

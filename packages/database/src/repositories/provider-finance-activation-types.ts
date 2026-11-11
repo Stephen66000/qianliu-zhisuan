@@ -19,7 +19,11 @@ export type ProviderFinanceActivationErrorCode =
   | "SESSION_ENTERPRISE_MISMATCH"
   | "RESOURCE_FINANCE_NOT_READY"
   | "RESOURCE_FINANCE_CONFLICT"
-  | "FACT_WRITE_INVALID";
+  | "FACT_WRITE_INVALID"
+  // WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：持久化候选仍携带已退役的 API 资金事实
+  // （api_opening_balances/historical_api_recharges/historical_api_costs，或引用
+  // API_RECHARGE 旧购买记录的关闭决定）→ 409 拒绝并说明，绝不静默激活混合候选。
+  | "CANDIDATE_CONTAINS_RETIRED_API_FACTS";
 
 export class ProviderFinanceActivationError extends Error {
   constructor(
@@ -122,11 +126,16 @@ export interface PendingResourceCheck {
 export interface QuiescenceDrainReport {
   inProgressRequests: number;
   openAttempts: number;
+  /**
+   * WP2-S4 / AFR-04（plan §4a-R3）：恒为 0——原「未分类 API 用量行」计数随 API 内部
+   * 资金管理退役移除，API 用量分类状态与激活完整性无关。字段保留以维持
+   * drain 视图（HTTP/激活状态）形状不变。
+   */
   unpairedUsageLines: number;
   pendingLedgerTransactions: number;
   /**
-   * 本次排空实际豁免的「未结算/未分类」行数：即候选已冻结、将在同一激活事务内
-   * 被确定性修复的四字段历史用量行。只影响 `unpairedUsageLines`，不影响其余计数。
+   * WP2-S4 / R3：随 unpairedUsageLines 一同恒为 0（豁免出口原本只作用于该计数）。
+   * `collectDrainReport` 的 `excludeLedgerLineIds` 参数保留以兼容调用点签名。
    */
   exoneratedUsageLines: number;
   drained: boolean;

@@ -62,6 +62,34 @@ function authHeader(key: string): Record<string, string> {
 }
 
 /**
+ * R1-F2 返修：w18 验证的是 quota pipeline 在计价齐备时的结算正确性（缺规则场景下
+ * 管道自身的门禁/预占/回写/聚合行为），而非「缺适用分项价 → api_cost NULL / UNKNOWN_COST」
+ * 的新语义——后者已由 attempt-usage-settlement.test.ts、billing-rule.test.ts（R4-F2）
+ * 与 api-cost-estimation 专项用例覆盖。共享夹具 seedMissingBillingRules 只给 API_PRICE
+ * 规则配了 cache_miss_price，F2 语义下 stub usage（output>0）会因缺 output 单价被结算为
+ * NULL，故在此把本企业 API_PRICE 规则补齐三价（仅填空缺项，cache=0 故 hit 价填了亦无害），
+ * 原断言（金额正常结算 > 0）与期望值保持不变。
+ */
+async function seedBillingRulesWithPrices(db: Database, enterpriseId: string): Promise<void> {
+  await seedMissingBillingRules(db, enterpriseId);
+  const rules = await db.selectFrom("billing_rule")
+    .select(["id", "cache_hit_price", "cache_miss_price", "output_price"])
+    .where("enterprise_id", "=", enterpriseId)
+    .where("rule_type", "=", "API_PRICE")
+    .execute();
+  for (const rule of rules) {
+    if (rule.cache_hit_price !== null && rule.cache_miss_price !== null && rule.output_price !== null) {
+      continue;
+    }
+    await db.updateTable("billing_rule").set({
+      cache_hit_price: rule.cache_hit_price ?? "0.0000005",
+      cache_miss_price: rule.cache_miss_price ?? "0.000001",
+      output_price: rule.output_price ?? "0.000004",
+    }).where("id", "=", rule.id).execute();
+  }
+}
+
+/**
  * 构建独立 fixture：principal + key + resource + model_route + grant(仅 CODING_PLAN) + app。
  * 每用例独立 principal → grant 完全隔离（reserveQuota 按 principal+provider+alias 命中）。
  * 共享全局 unified_model/provider（已由 Adapter model map 决定）。
@@ -116,7 +144,7 @@ async function buildFixture(opts: {
     enterprise_id: ENT_ID, unified_model_id: umId,
     provider_resource_id: resource.id, upstream_model: upstreamModel, priority: 100, weight: 1,
   }).returningAll().executeTakeFirstOrThrow();
-  await seedMissingBillingRules(db, ENT_ID);
+  await seedBillingRulesWithPrices(db, ENT_ID);
 
   const key = generateApiKey();
   await db.insertInto("principal_key").values({
@@ -890,7 +918,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       enterprise_id: ENT_ID, unified_model_id: kimiUmId,
       provider_resource_id: resB.id, upstream_model: "kimi-k3", priority: 200, weight: 1,
     }).execute();
-    await seedMissingBillingRules(db, ENT_ID);
+    await seedBillingRulesWithPrices(db, ENT_ID);
     fx.ownResourceIds.add(resB.id); // 让 listCandidates 可见 B（failover 目标）
 
     try {
@@ -1140,7 +1168,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       priority: 200,
       weight: 1,
     }).execute();
-    await seedMissingBillingRules(db, ENT_ID);
+    await seedBillingRulesWithPrices(db, ENT_ID);
     fixture.ownResourceIds.add(backup.id);
     try {
       const response = await fixture.app.inject({
@@ -1211,7 +1239,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       priority: 200,
       weight: 1,
     }).execute();
-    await seedMissingBillingRules(db, ENT_ID);
+    await seedBillingRulesWithPrices(db, ENT_ID);
     fixture.ownResourceIds.add(backup.id);
 
     const persistAttemptUsageAccounting =
@@ -1308,7 +1336,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       priority: 200,
       weight: 1,
     }).returning("id").executeTakeFirstOrThrow();
-    await seedMissingBillingRules(db, ENT_ID);
+    await seedBillingRulesWithPrices(db, ENT_ID);
     try {
       const response = await fixture.app.inject({
         method: "POST",
@@ -1363,7 +1391,7 @@ describe("W18 额度门禁接入 pipeline + 账本聚合（F-01/F-03 整改）",
       priority: 200,
       weight: 1,
     }).execute();
-    await seedMissingBillingRules(db, ENT_ID);
+    await seedBillingRulesWithPrices(db, ENT_ID);
     fixture.ownResourceIds.add(backup.id);
     try {
       const response = await fixture.app.inject({

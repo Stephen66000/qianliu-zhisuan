@@ -1,0 +1,17 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/control-api
+
+ ✓ src/provider-finance/dashboard-projection.test.ts > finance 开路径透传同源估算 API 金额，仅覆盖套餐与充值并重算总额 3ms
+ ✓ src/provider-finance/dashboard-projection.test.ts > finance 开/关两路首页 API 金额同值；套餐缺口（complete=false）只影响套餐与总额 1ms
+ ✓ src/provider-finance/dashboard-projection.test.ts > 混币估算分量不与套餐混加：总额 scalar 为 null，分列保留各币种 0ms
+ ✓ src/provider-finance/dashboard-projection.test.ts > Shanghai month > uses the local natural month at UTC boundaries 0ms
+ ✓ src/provider-finance/dashboard-projection.test.ts > Shanghai month > renders Shanghai midnight as the registered local date 0ms
+ ✓ src/__tests-integration__/dashboard-finance-estimation.test.ts > /dashboard finance 开/关两路 API 金额同值（合同 §4a） > 开路径透传估算 API 金额；套餐/充值取资金读模型；总额＝套餐+估算 78ms
+ ✓ src/__tests-integration__/dashboard-finance-estimation.test.ts > /dashboard finance 开/关两路 API 金额同值（合同 §4a） > 混币估算分量：开路径同样透传 null 与原因，不落回资金读模型金额 38ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  01:04:55
+   Duration  4.61s (transform 1.01s, setup 0ms, collect 1.89s, tests 2.49s, environment 0ms, prepare 130ms)
+
+EXIT=0

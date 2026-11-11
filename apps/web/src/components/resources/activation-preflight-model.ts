@@ -27,8 +27,11 @@ export const GAP_CATEGORY_ORDER: readonly ActivationGapCategory[] = [
 
 export const GAP_CATEGORY_LABELS: Record<ActivationGapCategory, string> = {
   SCOPE: "激活范围",
-  OPENING_BALANCE: "API 期初余额",
-  RECHARGE: "历史 API 充值",
+  OPENING_BALANCE: "API 期初余额（已退役）",
+  // WP4-S4（S3 移交收口 / AFR-01）：RECHARGE 类别随 API 历史充值草稿退役——服务端
+  // 激活合同显式拒绝 API 资金行（activation-contracts.ts），该类别对现行草稿不可达；
+  // 类别键保留（domain 合同 union 未收缩，历史本机草稿预检仍可能回显），加退役标注。
+  RECHARGE: "历史 API 充值（已退役）",
   PURCHASE: "Coding Plan 购买",
   PERIOD: "服务周期归属",
   LEGACY_RECORD: "旧购买记录关闭",
@@ -39,16 +42,15 @@ export const GAP_CATEGORY_LABELS: Record<ActivationGapCategory, string> = {
   QUIESCENCE: "静默与排空",
 };
 
+// WP4-S3 / AFR-01：API 期初缺口码文案已退役（服务端不再产生；预检合同显式拒绝
+// API 资金草稿）。若确需展示此类缺口，回退到服务端 message。
 const GAP_CODE_LABELS: Partial<Record<ActivationGapCode, string>> = {
-  MISSING_OPENING_BALANCE: "必要币种账户缺少原始期初余额",
-  DUPLICATE_OPENING_BALANCE: "同一账户存在多条原始期初",
-  MISSING_OPENING_EVIDENCE: "期初缺少说明或证据引用",
-  OPENING_TIME_MISMATCH: "期初时点不是资金切换时点",
   RESOURCE_MODE_MISMATCH: "事实与资源模式不匹配",
   UNKNOWN_RESOURCE: "草稿引用了激活范围外的资源",
   REQUIRED_CURRENCY_UNRESOLVED: "无法确定必要币种集合",
-  MISSING_RECHARGE_AMOUNT: "历史充值缺少到账金额",
-  MISSING_RECHARGE_CASH_PAID: "历史充值缺少人民币实付",
+  // WP4-S4（S3 移交收口 / AFR-01）：MISSING_RECHARGE_AMOUNT / MISSING_RECHARGE_CASH_PAID
+  // 文案删除——仅 API 历史充值行可触发，服务端已拒绝该类草稿（不可达死文案）；
+  // 若历史草稿预检确需展示，回退服务端 message（与 S3 删除 API 期初码文案同法）。
   MISSING_PURCHASE_AMOUNT: "购买缺少原币金额",
   MISSING_PURCHASE_CASH_PAID: "购买缺少人民币实付",
   MISSING_EVIDENCE: "缺少证据引用",

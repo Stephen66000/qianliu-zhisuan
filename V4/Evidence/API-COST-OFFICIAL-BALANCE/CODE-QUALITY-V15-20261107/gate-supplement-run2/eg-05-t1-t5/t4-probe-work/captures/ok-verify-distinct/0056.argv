@@ -1,0 +1,10 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$db" "$@"
+sh
+shadow_ok
+-Atq
+-c
+SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='provider_resource_finance_state_seed_trigger' AND NOT tgisinternal) THEN '1' ELSE '0' END

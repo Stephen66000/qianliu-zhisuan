@@ -16,7 +16,6 @@ import {
   accountKey,
   compareStrings,
   gap,
-  hasTokens,
   isWithin,
   ledgerEffectiveAt,
   type ActivationProjectionInput,
@@ -111,6 +110,12 @@ export function mapMonthlyGapCode(code: string): ActivationGapCode {
  *
  * 只做计数抵消，不重新定义缺口规则；抵消数必须可追溯到具体草稿行或具体用量行。
  * 抵消数被 `Math.min` 限制在真实计数以内，因此**只可能减少已知缺口，不可能掩盖真实缺口**。
+ *
+ * WP2-S4（plan §4a-R5）：激活域的事实组装层（provider-finance-activation-facts.ts 的
+ * `loadMonthlyGaps`）只把套餐/现金码集（SUBSCRIPTION_PERIOD_MISSING、CASH_PAID_CNY_MISSING）
+ * 供给本函数；API 资金域月度码（API_USAGE_COST_* / API_COST_CURRENCY_* / OPENING_BALANCE_MISSING）
+ * 不再进入激活投影（视图层 countFinanceGaps 本身不动，S5 处置）。本函数的抵消分支
+ * 全部保留——候选已无 API 资金事实，那些分支自然不可达（最小改动原则）。
  */
 export function computeMonthlyGapDeltas(
   input: ActivationProjectionInput,
@@ -187,42 +192,23 @@ export function collectPlanAttributionGaps(plan: UsageRepairPlan, gaps: Activati
   }
 }
 
-/** 用量费用分类与 Token 守恒（失败关闭 #4、#6）；返回 Token 是否守恒。 */
+/**
+ * Token 守恒（失败关闭 #6）；返回 Token 是否守恒。
+ *
+ * WP2-S4 / AFR-01 场景3（plan §4a-R5）：API 行的费用分类缺口
+ * （UNKNOWN_COST / MISSING_API_CURRENCY / CONFLICTING_API_CURRENCY / MISSING_SETTLEMENT_TIME）
+ * 随 API 内部资金管理退役摘除——API 用量分类状态与激活完整性无关（AFR-04：纯套餐
+ * 初始化不得被 API 残留阻塞）；分类数据仍由 ledger_line 原样保留，供视图层（S5 口径）
+ * 展示真实存在的用量/价格缺口。CP 归属缺口（collectPlanAttributionGaps）与
+ * Token 守恒（所有行）不受影响。`plan` 参数保留以维持调用点签名不变（最小改动）。
+ */
 export function collectUsageClassificationGaps(
   input: ActivationProjectionInput, plan: UsageRepairPlan, gaps: ActivationGap[],
 ): boolean {
+  void plan;
   let tokenConserved = true;
   const usageEventById = new Map(input.usageEvents.map((usage) => [usage.id, usage]));
   for (const line of [...input.ledgerLines].sort((left, right) => compareStrings(left.id, right.id))) {
-    const repaired = plan.repairByLine.get(line.id);
-    const statusAfter = repaired?.apiCostStatus ?? line.apiCostStatus;
-    const currencyAfter = repaired ? repaired.apiCostCurrency : line.apiCostCurrency;
-    if (line.resourceMode === "API") {
-      if ((statusAfter === "UNKNOWN_COST"
-        || (statusAfter === null && (line.apiCost === null || hasTokens(line))))
-        && !line.legacyCostResolved) {
-        gaps.push(gap("UNKNOWN_COST", "USAGE", "API 用量费用状态未明确（UNKNOWN_COST）", {
-          resourceId: line.resourceId, ledgerLineId: line.id,
-          month: shanghaiMonthOf(ledgerEffectiveAt(line)),
-        }));
-      }
-      if (line.apiCost !== null && currencyAfter === null
-        && statusAfter !== "CONFIRMED_ZERO_NO_UPSTREAM") {
-        gaps.push(gap("MISSING_API_CURRENCY", "USAGE", "已定价 API 用量缺少结算币种",
-          { resourceId: line.resourceId, ledgerLineId: line.id }));
-      }
-      if (currencyAfter !== null && line.billingRuleSnapshotCurrency !== null
-        && currencyAfter !== line.billingRuleSnapshotCurrency) {
-        gaps.push(gap("CONFLICTING_API_CURRENCY", "USAGE", "结算币种与计价规则快照币种冲突", {
-          resourceId: line.resourceId, ledgerLineId: line.id,
-          detail: `${currencyAfter} vs ${line.billingRuleSnapshotCurrency}`,
-        }));
-      }
-      if ((repaired?.settledAt ?? line.settledAt) === null) {
-        gaps.push(gap("MISSING_SETTLEMENT_TIME", "USAGE", "用量缺少结算时间",
-          { resourceId: line.resourceId, ledgerLineId: line.id }));
-      }
-    }
     const usage = usageEventById.get(line.usageEventId);
     const tokensMatch = usage !== undefined
       && usage.inputTokens === line.rawInputTokens

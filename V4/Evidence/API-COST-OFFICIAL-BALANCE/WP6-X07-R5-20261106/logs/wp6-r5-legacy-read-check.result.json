@@ -1,0 +1,220 @@
+{
+  "legacyRoot": "/Users/mac/Projects/仟流智算-wp6-legacy-ae506fe",
+  "legacyHeadMigration": "0092_employee_monthly_quota（ae506fe 迁移头；恢复点 0091＋0092 幂等重放＋增量回放 v3）",
+  "databaseUrlPath": "/wp6_r4_live",
+  "admission": {
+    "query": "ResourcePoolRepository.listServableResources (ae506fe)",
+    "servableIds": [
+      "e2ce4cf4-eb97-4f7d-b1ab-72d79cc8fd19",
+      "5cac39bd-8aef-480d-846a-494db6a8426b",
+      "4d12d799-1deb-44fa-b712-c1b37b72f27b",
+      "f48f1ae5-993c-4985-8644-db7fd72d1569",
+      "d2ea8a4f-8185-497c-b25f-5b4bc1dbd502"
+    ],
+    "readyResource_included": true,
+    "cutoverResource_noFinanceRow_included": true,
+    "formerPendingResource_nowServable_included": true,
+    "postRollbackNewResource_noPending_included": true
+  },
+  "readConsumptionFacts": {
+    "query": "GatewayLedgerRepository.listLedgerLines (ae506fe)",
+    "preBackup": {
+      "requestId": "23bb19f5-cb76-4367-9ece-a81d8b64a7bf",
+      "lines": [
+        {
+          "api_cost": "0.00104000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutover1": {
+      "requestId": "a8b64714-8b0b-439f-80e7-99772531f126",
+      "lines": [
+        {
+          "api_cost": "0.00060000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "cutover2": {
+      "requestId": "51b01657-5e54-43bd-b4ff-c815b414d720",
+      "lines": [
+        {
+          "api_cost": "0.00040000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "inflightSettled": {
+      "requestId": "a35ad90d-fd56-419f-b1c9-8e37d3e1cba6",
+      "lines": [
+        {
+          "api_cost": "0.00025000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "r5aSettled": {
+      "requestId": "b896d0e5-6218-4274-a5ad-4ab34de0269f",
+      "lines": [
+        {
+          "api_cost": "0.00010000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    },
+    "r5bSettled": {
+      "requestId": "265721fe-7c0b-492f-bda2-9701406084e0",
+      "lines": [
+        {
+          "api_cost": "0.00020000",
+          "api_cost_currency": "CNY",
+          "api_cost_status": "PRICED_USAGE",
+          "resource_mode": "API"
+        }
+      ],
+      "amountMatchesSeed": true
+    }
+  },
+  "windowOperatingFinance": {
+    "path": "loadWindowOperatingFinance (ae506fe dashboard-home-costs；resource_mode='API'＋settled_at 窗内)",
+    "totalSpends": [
+      {
+        "currency": "CNY",
+        "amount": "0.00259000"
+      }
+    ],
+    "incompleteReason": "OPENING_BALANCE_MISSING:1",
+    "expectedWindowSumCny": "0.00259000",
+    "sumMatches": true
+  },
+  "employeeQuotaRestored": {
+    "path": "readQuotaPeriodsInTransaction (ae506fe employee-quota-read-repository)",
+    "periods": [
+      {
+        "period_key": "2026-11",
+        "provider": "deepseek",
+        "limit_value": "1000000",
+        "used_value": "1900",
+        "reserved_value": "0",
+        "quota_basis": "RAW_TOKEN",
+        "allow_overage": true
+      }
+    ],
+    "limitMatches": true,
+    "usedMatches": true
+  },
+  "quotaGateOverLimit": {
+    "path": "EmployeeQuotaRepository.reserveEmployeeQuota → evaluateQuotaGate (ae506fe)",
+    "requestId": "8f263772-3c60-4f1c-8d1b-6b5ba8264001",
+    "mode": "MONTHLY",
+    "decision": "REJECT_EXHAUSTED",
+    "gateProjectedRemaining": "998100",
+    "monthlyMode": true,
+    "rejectedWithQuotaReason": true,
+    "periodReservedUnchanged": true
+  },
+  "quotaSettlementAccumulates": {
+    "path": "EmployeeQuotaRepository.settleEmployeeQuota → settleEmployeeQuotaInTransaction (ae506fe)",
+    "requestId": "98cbae30-1479-415d-b8e0-2252515bfc38",
+    "reserved": {
+      "mode": "MONTHLY",
+      "decision": "ALLOW",
+      "reservedOk": true
+    },
+    "usage": {
+      "status": "SETTLED",
+      "actual": "50000"
+    },
+    "usedAfter": "51900",
+    "reservedAfter": "0",
+    "usedAccumulatedCorrectly": true,
+    "usageSettled": true
+  },
+  "settleNewConsumption": {
+    "path": "GatewayLedgerRepository.createRequest/createAttempt/createUsageAndLedgerLineIfAbsent (ae506fe)",
+    "requestStatus": "IN_PROGRESS",
+    "created": true,
+    "newLine": {
+      "api_cost": "0.00052000",
+      "api_cost_currency": "CNY",
+      "api_cost_status": "PRICED_USAGE"
+    },
+    "readableAfterSettle": [
+      "0.00052000"
+    ]
+  },
+  "r5aCumulativeGate": {
+    "path": "QuotaGateRepository.reserveQuota (ae506fe quota-gate-repository；精确型号 grant＋quota_counter FOR UPDATE)",
+    "grantId": "e1204d24-1425-4115-a7c2-fcd852fa46f8",
+    "modelAlias": "qianliu-r4-deepseek",
+    "counterBefore": {
+      "used_value": "1000",
+      "overage_value": "0",
+      "updated_at": "2026-11-04T09:50:01.000Z"
+    },
+    "counterAfter": {
+      "used_value": "1000",
+      "overage_value": "0",
+      "updated_at": "2026-11-04T09:50:01.000Z"
+    },
+    "decision": "REJECT_EXHAUSTED",
+    "reservedEstimate": "0",
+    "rejectedWithQuotaReason": true,
+    "counterUnchangedOnReject": true,
+    "usedMatchesLive": true
+  },
+  "r5bNewGrantCumulative": {
+    "path": "QuotaGateRepository.reserveQuota/settleQuota (ae506fe；新增授权＋计数行随增量回放后)",
+    "grantId": "24e1afad-fe3a-4157-9fde-fd758fa12e98",
+    "counterBefore": {
+      "used_value": "200",
+      "overage_value": "0",
+      "updated_at": "2026-11-04T09:55:01.000Z"
+    },
+    "reserve": {
+      "decision": "ALLOW",
+      "reservedEstimate": "100"
+    },
+    "counterAfterReserve": {
+      "used_value": "300",
+      "overage_value": "0",
+      "updated_at": "2026-11-06T12:33:42.230Z"
+    },
+    "counterAfterSettle": {
+      "used_value": "280",
+      "overage_value": "0",
+      "updated_at": "2026-11-06T12:33:42.235Z"
+    },
+    "overLimit": {
+      "decision": "REJECT_EXHAUSTED",
+      "counterAfter": {
+        "used_value": "280",
+        "overage_value": "0",
+        "updated_at": "2026-11-06T12:33:42.235Z"
+      }
+    },
+    "reserveAllowed": true,
+    "reserveAccumulatedPrecisely": true,
+    "settleCorrectedPrecisely": true,
+    "grantIdUniqueHeld": true,
+    "overLimitRejected": true,
+    "counterUnchangedOnOverReject": true,
+    "noCounterMissingException": true
+  }
+}

@@ -1,0 +1,67 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/resource-fact-reconciliation-migration.integration.test.ts (1 test) 26587ms
+   ✓ 0062 resource status event timestamp repair > uses an insert-time SQL clock and keeps the safe default after rollback  22416ms
+ ✓ src/__tests-integration__/provider-finance-ledger.integration.test.ts (3 tests) 32520ms
+   ✓ 0059 provider finance ledger contract > enforces tenant, mode, signed adjustment, immutable facts and exact reversal  5968ms
+   ✓ 0059 provider finance ledger contract > blocks destructive rollback after provider finance facts exist  14834ms
+ ✓ src/__tests-integration__/provider-finance-cutover.integration.test.ts (3 tests) 37528ms
+   ✓ provider finance cutover rehearsal > reports manual blockers and only backfills four allowed usage fields  23622ms
+   ✓ provider finance cutover rehearsal > returns GO candidate only when opening, monthly and balance conservation are complete  2632ms
+   ✓ provider finance cutover rehearsal > 口径切换同事务推脏已启用账期 → 重算后归集口径更新（R05 收口项）  2360ms
+ ✓ src/__tests-integration__/provider-finance-usage-disposition.integration.test.ts (6 tests) 29159ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > upgrades an existing 0085 database without changing its ledger facts  6659ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > carries over the known balance after exactly four decisions while retaining every raw fact  941ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > rejects recorded costs and never lets an old decision hide a subsequently priced row  408ms
+   ✓ 0086 explicit server-recorded-cost accounting decisions > enforces immutable tenant-bound original snapshots and refuses audit-data rollback  4982ms
+ ✓ src/__tests-integration__/quota-block-repository.integration.test.ts (11 tests) 25599ms
+   ✓ 0087 迁移 > 默认值正确：revision=0、block NULL、事件 incident 列 NULL  6533ms
+   ✓ 0087 迁移 > 有耗尽事实时 down 拒绝执行（计划§10）  4905ms
+   ✓ 明确耗尽故障（F2/D4） > 首次 5 小时耗尽：创建 incident、EXHAUSTED、revision 递增、事件绑定 incident  1084ms
+   ✓ 明确耗尽故障（F2/D4） > 迟到失败落到新凭证时被拒绝（expectedCredentialVersion 不匹配 → 零写入）  491ms
+   ✓ 额度 GET 条件提交（F4） > 轮换后旧 token 提交 → SUPERSEDED，不写当前窗口/状态  641ms
+   ✓ 额度 GET 条件提交（F4） > 同 token 双结果只接受首次提交（revision 递增使后者失配）  543ms
+   ✓ 额度 GET 条件提交（F4） > Kimi 双窗口正余量 → block 清空、DEGRADED、同 incident 事件关闭；旧零值不无限回溯  533ms
+   ✓ 额度 GET 条件提交（F4） > 查询失败提交：保鲜 + nextCheck=now+5min + revision 递增，block 与未来 reset 保留  553ms
+   ✓ 凭证轮换废弃旧 incident（D1） > 管理轮换后活跃 block 替换为新凭证 unknownWindow 待确认记录，且 token 失效  578ms
+   ✓ 复审缺陷回归 > 缺陷1：旧凭证版本为 null 时，轮换后的迟到故障被拒绝，不污染新凭证  495ms
+   ✓ 复审缺陷回归 > 缺陷2：轮换废弃旧 incident 时同事务关闭其绑定的 OPEN 额度事件  795ms
+ ✓ src/__tests-integration__/quota-block-transaction-faults.integration.test.ts (7 tests) 21889ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在窗口写入阶段（provider_quota_window）失败 → 整事务回滚，无部分放行  6177ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在状态迁移审计阶段（resource_status_event）失败 → 整事务回滚，无部分放行  710ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在Key 模型刷新阶段（principal_key）失败 → 整事务回滚，无部分放行  921ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 恢复提交在额度事件关闭阶段（availability_event）失败 → 整事务回滚，无部分放行  613ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 失败提交在保鲜阶段失败 → 整事务回滚，block 与未来 reset 保留  645ms
+   ✓ CPQW 任务2.2：提交事务阶段故障注入全回滚 > 注入清除后同一资源可正常恢复（故障不留下毒化状态）  929ms
+   ✓ CPQW 任务2.2：与授权撤销的锁顺序核对 > 额度恢复提交与授权撤销并发交替：无死锁逃逸、无部分状态（资源锁→主体锁单向序）  2075ms
+ ✓ src/__tests-integration__/provider-finance-recorded-cost-disposition.integration.test.ts (22 tests) 16752ms
+   ✓ exact server-recorded-cost decisions > excludes only the four previewed rows, preserves raw evidence, and replays without a second audit  1231ms
+ ✓ src/__tests-integration__/quota-pricing-configuration.test.ts (23 tests) 17662ms
+ ✓ src/__tests-integration__/provider-finance-activation-preview.integration.test.ts (5 tests) 20172ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 只读投影零写入，候选元数据仅在独立控制事务落库  5583ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > READ ONLY 由数据库强制：只读事务内的写语句被 25006 拒绝  678ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 水位确定且新增 ledger_line 使旧水位失效  1249ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > 固定修复行集只包含候选时点已存在的资格行，不吸收之后新增的行  1394ms
+   ✓ PF-INIT WP02：只读候选投影与事实水位 > API 资源＋已定价用量＋无任何期初：纯套餐草稿预检出 GO，不因 API 资金缺口阻断（WP2-S4 / R5＋R8 / AFR-04）  969ms
+ ✓ src/__tests-integration__/provider-finance-resource-opening.integration.test.ts (5 tests) 10011ms
+ ✓ src/__tests-integration__/provider-finance-repository.integration.test.ts (11 tests) 14665ms
+   ✓ ProviderFinanceRepository > includes historical API usage cost in the monthly summary without changing the balance formula  374ms
+   ✓ ProviderFinanceRepository > records one opening and recharge idempotently, then projects one balance  348ms
+   ✓ ProviderFinanceRepository > October opening carries September closing and excludes October midnight recharge  342ms
+   ✓ ProviderFinanceRepository > fails closed when a post-cutover API cost fact is unclassified  410ms
+   ✓ ProviderFinanceRepository > retires API funding facts at repo level while Coding Plan reversal and confirmation keep working  457ms
+ ✓ src/__tests-integration__/provider-finance-activation-migration.integration.test.ts (6 tests) 90241ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 候选 TTL 固定 30 分钟、状态白名单不含 ACTIVATING、终态不可修改  17417ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 企业级激活幂等键唯一，且预检候选不进入资金事实表  14744ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 静默租约上限 60 分钟、审计留痕、到期自动失效且不可复活  15732ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 0094 后资源资金门禁退役：新 API 资源无 finance_state 行且立即可服务（AFR-02）  13529ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > 0094 down 恢复种入触发器（正反控制），存量 finance_state 行原样保留（D4/AFR-02）  13907ms
+   ✓ PF-INIT WP01：资金账本初始化控制结构 > Gateway 可服务资源不再排除存量 PENDING，存量 READY 语义不变；存在激活事实时拒绝回退  14909ms
+
+ Test Files  12 passed (12)
+      Tests  103 passed (103)
+   Start at  16:56:38
+   Duration  93.75s (transform 2.00s, setup 0ms, collect 19.52s, tests 342.78s, environment 1ms, prepare 1.11s)
+
+EXIT_CODE=0

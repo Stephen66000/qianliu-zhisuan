@@ -1,0 +1,5 @@
+\set ON_ERROR_STOP on
+BEGIN;
+ALTER DATABASE "other_live" RENAME TO "other_live_pre_rollback_keep";
+ALTER DATABASE "shadow_ok" RENAME TO "other_live";
+COMMIT;

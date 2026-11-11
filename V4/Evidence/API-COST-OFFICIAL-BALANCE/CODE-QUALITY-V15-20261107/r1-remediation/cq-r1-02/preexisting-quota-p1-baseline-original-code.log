@@ -1,0 +1,258 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/apps/gateway
+
+{"level":30,"time":1794045809153,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"5874a7b2-110b-4347-ac8e-779905347d26","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809181,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"5874a7b2-110b-4347-ac8e-779905347d26","res":{"statusCode":403},"responseTime":27.51299999999992,"msg":"request completed"}
+{"level":30,"time":1794045809201,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"a9613087-f456-45ed-8272-174c9f1327a8","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809214,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"a9613087-f456-45ed-8272-174c9f1327a8","res":{"statusCode":403},"responseTime":12.93404099999998,"msg":"request completed"}
+{"level":30,"time":1794045809225,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"c2d02b0d-646b-4f2d-89b7-b1998ee884ba","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809236,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"c2d02b0d-646b-4f2d-89b7-b1998ee884ba","res":{"statusCode":403},"responseTime":11.22079199999962,"msg":"request completed"}
+{"level":30,"time":1794045809248,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"d38712d9-48e7-4672-9881-e2c7a44a461a","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809259,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"d38712d9-48e7-4672-9881-e2c7a44a461a","res":{"statusCode":403},"responseTime":10.741750000000138,"msg":"request completed"}
+{"level":30,"time":1794045809269,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"7a9f550a-82f2-4049-b296-e414bdfd0b36","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809280,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"7a9f550a-82f2-4049-b296-e414bdfd0b36","res":{"statusCode":403},"responseTime":10.762500000000273,"msg":"request completed"}
+{"level":30,"time":1794045809291,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"256ac438-6efa-4b4c-a5a7-8c7f3042f459","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809303,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"256ac438-6efa-4b4c-a5a7-8c7f3042f459","res":{"statusCode":403},"responseTime":11.823457999999846,"msg":"request completed"}
+{"level":30,"time":1794045809313,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"95dda79c-05a8-45a1-8858-1e67cf053f3b","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809325,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"95dda79c-05a8-45a1-8858-1e67cf053f3b","res":{"statusCode":403},"responseTime":11.429458999999952,"msg":"request completed"}
+{"level":30,"time":1794045809335,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"5aae0710-d074-427e-8b21-dcc0f89b50c4","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809347,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"5aae0710-d074-427e-8b21-dcc0f89b50c4","res":{"statusCode":403},"responseTime":12.195999999999913,"msg":"request completed"}
+{"level":30,"time":1794045809359,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"c497c4b7-6b93-4976-890f-202b82833a17","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809370,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"c497c4b7-6b93-4976-890f-202b82833a17","res":{"statusCode":403},"responseTime":11.481999999999971,"msg":"request completed"}
+{"level":30,"time":1794045809384,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"351908c4-6e8d-4a59-a66e-cc5b66e2113c","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809410,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"351908c4-6e8d-4a59-a66e-cc5b66e2113c","res":{"statusCode":403},"responseTime":25.732332999999926,"msg":"request completed"}
+{"level":30,"time":1794045809427,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"9ab432ba-1dc7-4669-a1b0-b052659c7729","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809439,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"9ab432ba-1dc7-4669-a1b0-b052659c7729","res":{"statusCode":403},"responseTime":11.51974999999993,"msg":"request completed"}
+{"level":30,"time":1794045809452,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"3e3dfbf6-84ab-4895-b159-fb7df7d7b05d","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809469,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"3e3dfbf6-84ab-4895-b159-fb7df7d7b05d","res":{"statusCode":403},"responseTime":16.94066699999985,"msg":"request completed"}
+{"level":30,"time":1794045809483,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"32162d11-2ead-4508-8f45-57162b8e44eb","req":{"method":"POST","url":"/v1/chat/completions","host":"localhost:80","remoteAddress":"127.0.0.1"},"msg":"incoming request"}
+{"level":30,"time":1794045809494,"pid":94239,"hostname":"Stephen-macbook.local","reqId":"32162d11-2ead-4508-8f45-57162b8e44eb","res":{"statusCode":403},"responseTime":10.815583999999944,"msg":"request completed"}
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts (13 tests | 13 failed) 2503ms
+   × F01 policy failure finalizes zero consumption and returns reservations 91ms
+     → expected 403 to be 500 // Object.is equality
+   × F01 operating failure finalizes zero consumption and returns reservations 29ms
+     → expected 403 to be 500 // Object.is equality
+   × F01 evidence failure finalizes zero consumption and returns reservations 22ms
+     → expected 403 to be 500 // Object.is equality
+   × F01 API rejects with confirmed zero cost and releases half-open probe 23ms
+     → expected 403 to be 500 // Object.is equality
+   × F02 provider-reported failure charges actual quota; committed=false 22ms
+     → expected 403 to be 502 // Object.is equality
+   × F02 provider-reported failure charges actual quota; committed=true 23ms
+     → expected 403 to be 502 // Object.is equality
+   × F02 estimated stream failure preserves measured deduction 22ms
+     → expected 403 to be 502 // Object.is equality
+   × F02 unknown cancellation returns reservation but never invents known usage 23ms
+     → expected 403 to be 502 // Object.is equality
+   × F02 measured failure exceeding quota records overage 24ms
+     → expected 403 to be 502 // Object.is equality
+   × F01 on retry preserves the earlier attempt's measured consumption 39ms
+     → expected 403 to be 500 // Object.is equality
+   × F02 retry aggregates each measured attempt exactly once 29ms
+     → expected 403 to be 200 // Object.is equality
+   × F02 retry overage ignores the earlier attempt's refundable reservation 30ms
+     → expected 403 to be 200 // Object.is equality
+   × F04 retry check failure releases both earlier and current half-open probes 24ms
+     → expected 403 to be 500 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F01 policy failure finalizes zero consumption and returns reservations
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F01 operating failure finalizes zero consumption and returns reservations
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F01 evidence failure finalizes zero consumption and returns reservations
+AssertionError: expected 403 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:17:33
+     15|   try {
+     16|     const response = await send();
+     17|     expect(response.statusCode).toBe(500);
+       |                                 ^
+     18|     expect(response.json().error.code).toBe("dispatch_check_failed_bef…
+     19|     expect(stub.calls).toHaveLength(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F01 API rejects with confirmed zero cost and releases half-open probe
+AssertionError: expected 403 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:40:39
+     38|   const { app, stub, send } = await p1App(db, f, { fault: "policy" });
+     39|   try {
+     40|     expect((await send()).statusCode).toBe(500);
+       |                                       ^
+     41|     const facts = await p1Facts(db, f);
+     42|     expect(facts.request.status).toBe("FAILED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 provider-reported failure charges actual quota; committed=false
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 provider-reported failure charges actual quota; committed=true
+AssertionError: expected 403 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:53:39
+     51|   const { app, send } = await p1App(db, f, { outcome: (outcome) => ({ …
+     52|   try {
+     53|     expect((await send()).statusCode).toBe(502);
+       |                                       ^
+     54|     const facts = await p1Facts(db, f);
+     55|     expect(facts.request.status).toBe("FAILED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 estimated stream failure preserves measured deduction
+AssertionError: expected 403 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:70:39
+     68|   const { app, send } = await p1App(db, f, { stub });
+     69|   try {
+     70|     expect((await send()).statusCode).toBe(502);
+       |                                       ^
+     71|     const facts = await p1Facts(db, f);
+     72|     expect(facts.lines[0]).toMatchObject({ usage_quality: "ESTIMATED",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 unknown cancellation returns reservation but never invents known usage
+AssertionError: expected 403 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:82:39
+     80|   const { app, send } = await p1App(db, f, { stub });
+     81|   try {
+     82|     expect((await send()).statusCode).toBe(502);
+       |                                       ^
+     83|     const facts = await p1Facts(db, f);
+     84|     expect(facts.request.status).toBe("FAILED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 measured failure exceeding quota records overage
+AssertionError: expected 403 to be 502 // Object.is equality
+
+- Expected
++ Received
+
+- 502
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:96:39
+     94|     usage: { ...outcome.usage, input: 200, output: 0 } }) });
+     95|   try {
+     96|     expect((await send()).statusCode).toBe(502);
+       |                                       ^
+     97|     const facts = await p1Facts(db, f);
+     98|     expect(facts.counter).toMatchObject({ used_value: "600", overage_v…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F01 on retry preserves the earlier attempt's measured consumption
+AssertionError: expected 403 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:108:39
+    106|     outcome: (outcome) => ({ ...outcome, committed: false, status: 502…
+    107|   try {
+    108|     expect((await send()).statusCode).toBe(500);
+       |                                       ^
+    109|     const facts = await p1Facts(db, f);
+    110|     expect(facts.request.status).toBe("FAILED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 retry aggregates each measured attempt exactly once
+AssertionError: expected 403 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:125:39
+    123|     outcome: (outcome, n) => n === 1 ? { ...outcome, committed: false,…
+    124|   try {
+    125|     expect((await send()).statusCode).toBe(200);
+       |                                       ^
+    126|     const facts = await p1Facts(db, f);
+    127|     expect(stub.calls).toHaveLength(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F02 retry overage ignores the earlier attempt's refundable reservation
+AssertionError: expected 403 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:141:39
+    139|       : { ...outcome, usage: { ...outcome.usage, input: 160, output: 0…
+    140|   try {
+    141|     expect((await send()).statusCode).toBe(200);
+       |                                       ^
+    142|     const facts = await p1Facts(db, f);
+    143|     expect(facts.counter).toMatchObject({ used_value: "522", overage_v…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  src/__tests-integration__/quota-p1-settlement.test.ts > F04 retry check failure releases both earlier and current half-open probes
+AssertionError: expected 403 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 403
+
+ ❯ src/__tests-integration__/quota-p1-settlement.test.ts:153:39
+    151|     outcome: (outcome) => ({ ...outcome, committed: false, status: 502…
+    152|   try {
+    153|     expect((await send()).statusCode).toBe(500);
+       |                                       ^
+    154|     const facts = await p1Facts(db, f);
+    155|     expect(facts.request.status).toBe("FAILED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  13 failed (13)
+   Start at  18:03:25
+   Duration  4.24s (transform 845ms, setup 0ms, collect 1.56s, tests 2.50s, environment 0ms, prepare 39ms)
+

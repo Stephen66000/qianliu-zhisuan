@@ -1,0 +1,28 @@
+===== lint @qianliu/domain =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/domain]=0
+===== lint @qianliu/provider-adapters =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/provider-adapters]=0
+===== lint @qianliu/database =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/database]=0
+===== lint @qianliu/control-api =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/control-api]=0
+===== lint @qianliu/gateway =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/gateway]=0
+===== lint @qianliu/worker =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/worker]=0
+===== lint @qianliu/web =====
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ eslint src --max-warnings=0
+EXIT_CODE[@qianliu/web]=0

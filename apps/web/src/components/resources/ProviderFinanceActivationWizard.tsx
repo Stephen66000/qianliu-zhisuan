@@ -184,7 +184,6 @@ export function ProviderFinanceActivationWizard({
   const legacySuggestions: LegacySuggestion[] = (preview?.gaps ?? [])
     .filter((gap) => gap.code === "LEGACY_RECORD_UNCLOSED" && gap.legacyRecordId !== null)
     .map((gap) => ({ legacyRecordId: gap.legacyRecordId!, resourceId: gap.resourceId ?? "" }));
-  const requiredAccounts = state.scope_summary?.required_accounts ?? [];
   const canSubmitPreview = writeEnabled && canOperate && gate.ready
     && issues.length === 0 && !previewMutation.isPending;
 
@@ -193,7 +192,8 @@ export function ProviderFinanceActivationWizard({
       <section className="rounded-xl border border-ql-border-zone bg-ql-surface p-4" aria-label="初始化状态">
         <h2 className="text-[15px] font-semibold text-ql-fg">资金账本初始化</h2>
         <p className="mt-1 text-[13px] text-ql-fg-tertiary">
-          严格资金写入口尚未开启。请补齐 API 期初、历史充值、Coding Plan 与旧记录关闭，
+          严格资金写入口尚未开启。请补齐 Coding Plan 购买/续订与旧记录关闭；
+          API 期初、历史充值与历史消耗登记已退役（旧资金事实只在历史记录中查阅）。
           预检通过后执行不可逆激活。切换时点 {formatDateTimeFull(state.cutover_at)}。
         </p>
         {writeEnabled ? null : (
@@ -253,8 +253,8 @@ export function ProviderFinanceActivationWizard({
       </div>
 
       <ActivationDraftEditor
-        cutoverAt={state.cutover_at} issues={issues} legacySuggestions={legacySuggestions}
-        onChange={setDraft} readOnly={!canOperate} requiredAccounts={requiredAccounts}
+        issues={issues} legacySuggestions={legacySuggestions}
+        onChange={setDraft} readOnly={!canOperate}
         resourceOptions={resourceOptions} state={draft}
       />
 

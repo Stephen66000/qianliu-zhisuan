@@ -1,0 +1,15 @@
+# R2-1 database batch (pool010 + wp3 refresh repo integration) — 2026-11-05T11:55:44Z
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/pool010-provider-operating.test.ts (5 tests) 6548ms
+   ✓ POOL-010 厂商资源经营快照 > 0025～0029 可连续回滚并重新升级  2702ms
+ ✓ src/__tests-integration__/wp3-official-balance-refresh.integration.test.ts (7 tests) 7960ms
+   ✓ 0096 官方余额手动刷新请求表（task 3.2） > down：drop 表（纯协调状态，无数据守卫）；重新 up 恢复  3595ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  19:55:45
+   Duration  10.26s (transform 1.00s, setup 0ms, collect 3.93s, tests 14.51s, environment 0ms, prepare 140ms)
+
+EXIT_CODE=0

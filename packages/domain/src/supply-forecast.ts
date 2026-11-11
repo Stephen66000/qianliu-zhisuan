@@ -14,6 +14,11 @@
 /** 算法版本（自然月偏差反向校准；W15 冻结 v1）。 */
 export const FORECAST_ALGORITHM_VERSION = "w15-v1" as const;
 
+/** WP3/OAB-07：不可计算原因（repository 侧按官方余额来源/时效直置；computeForecast
+ * 数学不变，reason 通道为开放 string，此处只集中枚举常量）。 */
+export const FORECAST_NOT_CALCULABLE_OFFICIAL_SOURCE_MISSING = "official_source_missing" as const;
+export const FORECAST_NOT_CALCULABLE_OFFICIAL_BALANCE_EXPIRED = "official_balance_expired" as const;
+
 /** 可信度分级。 */
 export const FORECAST_CONFIDENCE = {
   HIGH: "HIGH",

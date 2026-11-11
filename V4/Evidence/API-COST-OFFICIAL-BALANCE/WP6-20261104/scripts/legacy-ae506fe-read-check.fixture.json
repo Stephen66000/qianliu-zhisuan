@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-11-04T15:58:16.432Z",
+  "databaseUrlHost": "127.0.0.1:55433",
+  "databaseName": "/wp6_x07_drill",
+  "candidateHeadMigration": "0096_official_balance_refresh_request",
+  "downChain": [
+    "0096_official_balance_refresh_request",
+    "0095_official_balance_sync_decouple",
+    "0094_retire_api_finance_pending_admission",
+    "0093_billing_rule_source_status",
+    "0092_employee_monthly_quota"
+  ],
+  "headAfterDown": "0091_recorded_cost_accounting_policy",
+  "headFinal": "0092_employee_monthly_quota",
+  "enterpriseId": "a236f546-d830-4a7b-acac-890ad446ffb1",
+  "principalId": "e72e4836-742c-4217-bcaa-798eab9595da",
+  "keyId": "d56e3016-2f09-465f-88e7-008023f69179",
+  "grantId": "afe45446-b0cf-4008-8946-78dc68716674",
+  "periodId": "4d3d14c1-e7ac-4ad7-88ae-0cd258acbaf0",
+  "providerId": "45cbaed8-d628-4101-b92b-1e5873c052ed",
+  "freshResourceId": "686fec49-066b-4b9b-b8f7-b4a7927fa4e6",
+  "pendingResourceId": "8fb8f6be-12f1-4e44-b53b-7a6a135a5082",
+  "freshRequest": "1362cf84-f25b-4587-8a47-a4d8b32d0ada",
+  "freshAttempt": "4156a50a-a2fa-4cb7-941f-62344f3dcc13",
+  "pendingRequest": "bf8ad5de-fc38-477c-b080-450d35a8c7c7",
+  "pendingAttempt": "d26060f9-113d-4332-81d1-c4e29f80ee32",
+  "freshCost": "0.00104000",
+  "pendingCost": "0.00052000"
+}

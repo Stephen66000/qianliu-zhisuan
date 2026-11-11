@@ -32,14 +32,15 @@ export function ResourceUsageOverviewPanel() {
           <span className="text-[13px] text-ql-fg-tertiary">包含当月已上架模型及产生过调用的历史模型</span>
         </div>
         {data.modelDetails.length === 0 ? <p className="py-5 text-center text-[13px] text-ql-fg-tertiary">暂无已登记模型</p> :
-          <div className="overflow-x-auto"><table className="w-full min-w-[36rem] border-collapse text-left text-[13px]">
+          <><div className="overflow-x-auto"><table className="w-full min-w-[36rem] border-collapse text-left text-[13px]">
             <thead><tr className="whitespace-nowrap border-b border-ql-border text-ql-fg-tertiary">
               <th className="py-2 pr-3 font-medium">模型</th><th className="py-2 pr-3 font-medium">所属厂商 / 资源</th>
               <th className="py-2 pr-3 text-right font-medium">本月花费</th><th className="py-2 pr-3 text-right font-medium">本月 Token</th>
               <th className="py-2 font-medium" title="所属资源预计耗尽">状态 / 预计耗尽</th>
             </tr></thead>
             <tbody>{data.modelDetails.map((item) => <ModelUsageRow item={item} key={`${data.generatedAt}:${item.resourceId}:${item.unifiedModelId ?? item.modelAlias}`} />)}</tbody>
-          </table></div>}
+          </table></div>
+          <p className="mt-2 text-[13px] text-ql-fg-tertiary">预测仅按已观察消费速率估算，不承诺账户实际可用时长</p></>}
       </section>
     </div> : null}
   </QueryGate>;

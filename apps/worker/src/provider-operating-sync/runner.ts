@@ -1,9 +1,11 @@
-import { sql, type Kysely } from "kysely";
-import { readProviderFinanceMode } from "@qianliu/config";
+import { type Kysely } from "kysely";
+import { readProviderOperatingSyncIntervalMs } from "@qianliu/config";
 import {
   type Database,
   listQuiescentEnterpriseIds,
-  ProviderRepository,
+  officialBalanceSyncDay,
+  recordOfficialBalanceSyncAttempt,
+  recordOfficialBalanceSyncSuccess,
   ResourcePoolRepository,
 } from "@qianliu/database";
 import {
@@ -28,15 +30,6 @@ export interface ProviderOperatingSyncResult {
   resourcesScanned: number; snapshotsCreated: number; failed: number; notSupported: number;
   /** PFA-09：因目标企业处于有效静默租约内而整企业跳过的资源数。 */
   skippedQuiescentResources: number;
-  /** 资金停写门禁命中时标记（DARK/OFF 下零写入零上游调用）。 */
-  skipped?: "FINANCE_MODE_INACTIVE";
-}
-
-function shanghaiSyncDay(now: Date): Date {
-  const day = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(now);
-  return new Date(`${day}T00:00:00.000Z`);
 }
 
 /**
@@ -49,52 +42,37 @@ function operatingProviderCode(value: string): ProviderCode | null {
   return code === "deepseek" || code === "kimi" || code === "zhipu" ? code : null;
 }
 
-/** API 充值流水晚于最后一次厂商快照时，当天允许额外同步一次余额。 */
-async function needsPostRechargeSync(
-  db: Kysely<Database>, resource: SyncResource,
+/**
+ * WP3/OAB-03：P1 周期门禁——最近一次同步尝试（任意 outcome）的 next_sync_at
+ * 未到则跳过本资源。替代 0051 时代"每日一次＋充值后补同步"门禁：充值写入口
+ * 已随 WP2 API 资金退役（410），充值补同步依赖（resource_purchase_record 查询）
+ * 一并移除；0095 放开 attempt 表 daily_uq 后同日多次尝试各留一行。
+ */
+async function shouldSkipUntilNextSync(
+  db: Kysely<Database>, resource: SyncResource, now: Date,
 ): Promise<boolean> {
-  if (resource.mode !== "API") return false;
-  const result = await sql<{
-    purchase_created_at: Date | null; snapshot_collected_at: Date | null;
-  }>`
-    SELECT
-      (SELECT max(p.created_at) FROM resource_purchase_record p
-        WHERE p.enterprise_id = ${resource.enterprise_id}::uuid
-          AND p.provider_resource_id = ${resource.id}::uuid
-          AND p.purchase_type = 'API_RECHARGE') AS purchase_created_at,
-      (SELECT max(s.collected_at) FROM provider_resource_operating_snapshot s
-        WHERE s.enterprise_id = ${resource.enterprise_id}::uuid
-          AND s.provider_resource_id = ${resource.id}::uuid
-          AND s.source = 'PROVIDER_SYNC') AS snapshot_collected_at
-  `.execute(db);
-  const row = result.rows[0];
-  return row?.purchase_created_at !== null && row?.purchase_created_at !== undefined
-    && (row.snapshot_collected_at === null
-      || row.snapshot_collected_at === undefined
-      || row.purchase_created_at > row.snapshot_collected_at);
-}
-
-async function shouldSkipDailySync(
-  db: Kysely<Database>, resource: SyncResource, syncDay: Date,
-): Promise<boolean> {
-  const attempted = await db.selectFrom("provider_resource_operating_sync_attempt")
-    .select("id")
+  const latest = await db.selectFrom("provider_resource_operating_sync_attempt")
+    .select("next_sync_at")
     .where("enterprise_id", "=", resource.enterprise_id)
     .where("provider_resource_id", "=", resource.id)
-    .where("sync_day", "=", syncDay)
+    .orderBy("started_at", "desc").orderBy("created_at", "desc")
     .executeTakeFirst();
-  return attempted !== undefined && !(await needsPostRechargeSync(db, resource));
+  return latest !== undefined && latest.next_sync_at.getTime() > now.getTime();
 }
 
 async function recoverFromFreshPositiveBalance(
   db: Kysely<Database>, poolRepo: ResourcePoolRepository, resource: SyncResource,
 ): Promise<void> {
   if (resource.mode !== "API" || resource.status !== "EXHAUSTED") return;
+  // F1 返修（R2）：证据候选按 design D2 双滤（source＋balance_source）——与
+  // recordBalanceSyncRecovery 的证据复核条件一致，写旁路时代的
+  // `source='PROVIDER_SYNC'`/`balance_source=NULL` 冒充行不再触发耗尽恢复。
   const snapshot = await db.selectFrom("provider_resource_operating_snapshot")
     .select("id")
     .where("enterprise_id", "=", resource.enterprise_id)
     .where("provider_resource_id", "=", resource.id)
     .where("source", "=", "PROVIDER_SYNC")
+    .where("balance_source", "=", "PROVIDER_API")
     .orderBy("collected_at", "desc").orderBy("version", "desc")
     .executeTakeFirst();
   if (snapshot) await poolRepo.recordBalanceSyncRecovery(resource.id, snapshot.id);
@@ -114,35 +92,20 @@ export interface ProviderOperatingSyncInput {
 }
 
 /**
- * 资金停写门禁：DARK/OFF 下厂商经营事实（快照与同步尝试）一律不写入、上游不触达，
- * 仅 ACTIVE 执行同步。口径与订阅续订 runner（FINANCE_MODE_INACTIVE）一致，fail-closed。
+ * 官方余额同步 tick（WP3/OAB-03：独立于内部资金账本运行）——不再读取
+ * PROVIDER_FINANCE_MODE（旧 FINANCE_MODE_INACTIVE fail-closed 门禁随资金停写
+ * 门禁退役移除；订阅续订 runner 的同款门禁独立存在，不受影响）。
+ * 快照/attempt 写入走 @qianliu/database 共享原语（WP3 task 3.2，与手动刷新
+ * 单一事实来源）：纯查询+留痕，零资金事实写入（provider_finance_* / 充值流水）。
  */
-export function financeModeInactiveSkip(
-  env: NodeJS.ProcessEnv | undefined,
-): ProviderOperatingSyncResult | null {
-  if (readProviderFinanceMode(env ?? process.env) !== "ACTIVE") {
-    return { resourcesScanned: 0, snapshotsCreated: 0, failed: 0, notSupported: 0,
-      skippedQuiescentResources: 0, skipped: "FINANCE_MODE_INACTIVE" };
-  }
-  return null;
-}
-
 export async function runProviderOperatingSyncTick(
   input: ProviderOperatingSyncInput,
 ): Promise<ProviderOperatingSyncResult> {
-  const skip = financeModeInactiveSkip(input.env);
-  if (skip) return skip;
-  return runProviderOperatingSyncTickInActiveMode(input);
-}
-
-async function runProviderOperatingSyncTickInActiveMode(
-  input: ProviderOperatingSyncInput,
-): Promise<ProviderOperatingSyncResult> {
   const now = input.now ?? new Date();
-  const syncDay = shanghaiSyncDay(now);
-  const nextSyncAt = new Date(now.getTime() + 24 * 60 * 60 * 1_000);
+  const syncDay = officialBalanceSyncDay(now);
+  const intervalMs = readProviderOperatingSyncIntervalMs(input.env ?? process.env);
+  const nextSyncAt = new Date(now.getTime() + intervalMs);
   const kek = decodeKek(input.kekBase64);
-  const repo = new ProviderRepository(input.db);
   const poolRepo = new ResourcePoolRepository(input.db);
   const resources = await input.db.selectFrom("provider_resource")
     .innerJoin("provider", "provider.id", "provider_resource.provider_id")
@@ -165,23 +128,30 @@ async function runProviderOperatingSyncTickInActiveMode(
   const scoped = resources.filter((resource) => !quiescent.has(resource.enterprise_id));
   const skippedQuiescentResources = resources.length - scoped.length;
   for (const resource of scoped) {
+    // 恢复尝试先于周期门禁：即使本资源本轮被跳过，隔离后取得的新官方证据
+    // （既有快照）仍可按既有流程解除耗尽隔离（OAB-06，行为不变）。
     await recoverFromFreshPositiveBalance(input.db, poolRepo, resource);
-    if (await shouldSkipDailySync(input.db, resource, syncDay)) continue;
+    if (await shouldSkipUntilNextSync(input.db, resource, now)) continue;
     const startedAt = new Date(now);
-    let snapshotId: string | null = null;
-    let providerDataAt: Date | null = null;
-    let balanceStatus: "SUCCESS" | "FAILED" | "NOT_SUPPORTED" = "NOT_SUPPORTED";
-    let costStatus: "SUCCESS" | "FAILED" | "NOT_SUPPORTED" = "NOT_SUPPORTED";
-    let errorCode: string | null = null;
-    let failureReason: string | null = null;
+    const completedAt = new Date(now);
+    const identity = {
+      syncDay, startedAt, completedAt, nextSyncAt,
+      adapterVersion: PROVIDER_OPERATING_ADAPTER_VERSION,
+    };
+    // 失败 attempt 保持"插入发生在 try/catch 之后"的历史语义。
+    let failure: { errorCode: string; failureReason: string } | null = null;
     try {
       const operatingCode = operatingProviderCode(resource.provider_code);
       if (!operatingCode || !resource.credential_ciphertext) {
         notSupported += 1;
-        errorCode = resource.credential_ciphertext ? "PROVIDER_NOT_SUPPORTED" : "CREDENTIAL_MISSING";
-        failureReason = resource.credential_ciphertext
-          ? "厂商未提供可用的余额/费用同步接口"
-          : "资源没有可用凭证";
+        await recordOfficialBalanceSyncAttempt(input.db, {
+          ...identity, enterpriseId: resource.enterprise_id, resourceId: resource.id,
+          balanceStatus: "NOT_SUPPORTED",
+          errorCode: resource.credential_ciphertext ? "PROVIDER_NOT_SUPPORTED" : "CREDENTIAL_MISSING",
+          failureReason: resource.credential_ciphertext
+            ? "厂商未提供可用的余额/费用同步接口"
+            : "资源没有可用凭证",
+        });
       } else {
         const credential = decryptCredential(
           JSON.parse(resource.credential_ciphertext) as EncryptedCredential,
@@ -196,62 +166,36 @@ async function runProviderOperatingSyncTickInActiveMode(
         });
         if (balance === null) {
           notSupported += 1;
-          errorCode = "PROVIDER_BALANCE_API_NOT_SUPPORTED";
-          failureReason = "厂商未提供可用余额接口；费用接口同样未提供";
-        } else {
-          const latest = (await repo.listLatestOperatingSnapshots(resource.enterprise_id))
-            .find((row) => row.provider_resource_id === resource.id);
-          const snapshot = await repo.appendOperatingSnapshot(resource.enterprise_id, resource.id, {
-            source: "PROVIDER_SYNC",
-            collected_at: now,
-            currency: balance.currency,
-            recharge_amount: latest?.recharge_amount ?? null,
-            current_balance: balance.totalBalance,
-            granted_balance: balance.grantedBalance,
-            topped_up_balance: balance.toppedUpBalance,
-            provider_balance_available: balance.available,
-            balance_source: "PROVIDER_API",
-            cumulative_cost: latest?.cumulative_cost ?? null,
-            current_period_cost: latest?.current_period_cost ?? null,
-            cost_period_start: latest?.cost_period_start ?? null,
-            cost_period_end: latest?.cost_period_end ?? null,
-            cost_source: latest?.cost_source ?? (latest?.current_period_cost === null || latest === undefined
-              ? "NOT_SUPPORTED" : latest.source === "BILL_RECONCILIATION" ? "BILL_RECONCILIATION" : "ADMIN"),
-            balance_updated_at: balance.providerDataAt,
+          await recordOfficialBalanceSyncAttempt(input.db, {
+            ...identity, enterpriseId: resource.enterprise_id, resourceId: resource.id,
+            balanceStatus: "NOT_SUPPORTED",
+            errorCode: "PROVIDER_BALANCE_API_NOT_SUPPORTED",
+            failureReason: "厂商未提供可用余额接口；费用接口同样未提供",
           });
-          snapshotId = snapshot?.id ?? null;
-          providerDataAt = balance.providerDataAt;
-          balanceStatus = "SUCCESS";
-          // DeepSeek 没有公开费用/账单 API；本地账本费用在经营账单单独展示。
-          costStatus = "NOT_SUPPORTED";
-          errorCode = "PROVIDER_COST_API_NOT_SUPPORTED";
-          failureReason = "余额同步成功；厂商未公开费用接口，API 实际费用取本地已结算账本";
+        } else {
+          const { snapshotId } = await recordOfficialBalanceSyncSuccess(input.db, {
+            ...identity, enterpriseId: resource.enterprise_id, resourceId: resource.id,
+            balance,
+          });
           snapshotsCreated += 1;
           await recoverFromFetchedBalance(poolRepo, resource, snapshotId);
         }
       }
     } catch (cause) {
       failed += 1;
-      balanceStatus = "FAILED";
-      costStatus = "NOT_SUPPORTED";
-      errorCode = cause instanceof ProviderOperatingFactsError ? cause.code : "UPSTREAM_UNAVAILABLE";
-      failureReason = cause instanceof Error ? cause.message.slice(0, 500) : "厂商经营数据同步失败";
+      failure = {
+        errorCode: cause instanceof ProviderOperatingFactsError ? cause.code : "UPSTREAM_UNAVAILABLE",
+        failureReason: cause instanceof Error ? cause.message.slice(0, 500) : "厂商经营数据同步失败",
+      };
     }
-    await input.db.insertInto("provider_resource_operating_sync_attempt").values({
-      enterprise_id: resource.enterprise_id,
-      provider_resource_id: resource.id,
-      sync_day: syncDay,
-      balance_status: balanceStatus,
-      cost_status: costStatus,
-      snapshot_id: snapshotId,
-      provider_data_at: providerDataAt,
-      started_at: startedAt,
-      completed_at: new Date(now),
-      next_sync_at: nextSyncAt,
-      error_code: errorCode,
-      failure_reason: failureReason,
-      adapter_version: PROVIDER_OPERATING_ADAPTER_VERSION,
-    }).onConflict((oc) => oc.columns(["enterprise_id", "provider_resource_id", "sync_day"]).doNothing()).execute();
+    if (failure) {
+      await recordOfficialBalanceSyncAttempt(input.db, {
+        ...identity, enterpriseId: resource.enterprise_id, resourceId: resource.id,
+        balanceStatus: "FAILED",
+        errorCode: failure.errorCode,
+        failureReason: failure.failureReason,
+      });
+    }
   }
   return { resourcesScanned: scoped.length, snapshotsCreated, failed, notSupported,
     skippedQuiescentResources };

@@ -1,27 +1,27 @@
 /**
  * 初始化草稿编辑器（WP05 任务 5.2；PFU-02、PFU-05、PFH-01～PFH-03）。
  *
- * 覆盖六类事实：API 期初余额、历史 API 充值、历史 API 消耗（0084）、
- * Coding Plan 购买/续费、跨切换周期、旧购买记录关闭。约定：
- *  - 期初时点固定为资金切换时点，**只读不可编辑**（计划 v1.2 §4.2）；
+ * WP4-S3 / AFR-01 场景3：API 资金草稿区（API 期初余额、历史 API 充值、历史 API 消耗）
+ * 的编辑 UI 已退役——后端预检合同为纯套餐（`activation-contracts.ts` 对三类 API 草稿键
+ * 任一非空显式拒绝），前端不再提供会产生必然失败的表单。Coding Plan 购买/续费、
+ * 跨切换周期与旧记录关闭（AFR-04：套餐初始化不受 API 退役影响）保持原样。
+ * API 数据结构的类型/序列化层保留（`activation-draft-state.ts` 等），用于历史本机草稿
+ * 兼容：旧草稿中的 API 行仍可恢复并进入校验，需通过「清除本机草稿」处置。
+ * 约定：
  *  - 金额空值与 `0` 严格区分：留空显示「未填写」且不自动补 0（PFU-05）；
- *  - 说明与证据引用对期初、购买与跨切换周期必填（PFH-06）；历史 API 充值行的
- *    说明/证据引用/来源旧记录/幂等键由系统内部自动生成，不提供输入框；
+ *  - 说明与证据引用对购买与跨切换周期必填（PFH-06）；
  *  - `UNKNOWN_COST` 不是本编辑器可以关闭的对象，只能走既有的历史费用处置闭环（PFH-02）。
  */
 
-import { formatDateTimeFull } from "../../lib/format";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { MoneyAmountInput } from "../writes/MoneyAmountInput";
 import {
-  ACTIVATION_DESCRIPTION_MAX_LENGTH, ACTIVATION_EVIDENCE_MAX_LENGTH,
   DRAFT_SECTION_LABELS, newRecordIdempotencyKey,
   type ActivationDraftState, type CarryoverRowState, type DraftIssue, type DraftSection,
-  type FinanceCurrencyCode, type HistoricalCostRowState, type LegacyRowState,
-  type OpeningRowState, type PurchaseRowState, type RechargeRowState,
+  type LegacyRowState, type PurchaseRowState,
 } from "./activation-draft-model";
 import { Button } from "../ui/Button";
-import { CurrencySelect, AccountAmountInput, ResourceSelect, DraftSectionCard, RowShell } from "./ActivationDraftControls";
+import { CurrencySelect, ResourceSelect, DraftSectionCard, RowShell } from "./ActivationDraftControls";
 
 export interface ResourceOption { id: string; mode: "API" | "CODING_PLAN"; label: string }
 
@@ -33,8 +33,6 @@ interface EditorProps {
   resourceOptions: ResourceOption[];
   issues: DraftIssue[];
   readOnly: boolean;
-  cutoverAt: string | null;
-  requiredAccounts: Array<{ resource_id: string; currency: FinanceCurrencyCode }>;
   legacySuggestions: LegacySuggestion[];
 }
 
@@ -47,121 +45,6 @@ function updateRow<TRow extends { id: string }>(
   rows: TRow[], id: string, patch: Partial<TRow>,
 ): TRow[] {
   return rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
-}
-
-function OpeningRowFields({ row, index, issues, readOnly, cutoverAt, resourceOptions, onPatch, onRemove }: {
-  row: OpeningRowState; index: number; issues: DraftIssue[]; readOnly: boolean;
-  cutoverAt: string | null; resourceOptions: ResourceOption[];
-  onPatch: (patch: Partial<OpeningRowState>) => void; onRemove: () => void;
-}) {
-  const rowId = `opening-${index}`;
-  const amountEmpty = row.accountAmount.trim() === "";
-  return (
-    <RowShell
-      onRemove={onRemove} readOnly={readOnly}
-      title={`期初行 ${index + 1}`}
-    >
-      <ResourceSelect disabled={readOnly} id={`${rowId}-resource`} onChange={(value) => onPatch({ resourceId: value })}
-        options={resourceOptions} value={row.resourceId} />
-      <FormField htmlFor={`${rowId}-currency`} label="币种">
-        <CurrencySelect disabled={readOnly} id={`${rowId}-currency`} onChange={(value) => onPatch({ accountCurrency: value })} value={row.accountCurrency} />
-      </FormField>
-      <FormField
-        error={errorFor(issues, "apiOpeningBalances", row.id, "accountAmount")}
-        hint={amountEmpty ? "未填写（空值与 0 不同，如需零值请显式填写 0）" : "非负，最多八位小数"}
-        htmlFor={`${rowId}-amount`} label="期初余额"
-      >
-        <AccountAmountInput disabled={readOnly} id={`${rowId}-amount`} onChange={(value) => onPatch({ accountAmount: value })} value={row.accountAmount} />
-      </FormField>
-      <FormField hint={cutoverAt ? formatDateTimeFull(cutoverAt) : "待读取切换时点"} htmlFor={`${rowId}-cutover`} label="期初时点（固定）">
-        <input className={INPUT_CLASS} disabled id={`${rowId}-cutover`} readOnly value={cutoverAt ? formatDateTimeFull(cutoverAt) : ""} />
-      </FormField>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "apiOpeningBalances", row.id, "description")}
-          hint={`必填，最多 ${ACTIVATION_DESCRIPTION_MAX_LENGTH} 字`} htmlFor={`${rowId}-description`} label="事实说明">
-          <textarea className={`${INPUT_CLASS} min-h-16 w-full py-2`} disabled={readOnly} id={`${rowId}-description`}
-            onChange={(event) => onPatch({ description: event.target.value })} value={row.description} />
-        </FormField>
-      </div>
-      <div className="md:col-span-2">
-        <FormField error={errorFor(issues, "apiOpeningBalances", row.id, "evidenceRef")}
-          hint={`必填，最多 ${ACTIVATION_EVIDENCE_MAX_LENGTH} 字`} htmlFor={`${rowId}-evidence`} label="证据引用">
-          <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-evidence`}
-            onChange={(event) => onPatch({ evidenceRef: event.target.value })} value={row.evidenceRef} />
-        </FormField>
-      </div>
-    </RowShell>
-  );
-}
-
-/**
- * 历史充值行：管理员只填写六项（厂商资源、币种、到账金额、人民币实付、充值时间、
- * 充值订单号）。事实说明、证据引用、来源旧记录与幂等键由系统内部自动生成，
- * 不再提供输入框（充值表单最小修复 2026-09-27）。
- */
-function RechargeRowFields({ row, index, issues, readOnly, resourceOptions, onPatch, onRemove }: {
-  row: RechargeRowState; index: number; issues: DraftIssue[]; readOnly: boolean;
-  resourceOptions: ResourceOption[]; onPatch: (patch: Partial<RechargeRowState>) => void;
-  onRemove: () => void;
-}) {
-  const rowId = `recharge-${index}`;
-  return (
-    <RowShell onRemove={onRemove} readOnly={readOnly} title={`历史充值 ${index + 1}`}>
-      <ResourceSelect disabled={readOnly} id={`${rowId}-resource`} onChange={(value) => onPatch({ resourceId: value })}
-        options={resourceOptions} value={row.resourceId} />
-      <FormField htmlFor={`${rowId}-currency`} label="币种">
-        <CurrencySelect disabled={readOnly} id={`${rowId}-currency`} onChange={(value) => onPatch({ accountCurrency: value })} value={row.accountCurrency} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "accountAmount")} hint="非负，最多八位小数"
-        htmlFor={`${rowId}-amount`} label="到账金额">
-        <MoneyAmountInput disabled={readOnly} id={`${rowId}-amount`} onChange={(value) => onPatch({ accountAmount: value })} value={row.accountAmount} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "cashPaidCny")} hint="必须大于 0，最多两位小数"
-        htmlFor={`${rowId}-cash`} label="人民币实付">
-        <MoneyAmountInput disabled={readOnly} id={`${rowId}-cash`} onChange={(value) => onPatch({ cashPaidCny: value })} value={row.cashPaidCny} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "occurredAt")} htmlFor={`${rowId}-occurred`} label="充值时间">
-        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-occurred`} onChange={(event) => onPatch({ occurredAtLocal: event.target.value })} type="datetime-local" value={row.occurredAtLocal} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiRecharges", row.id, "externalReference")}
-        hint="必填；同一厂商资源下不得重复" htmlFor={`${rowId}-reference`} label="充值订单号">
-        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-reference`} onChange={(event) => onPatch({ externalReference: event.target.value })} value={row.externalReference} />
-      </FormField>
-    </RowShell>
-  );
-}
-
-/**
- * 历史 API 消耗行（0084）：管理员只填四项（厂商资源、币种、实际消耗金额、成本截止时间）。
- * 期间开始固定为资金切换时点（只读展示）；金额只接受正数，负向落账由服务端统一取负；
- * 说明、证据引用与幂等键由系统内部生成，不提供输入框。
- */
-function HistoricalCostRowFields({ row, index, issues, readOnly, cutoverAt, resourceOptions, onPatch, onRemove }: {
-  row: HistoricalCostRowState; index: number; issues: DraftIssue[]; readOnly: boolean;
-  cutoverAt: string | null; resourceOptions: ResourceOption[];
-  onPatch: (patch: Partial<HistoricalCostRowState>) => void; onRemove: () => void;
-}) {
-  const rowId = `cost-${index}`;
-  return (
-    <RowShell onRemove={onRemove} readOnly={readOnly} title={`历史消耗 ${index + 1}`}>
-      <ResourceSelect disabled={readOnly} id={`${rowId}-resource`} onChange={(value) => onPatch({ resourceId: value })}
-        options={resourceOptions} value={row.resourceId} />
-      <FormField htmlFor={`${rowId}-currency`} label="币种">
-        <CurrencySelect disabled={readOnly} id={`${rowId}-currency`} onChange={(value) => onPatch({ accountCurrency: value })} value={row.accountCurrency} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiCosts", row.id, "costAmount")}
-        hint="实际消耗金额，必须大于 0，最多八位小数；落账由系统记为负向资金事实"
-        htmlFor={`${rowId}-amount`} label="实际消耗金额">
-        <AccountAmountInput disabled={readOnly} id={`${rowId}-amount`} onChange={(value) => onPatch({ costAmount: value })} value={row.costAmount} />
-      </FormField>
-      <FormField error={errorFor(issues, "historicalApiCosts", row.id, "costUntil")} htmlFor={`${rowId}-until`} label="成本截止时间">
-        <input className={INPUT_CLASS} disabled={readOnly} id={`${rowId}-until`} onChange={(event) => onPatch({ costUntilLocal: event.target.value })} type="datetime-local" value={row.costUntilLocal} />
-      </FormField>
-      <FormField hint="期间开始固定为资金切换时点" htmlFor={`${rowId}-from`} label="期间开始（固定）">
-        <input className={INPUT_CLASS} disabled id={`${rowId}-from`} readOnly value={cutoverAt ? formatDateTimeFull(cutoverAt) : ""} />
-      </FormField>
-    </RowShell>
-  );
 }
 
 function PurchaseRowFields({ row, index, issues, readOnly, resourceOptions, onPatch, onRemove }: {
@@ -289,7 +172,8 @@ function LegacyRowFields({ row, index, issues, readOnly, resourceOptions, onPatc
       ) : null}
       {row.resolution === "MIGRATED" ? (
         <p className="text-[13px] text-ql-fg-tertiary md:col-span-2">
-          MIGRATED 会写入 <code>API_RECHARGE</code> 事件，因此还需要在「历史 API 充值」中登记对应的到账金额、实付与证据。
+          MIGRATED 会写入 <code>API_RECHARGE</code> 事件，服务端对引用 API_RECHARGE 旧记录的候选按
+          退役 API 资金事实拒绝（AFR-01 场景3）；引用前请先确认该记录仍属可迁移口径。
         </p>
       ) : null}
     </RowShell>
@@ -297,7 +181,7 @@ function LegacyRowFields({ row, index, issues, readOnly, resourceOptions, onPatc
 }
 
 export function ActivationDraftEditor({
-  state, onChange, resourceOptions, issues, readOnly, cutoverAt, requiredAccounts, legacySuggestions,
+  state, onChange, resourceOptions, issues, readOnly, legacySuggestions,
 }: EditorProps) {
   const setSection = <TKey extends keyof ActivationDraftState>(key: TKey, rows: ActivationDraftState[TKey]) =>
     onChange({ ...state, [key]: rows });
@@ -313,91 +197,12 @@ export function ActivationDraftEditor({
     setSection(key, rows.filter((row) => row.id !== id) as unknown as ActivationDraftState[typeof key]);
   };
 
-  const apiOptions = resourceOptions.filter((option) => option.mode === "API");
   const planOptions = resourceOptions.filter((option) => option.mode === "CODING_PLAN");
-  const missingAccounts = requiredAccounts.filter((account) => !state.apiOpeningBalances.some(
-    (row) => row.resourceId === account.resource_id && row.accountCurrency === account.currency));
   const unclosedSuggestions = legacySuggestions.filter((suggestion) => !state.legacyResolutions.some(
     (row) => row.legacyRecordId === suggestion.legacyRecordId));
 
   return (
     <div data-testid="activation-draft-editor">
-      <DraftSectionCard
-        addLabel="添加期初行" count={state.apiOpeningBalances.length}
-        description="每个必要币种账户一条原始期初；期初时点固定为资金切换时点，写入后只能用更正事件修改。"
-        onAdd={() => setSection("apiOpeningBalances", [...state.apiOpeningBalances, {
-          id: newLocalRowIdFor("opening"), resourceId: "", accountCurrency: "CNY", accountAmount: "",
-          description: "", evidenceRef: "", sourceRecordId: "",
-        }])}
-        readOnly={readOnly} testId="draft-section-openings" title={DRAFT_SECTION_LABELS.apiOpeningBalances}
-      >
-        {missingAccounts.length > 0 ? (
-          <div className="mt-3 rounded-lg border border-ql-warning/30 bg-ql-warning-soft px-3 py-2 text-[13px] text-ql-warning" data-testid="required-accounts-hint">
-            激活范围内仍有 {missingAccounts.length} 个必要账户没有期初草稿行：
-            {missingAccounts.map((account) => (
-              <Button variant="secondary" size="sm"
-                className="ml-2"
-                key={`${account.resource_id}:${account.currency}`}
-                onClick={() => setSection("apiOpeningBalances", [...state.apiOpeningBalances, {
-                  id: newLocalRowIdFor("opening"), resourceId: account.resource_id,
-                  accountCurrency: account.currency, accountAmount: "", description: "",
-                  evidenceRef: "", sourceRecordId: "",
-                }])}
-                type="button"
-              >
-                补齐 {account.currency}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-        {state.apiOpeningBalances.map((row, index) => (
-          <OpeningRowFields
-            cutoverAt={cutoverAt} index={index} issues={issues} key={row.id}
-            onPatch={(change) => patch<OpeningRowState>("apiOpeningBalances", row.id, change)}
-            onRemove={() => removeRow("apiOpeningBalances", row.id)}
-            readOnly={readOnly} resourceOptions={apiOptions} row={row}
-          />
-        ))}
-      </DraftSectionCard>
-
-      <DraftSectionCard
-        addLabel="添加历史充值" count={state.historicalApiRecharges.length}
-        description="切换时点后的每条真实 API 充值，只填六项：到账金额、人民币实付、充值时间、充值订单号、厂商资源与币种；事实说明、证据引用与幂等键由系统内部生成。"
-        onAdd={() => setSection("historicalApiRecharges", [...state.historicalApiRecharges, {
-          id: newLocalRowIdFor("recharge"), resourceId: "", accountCurrency: "CNY", accountAmount: "",
-          cashPaidCny: "", occurredAtLocal: "", externalReference: "",
-        }])}
-        readOnly={readOnly} testId="draft-section-recharges" title={DRAFT_SECTION_LABELS.historicalApiRecharges}
-      >
-        {state.historicalApiRecharges.map((row, index) => (
-          <RechargeRowFields
-            index={index} issues={issues} key={row.id}
-            onPatch={(change) => patch<RechargeRowState>("historicalApiRecharges", row.id, change)}
-            onRemove={() => removeRow("historicalApiRecharges", row.id)}
-            readOnly={readOnly} resourceOptions={apiOptions} row={row}
-          />
-        ))}
-      </DraftSectionCard>
-
-      <DraftSectionCard
-        addLabel="添加历史消耗" count={state.historicalApiCosts.length}
-        description="切换时点后、上新服务器前的真实 API 计价汇总（来自旧库核实）：只填四项，金额为正数，落账由系统记为负向资金事实，计入历史 API 成本口径。"
-        onAdd={() => setSection("historicalApiCosts", [...state.historicalApiCosts, {
-          id: newLocalRowIdFor("cost"), resourceId: "", accountCurrency: "CNY",
-          costAmount: "", costUntilLocal: "",
-        }])}
-        readOnly={readOnly} testId="draft-section-costs" title={DRAFT_SECTION_LABELS.historicalApiCosts}
-      >
-        {state.historicalApiCosts.map((row, index) => (
-          <HistoricalCostRowFields
-            cutoverAt={cutoverAt} index={index} issues={issues} key={row.id}
-            onPatch={(change) => patch<HistoricalCostRowState>("historicalApiCosts", row.id, change)}
-            onRemove={() => removeRow("historicalApiCosts", row.id)}
-            readOnly={readOnly} resourceOptions={apiOptions} row={row}
-          />
-        ))}
-      </DraftSectionCard>
-
       <DraftSectionCard
         addLabel="添加购买/续费" count={state.codingPlanPurchases.length}
         description="Coding Plan 购买或续费：服务开始日/结束日为上海自然日（页面含结束日），扣费时间必须等于开始日。"

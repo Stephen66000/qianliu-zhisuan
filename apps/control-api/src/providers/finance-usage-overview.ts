@@ -5,6 +5,15 @@ import { shanghaiDateAt } from "../provider-finance/dashboard-projection.js";
 const Money = Decimal.clone({ precision: 48, rounding: Decimal.ROUND_HALF_UP });
 const fixed = (value: Decimal.Value) => new Money(value).toDecimalPlaces(8).toFixed(8);
 
+/**
+ * 资金读模型投影（WP1 S3a 后）：
+ *   - 仅 CODING_PLAN 分支保留资金读模型增强（套餐剩余额度、订阅期、套餐现金口径）；
+ *   - API 模型行与 API 汇总行不再被资金账户余额/费用字段覆盖（WP0 contracts.md §1 C1
+ *     约束"remainingQuota 覆盖行为移除，余额走 C2"＋ACE-06"不把货币余额放进 Token/套餐
+ *     剩余额度"）：API 费用同源来自 loadApiCostEstimation（基础聚合层注入，见
+ *     dashboard-breakdown.ts），API 余额字段保留基础层的厂商经营快照事实（官方余额域，
+ *     走 C2/WP3），因此本投影对 API 行为恒等映射——finance 开/关两条路径 API 字段同源同值。
+ */
 export function projectFinanceUsageOverview(
   overview: ResourceUsageOverview,
   financeViews: ResourceFinanceView[],
@@ -13,6 +22,7 @@ export function projectFinanceUsageOverview(
   const modelDetails = overview.modelDetails.map((model) => {
     const finance = byResource.get(model.resourceId);
     if (!finance) return model;
+    // CODING_PLAN 套餐分支原样保留（W5/W6 合同不变）。
     if (model.mode === "CODING_PLAN") {
       const period = finance.currentPeriod;
       const remaining = period?.totalQuota === null || period?.totalQuota === undefined
@@ -21,14 +31,14 @@ export function projectFinanceUsageOverview(
       return { ...model, remainingQuota: remaining?.toDecimalPlaces(8).toFixed(8) ?? null,
         quotaUnit: period?.quotaUnit ?? model.quotaUnit };
     }
-    const account = finance.accounts.length === 1 ? finance.accounts[0] : null;
-    return { ...model, currency: account?.currency ?? null,
-      remainingQuota: account?.balanceState === "NORMAL" ? account.balance : null };
+    // API 模型行：不注入资金账户余额/币种（C1 约束），保留基础层快照事实。
+    return model;
   });
   const providerSummaries = overview.providerSummaries.map((summary) => {
     const views = financeViews.filter((view) =>
       view.providerCode === summary.providerCode && view.mode === summary.mode
     );
+    // CODING_PLAN 套餐汇总分支原样保留。
     if (summary.mode === "CODING_PLAN") {
       const periods = views.map((view) => view.currentPeriod).filter(
         (period): period is NonNullable<ResourceFinanceView["currentPeriod"]> => period !== null,
@@ -61,23 +71,9 @@ export function projectFinanceUsageOverview(
         subscriptionPeriodEnd: periodFactsComplete && new Set(periods.map((p) => p.periodEndExclusive)).size === 1
           ? shanghaiDateAt(periods[0]!.periodEndExclusive) : null };
     }
-    const accounts = views.flatMap((view) => view.accounts);
-    const currencies = new Set(accounts.map((account) => account.currency));
-    const balanceComplete = accounts.length === views.length
-      && accounts.every((account) => account.balanceState === "NORMAL" && account.balance !== null)
-      && currencies.size === 1;
-    const costCalculable = accounts.length === views.length
-      && accounts.every((account) => account.balanceState !== "INCOMPLETE_USAGE_COST")
-      && currencies.size === 1;
-    return { ...summary,
-      currency: currencies.size === 1 ? [...currencies][0]! : null,
-      rechargeAmount: currencies.size === 1
-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyRecharge), new Money(0))) : null,
-      currentBalance: balanceComplete
-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.balance!), new Money(0))) : null,
-      monthlyCost: costCalculable
-        ? fixed(accounts.reduce((sum, account) => sum.plus(account.monthlyApiCost), new Money(0))) : null,
-      monthlyCostReason: costCalculable ? null : (currencies.size > 1 ? "币种不唯一" : "API 资金账户不完整或币种不唯一") };
+    // API 汇总行：不再从资金账户覆盖 monthlyCost/rechargeAmount/currentBalance/currency
+    // （C1 约束＋ACE-06）；基础层已按同源估算与经营快照供给，恒等透传。
+    return summary;
   });
   return { ...overview, providerSummaries, modelDetails };
 }

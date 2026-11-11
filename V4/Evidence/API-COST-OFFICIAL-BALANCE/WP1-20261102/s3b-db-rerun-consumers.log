@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+·····································································································································································
+
+ Test Files  14 passed (14)
+      Tests  165 passed (165)
+   Start at  01:05:09
+   Duration  33.16s (transform 1.89s, setup 0ms, collect 26.77s, tests 188.83s, environment 2ms, prepare 1.74s)
+
+EXIT=0

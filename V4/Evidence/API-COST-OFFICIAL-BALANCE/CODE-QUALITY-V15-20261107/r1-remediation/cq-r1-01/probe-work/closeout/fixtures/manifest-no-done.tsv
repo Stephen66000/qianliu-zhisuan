@@ -1,0 +1,29 @@
+manifest_version	wp6-r4-1
+generated_at	2026-11-07T00:00:00Z
+container	pgtest
+live_db	synthetic_live
+live_migration_head	0096_official_balance_refresh_request
+ref_db	refdb
+ref_migration_head	0091_recorded_cost_accounting_policy
+dump_sha256	a837d194000919cff16459eb0e7af0569ea751a159031913bb76bac1642d1070
+replay_order	enterprise,provider,unified_model,principal,principal_key,provider_resource,billing_rule,model_route,ai_request,upstream_attempt,usage_event,ledger_line,ledger_transaction,principal_grant,quota_counter,principal_quota_period,principal_quota_usage
+external_parents	person,admin_user,historical_import_run,employee_model_rule_version,provider_finance_legacy_cost_resolution,provider_subscription_period
+begin_tables
+table	enterprise	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	provider	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	unified_model	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	principal	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	principal_key	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	provider_resource	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	billing_rule	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	model_route	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	ai_request	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	upstream_attempt	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	usage_event	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	ledger_line	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	ledger_transaction	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	principal_grant	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	quota_counter	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	principal_quota_period	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+table	principal_quota_usage	rows=0	inserted=0	updated=0	sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	ref_present=yes	columns=id	types=id:integer
+end_tables

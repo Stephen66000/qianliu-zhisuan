@@ -1,0 +1,11 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+Error: http://127.0.0.1:8788/health is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.
+
+
+To open last HTML report run:
+
+  pnpm exec playwright show-report
+
+undefined
+/Users/mac/Projects/仟流智算-api-decouple/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test --config playwright.config.ts e2e/wp4-cost-official-balance.spec.ts

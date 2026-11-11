@@ -1,0 +1,2 @@
+old_ca=3572 old_gw=3582 old_wk=3592
+new_ca=4092 new_gw=4102 new_wk=4112

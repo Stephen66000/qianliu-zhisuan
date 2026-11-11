@@ -1,0 +1,41 @@
+.                                        | [WARN] Unsupported engine: wanted: {"node":">=22.23.4 <23"} (current: {"node":"v22.17.1","pnpm":"11.11.0"})
+$ vitest run --config ../../vitest.config.ts
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/provider-adapters
+
+ ✓ src/__tests-integration__/openai-compatible-http.test.ts (3 tests) 72ms
+ ✓ src/__tests__/openai-compatible-caller.test.ts (80 tests) 96ms
+ ✓ src/__tests__/deepseek-model-version.test.ts (19 tests) 35ms
+ ✓ src/__tests__/model-discovery.test.ts (29 tests) 64ms
+ ✓ src/__tests__/upstream-error-evidence.test.ts (45 tests) 26ms
+ ✓ src/__tests__/openai-compatible-stream-idle.test.ts (16 tests) 25ms
+ ✓ src/__tests__/model-image-capability.test.ts (44 tests) 16ms
+ ✓ src/__tests__/image-audit-boundaries.test.ts (64 tests) 9ms
+ ✓ src/__tests__/model-validation.test.ts (2 tests) 9ms
+ ✓ src/__tests__/endpoint-policy.test.ts (10 tests) 4ms
+ ✓ src/__tests__/cancelled-stream-usage.test.ts (6 tests) 6ms
+ ✓ src/__tests__/kimi-adapter.test.ts (12 tests) 7ms
+ ✓ src/__tests__/provider-operating-facts.test.ts (2 tests) 5ms
+ ✓ src/__tests__/model-discovery-probe.test.ts (16 tests) 6ms
+ ✓ src/__tests__/wecom-crypto.test.ts (5 tests) 4ms
+ ✓ src/__tests__/zhipu-adapter.test.ts (11 tests) 4ms
+ ✓ src/__tests__/resource-timeout-policy.test.ts (4 tests) 3ms
+ ✓ src/__tests__/deepseek-adapter.test.ts (9 tests) 5ms
+ ✓ src/__tests__/secret-value.test.ts (5 tests) 2ms
+ ✓ src/__tests__/coding-plan-quota.test.ts (11 tests) 4529ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 429 归 RATE_LIMITED（重试耗尽后抛出）  1504ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 5xx 归 UPSTREAM_UNAVAILABLE  1504ms
+   ✓ POOL-032 厂商 Coding Plan 额度窗口查询 > 网络错误重试后仍失败归 UPSTREAM_UNAVAILABLE  1508ms
+ ✓ src/__tests-integration__/real-nonstream-body-timeout.test.ts (2 tests) 36048ms
+   ✓ 真实本地 HTTP：非流式 bodyTimeout 绑定总时限（C-P1-1） > headers 立即返回、35 秒延迟正文：合法 JSON 在总时限内成功，不被空闲门限截断  35033ms
+   ✓ 真实本地 HTTP：非流式 bodyTimeout 绑定总时限（C-P1-1） > 流式形态保留 idle+margin 断言：首块后静默 1 秒由业务层先触发，早于 bodyTimeout 31 秒  1014ms
+ ✓ src/__tests-integration__/real-slow-stream-idle.test.ts (3 tests) 899101ms
+   ✓ 真实本地 HTTP 慢流：统一 300 秒空闲门限 > 首块后真实静默 300 秒：业务层先触发 STREAM_IDLE_TIMEOUT，早于 Undici bodyTimeout 330 秒  300047ms
+   ✓ 真实本地 HTTP 慢流：统一 300 秒空闲门限 > 首块后真实静默 299 秒恢复：不提前失败，重置完整窗口并成功收尾  299016ms
+   ✓ 真实本地 HTTP 慢流：统一 300 秒空闲门限 > 本地可控反向代理透传：客户端在 300 秒空闲窗口内保持连接并收到协议内错误帧  300037ms
+
+ Test Files  22 passed (22)
+      Tests  398 passed (398)
+   Start at  18:04:18
+   Duration  899.91s (transform 681ms, setup 0ms, collect 4.36s, tests 940.08s, environment 3ms, prepare 2.02s)
+

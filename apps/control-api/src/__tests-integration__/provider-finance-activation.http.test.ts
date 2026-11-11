@@ -131,8 +131,35 @@ async function seedEnterprise(name: string, createdAt?: Date): Promise<Seeded> {
     superCookie: await sessionFor(superAdminId), readOnlyCookie: await sessionFor(readOnlyAdminId) };
 }
 
-/** HTTP 形态的完整草稿（严格 schema 下的必填字段；含仅在草稿中出现的脱敏标记）。 */
-function httpDraft(apiResourceId: string) {
+/**
+ * HTTP 形态的**纯套餐**草稿（WP2-S4 / AFR-01 场景3：初始化合同已切分为套餐所需范围，
+ * AT-AFR-03：CP 独立初始化）。原混合草稿（API 期初）已退役为 {@link retiredApiDraft}。
+ */
+function planDraft(planResourceId: string) {
+  return {
+    schema_version: "1",
+    api_opening_balances: [],
+    historical_api_costs: [],
+    historical_api_recharges: [],
+    coding_plan_purchases: [{
+      resource_id: planResourceId, kind: "PURCHASE", product_name: "合成套餐",
+      account_amount: "100", account_currency: "CNY", cash_paid_cny: "100.00",
+      service_period_start: "2026-09-05", service_period_end: null,
+      occurred_at: "2026-09-05T02:00:00.000Z", external_reference: "ORD-PLAN-S4",
+      auto_renew: false, description: "套餐购买", evidence_ref: "evidence://plan-purchase",
+      source_record_id: null, carryover_snapshot_id: null,
+      record_idempotency_key: "plan-purchase-s4-http",
+    }],
+    coding_plan_carryovers: [],
+    legacy_purchase_resolutions: [],
+  };
+}
+
+/**
+ * HTTP 形态的含 API 资金事实草稿（WP2-S4 后为**退役形态**）：提交即 400＋退役说明
+ * （AFR-01 场景3“拒绝并说明原因，不静默激活”）。保留用于负向断言。
+ */
+function retiredApiDraft(apiResourceId: string) {
   return {
     schema_version: "1",
     api_opening_balances: [{
@@ -166,7 +193,7 @@ function activateRequest(cookie: string, payload: Record<string, unknown>) {
 async function previewOk(seeded: Seeded) {
   const lease = await startLeaseRequest(seeded.superCookie);
   expect(lease.statusCode, lease.body).toBe(201);
-  const preview = await previewRequest(seeded.superCookie, httpDraft(seeded.apiResourceId));
+  const preview = await previewRequest(seeded.superCookie, planDraft(seeded.planResourceId));
   expect(preview.statusCode, preview.body).toBe(200);
   const body = preview.json();
   expect(body.decision).toBe("GO_CANDIDATE");
@@ -330,19 +357,20 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
     expect(serialized).not.toContain("usage_repair_baseline");
 
     // 候选行确实持久化了草稿（0079），否则上面的脱敏断言毫无意义。
+    // （断言迁移 WP2-S4：草稿已切分为纯套餐——脱敏标记改为纯套餐购买行的证据引用。）
     const stored = await db.selectFrom("provider_finance_activation_attempt")
       .select("candidate_draft").where("id", "=", preview.candidate_id)
       .executeTakeFirstOrThrow();
-    expect(JSON.stringify(stored.candidate_draft)).toContain(EVIDENCE_MARKER);
+    expect(JSON.stringify(stored.candidate_draft)).toContain("evidence://plan-purchase");
   });
 
   // =====================================================================
   // 4.2 activation-preview：会话身份、严格 schema 与静默排空门禁（PFA-02、PFA-03、PFA-07）
   // =====================================================================
 
-  it("activation-preview：拒绝请求体身份与非法草稿，未建立静默租约或剩余不足时失败关闭", async () => {
+  it("activation-preview：拒绝请求体身份与非法草稿、含 API 资金事实的退役草稿提交即 400；未建立静默租约或剩余不足时失败关闭", async () => {
     const seeded = await seedEnterprise("pf04_preview");
-    const draft = httpDraft(seeded.apiResourceId);
+    const draft = planDraft(seeded.planResourceId);
 
     // 未建立静默租约 → 连投影都不算（PFA-09：排空未完成不得生成候选）。
     const noLease = await previewRequest(seeded.superCookie, draft);
@@ -357,21 +385,46 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
       expect(response.json()).toMatchObject({ error: "invalid_request" });
     }
 
-    // 证据必填（PFH-06）：缺证据/空证据的草稿不得进入投影。
+    // 证据必填（PFH-06；断言迁移 WP2-S4：原断言挂在 API 期初行上，该类行已整体退役，
+    // 改挂在纯套餐购买行上——语义不变）：缺证据/空证据的草稿不得进入投影。
     const absentEvidence = await previewRequest(seeded.superCookie, {
       ...draft,
-      api_opening_balances: [{ ...draft.api_opening_balances[0]!, evidence_ref: undefined }],
+      coding_plan_purchases: [{ ...draft.coding_plan_purchases[0]!, evidence_ref: undefined }],
     });
     expect(absentEvidence.statusCode).toBe(400);
     expect(absentEvidence.json()).toMatchObject({ error: "invalid_request" });
     for (const evidence of ["", "   "]) {
       const blankEvidence = await previewRequest(seeded.superCookie, {
         ...draft,
-        api_opening_balances: [{ ...draft.api_opening_balances[0]!, evidence_ref: evidence }],
+        coding_plan_purchases: [{ ...draft.coding_plan_purchases[0]!, evidence_ref: evidence }],
       });
       expect(blankEvidence.statusCode).toBe(400);
       expect(blankEvidence.json().message).toMatch(/证据/);
     }
+
+    // WP2-S4 / AFR-01 场景3（plan §4.4、§4a-R4）：含 API 资金事实的旧混合草稿
+    // **提交即 400＋退役说明**——不静默剥离后继续激活混合候选（空数组/省略照常通过）。
+    const RETIRED = "API 内部资金管理已退役，初始化草稿不再接受 API 资金事实";
+    const retiredRows: Array<[string, Record<string, unknown>]> = [
+      ["api_opening_balances", { resource_id: seeded.apiResourceId, account_currency: "CNY",
+        account_amount: "100", occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
+        evidence_ref: "evidence://retired", source_record_id: null }],
+      ["historical_api_recharges", { resource_id: seeded.apiResourceId, account_currency: "CNY",
+        account_amount: "50", cash_paid_cny: "50.00", occurred_at: "2026-09-05T02:00:00.000Z",
+        external_reference: "ORD-RETIRED-1" }],
+      ["historical_api_costs", { resource_id: seeded.apiResourceId, account_currency: "CNY",
+        cost_amount: "1", cost_until_at: CUTOVER_ISO }],
+    ];
+    for (const [key, row] of retiredRows) {
+      const retired = await previewRequest(seeded.superCookie,
+        { ...retiredApiDraft(seeded.apiResourceId), [key]: [row] });
+      expect(retired.statusCode, `${key} → ${retired.body}`).toBe(400);
+      expect(retired.json().message).toContain(RETIRED);
+      expect(retired.json().message).toContain("请仅提交套餐所需事实");
+    }
+    // 被拒请求不得留下候选（拒绝发生在哈希与投影之前）。
+    expect(await db.selectFrom("provider_finance_activation_attempt").select("id")
+      .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
 
     // 只读管理员只有 `resources.view`：写接口必须 403（PFU-06）。
     const denied = await previewRequest(seeded.readOnlyCookie, draft);
@@ -410,7 +463,7 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
       principal_id: seeded.principalId, principal_key_id: seeded.principalKeyId,
       protocol: "OPENAI_CHAT", unified_model: "deepseek-chat", unified_model_id: null });
 
-    const blocked = await previewRequest(seeded.superCookie, httpDraft(seeded.apiResourceId));
+    const blocked = await previewRequest(seeded.superCookie, planDraft(seeded.planResourceId));
     expect(blocked.statusCode, blocked.body).toBe(409);
     expect(blocked.json()).toMatchObject({ error: "activation_not_quiescent" });
     // 预检失败不得留下候选。
@@ -439,8 +492,9 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
     expect(activated.statusCode, activated.body).toBe(200);
     expect(activated.json()).toMatchObject({
       replayed: false, candidate_id: preview.candidate_id,
+      // WP2-S4 / R5：纯套餐激活只写购买事实（期初/充值/历史消耗计数为 0）。
       receipt: { conservationPassed: true, conservationFailures: [],
-        factCounts: { openings: 1 } },
+        factCounts: { purchases: 1, openings: 0, recharges: 0, historicalUsageCosts: 0 } },
     });
 
     // 同键同候选重放首次回执，不产生第二组事实。
@@ -455,16 +509,20 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
     expect(second.statusCode, second.body).toBe(409);
     expect(second.json()).toMatchObject({ error: "already_activated", retryable: false });
 
-    // 事实与就绪状态：一条期初、资源 READY、严格写开启、回执可见。
-    const openings = await db.selectFrom("provider_finance_event")
+    // 事实与就绪状态（断言迁移 WP2-S4 / plan §4a-R5）：一条套餐购买、零 API 资金事实；
+    // 资源级资金就绪（READY 行）随 API 资金管理退役——激活不再 promote 任何资源。
+    const purchases = await db.selectFrom("provider_finance_event")
       .select(({ fn }) => fn.countAll<string>().as("count"))
       .where("enterprise_id", "=", seeded.enterpriseId)
-      .where("event_type", "=", "API_OPENING_BALANCE").executeTakeFirstOrThrow();
-    expect(openings.count).toBe("1");
+      .where("event_type", "=", "CODING_PLAN_PURCHASE").executeTakeFirstOrThrow();
+    expect(purchases.count).toBe("1");
+    const apiEvents = await db.selectFrom("provider_finance_event").select("id")
+      .where("enterprise_id", "=", seeded.enterpriseId)
+      .where("event_type", "like", "API_%").execute();
+    expect(apiEvents).toHaveLength(0);
     const states = await db.selectFrom("provider_resource_finance_state").selectAll()
       .where("enterprise_id", "=", seeded.enterpriseId).execute();
-    expect(states).toHaveLength(1);
-    expect(states[0]).toMatchObject({ provider_resource_id: seeded.apiResourceId, state: "READY" });
+    expect(states).toHaveLength(0);
 
     const state = await app.inject({ method: "GET", url: "/provider-finance/activation-state",
       headers: { cookie: seeded.superCookie } });
@@ -475,6 +533,98 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
       activated_by_admin_user_id: seeded.superAdminId,
     });
     expect(state.json().activated_at).not.toBeNull();
+  });
+
+  it("AT-AFR-03：纯套餐草稿 preview GO → activate 成功 → strict_writes 开启后 W5 订阅写入可用、W6 幂等取消回归（CP 独立初始化）", async () => {
+    const seeded = await seedEnterprise("pf04_cp_independent");
+    const preview = await previewOk(seeded);
+    const activated = await activateRequest(seeded.superCookie, {
+      candidate_id: preview.candidate_id, candidate_hash: preview.candidate_hash,
+      idempotency_key: "pf04-cp-key-1", confirm_enterprise_id: seeded.enterpriseId });
+    expect(activated.statusCode, activated.body).toBe(200);
+    expect(activated.json().receipt).toMatchObject({ conservationPassed: true,
+      factCounts: { purchases: 1, openings: 0 } });
+
+    // strict_writes 已开启：W5（CODING_PLAN 订阅写）在纯套餐激活后立即可用——
+    // 企业从未登记任何 API 资金事实（AFR-04：套餐初始化不因 API 余额缺失阻断）。
+    // AT-AFR-03 修复（WP4-S6，总指挥授权）：业务时间改取北京昨天 T02:00（恒为过去时刻）。
+    // 原夹具取北京"今天"后拼 T02:00:00Z（=北京今天 10:00），在北京 00:00–10:00 窗口
+    // 位于未来，被 validateOrdinaryOccurredAt 拒绝（400"业务时间不能晚于当前时间"）；
+    // occurred_at 与 service_period_start 受 assertSameShanghaiDay 约束须同上海日，故同改。
+    // 用例语义（业务时间合法的纯套餐草稿）与断言/流程零变化。
+    const today = new Date(Date.now() + 8 * 3_600_000 - 24 * 3_600_000).toISOString().slice(0, 10);
+    const subscription = await app.inject({ method: "POST",
+      url: `/provider-resources/${seeded.planResourceId}/finance/subscriptions`,
+      headers: { cookie: seeded.superCookie },
+      payload: { kind: "RENEWAL", product_name: "合成套餐",
+        account_currency: "CNY", account_amount: "199", cash_paid_cny: "199",
+        occurred_at: `${today}T02:00:00.000Z`, service_period_start: today,
+        external_reference: "plan-renew-1", description: "套餐续订",
+        evidence_ref: "renew-proof", idempotency_key: randomUUID() } });
+    expect(subscription.statusCode, subscription.body).toBe(201);
+    expect(subscription.json().event).toMatchObject({ eventType: "CODING_PLAN_RENEWAL" });
+    expect(subscription.json().periodId).toEqual(expect.any(String));
+
+    // W6 幂等取消回归：两次取消都成功，开关最终为关闭。
+    const firstCancel = await app.inject({ method: "POST",
+      url: `/provider-resources/${seeded.planResourceId}/finance/auto-renewal/cancel`,
+      headers: { cookie: seeded.superCookie }, payload: {} });
+    expect(firstCancel.statusCode, firstCancel.body).toBe(200);
+    const secondCancel = await app.inject({ method: "POST",
+      url: `/provider-resources/${seeded.planResourceId}/finance/auto-renewal/cancel`,
+      headers: { cookie: seeded.superCookie }, payload: {} });
+    expect(secondCancel.statusCode, secondCancel.body).toBe(200);
+    const renewal = await app.inject({ method: "GET",
+      url: `/provider-resources/${seeded.planResourceId}/finance/auto-renewal`,
+      headers: { cookie: seeded.superCookie } });
+    expect(renewal.statusCode, renewal.body).toBe(200);
+    expect(renewal.json()).toMatchObject({ enabled: false });
+  });
+
+  it("WP2-S4/AFR-01 场景3：直插含 API 资金事实的持久化旧候选 → activate 409 candidate_contains_retired_api_facts 且零写入", async () => {
+    const seeded = await seedEnterprise("pf04_retired_candidate");
+    // 直插构造 0079 时代的含 API 期初候选（attempt 表 candidate_draft 携带
+    // api_opening_balances），模拟存量旧候选绕过新的 CA 预检合同。
+    const candidateId = randomUUID();
+    const hash = "a".repeat(64);
+    const staleDraft = JSON.stringify({
+      schema_version: "1",
+      api_opening_balances: [{
+        resource_id: seeded.apiResourceId, account_currency: "CNY", account_amount: "100",
+        occurred_at: CUTOVER_ISO, description: "切换时点厂商余额",
+        evidence_ref: "evidence://legacy-opening", source_record_id: null,
+      }],
+      historical_api_recharges: [], historical_api_costs: [],
+      coding_plan_purchases: [], coding_plan_carryovers: [], legacy_purchase_resolutions: [],
+    });
+    await sql`
+      INSERT INTO provider_finance_activation_attempt
+        (id, enterprise_id, candidate_hash, fact_watermark_hash, decision, status,
+         gap_summary, projection_summary, usage_repair_baseline, candidate_draft,
+         created_by_admin_user_id, created_at, expires_at)
+      VALUES (${candidateId}::uuid, ${seeded.enterpriseId}::uuid, ${hash}, ${hash},
+              'GO_CANDIDATE', 'PREVIEWED', '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,
+              ${staleDraft}::jsonb, ${seeded.superAdminId}::uuid, now(), now() + interval '30 minutes')
+    `.execute(db);
+
+    const response = await activateRequest(seeded.superCookie, {
+      candidate_id: candidateId, candidate_hash: hash,
+      idempotency_key: "pf04-retired-1", confirm_enterprise_id: seeded.enterpriseId });
+    expect(response.statusCode, response.body).toBe(409);
+    expect(response.json()).toMatchObject({ error: "candidate_contains_retired_api_facts",
+      retryable: false });
+    expect(response.json().message).toContain("API 资金事实");
+    expect(response.json().message).toContain("套餐所需事实");
+
+    // 零写入：strict_writes 仍关、资金事件/资源就绪行零增量、候选保持 PREVIEWED。
+    expect(await db.selectFrom("provider_finance_event").select("id")
+      .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("provider_finance_runtime_state").select("enterprise_id")
+      .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("provider_resource_finance_state").select("provider_resource_id")
+      .where("enterprise_id", "=", seeded.enterpriseId).execute()).toHaveLength(0);
+    expect(await db.selectFrom("provider_finance_activation_attempt").select("status")
+      .where("id", "=", candidateId).executeTakeFirstOrThrow()).toEqual({ status: "PREVIEWED" });
   });
 
   it("跨企业隔离：他企业候选不可激活、不可见，且失败关闭为 404 而不泄漏存在性", async () => {
@@ -756,7 +906,7 @@ describe.sequential("PF-INIT WP04：Control API 激活与静默接口", () => {
       // 预检在 DARK 下保持可用（恢复手册：先预检，再恢复 ACTIVE）。未建立静默租约
       // 时走领域门禁失败关闭（409），而不是被停写门禁一刀切 404。
       const preview = await darkApp.inject({ method: "POST", url: "/provider-finance/activation-preview",
-        headers: { cookie: seeded.superCookie }, payload: httpDraft(seeded.apiResourceId) });
+        headers: { cookie: seeded.superCookie }, payload: planDraft(seeded.planResourceId) });
       expect(preview.statusCode, preview.body).toBe(409);
       expect(preview.json()).toMatchObject({ error: "activation_not_quiescent" });
 

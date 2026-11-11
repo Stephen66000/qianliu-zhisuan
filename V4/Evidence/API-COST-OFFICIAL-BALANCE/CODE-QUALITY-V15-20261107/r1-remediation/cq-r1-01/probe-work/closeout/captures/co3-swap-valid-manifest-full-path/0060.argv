@@ -1,0 +1,7 @@
+exec
+pgtest
+sh
+-c
+db="$1"; shift; exec psql -X -Atq -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = '$db')"
+sh
+shadow_ok

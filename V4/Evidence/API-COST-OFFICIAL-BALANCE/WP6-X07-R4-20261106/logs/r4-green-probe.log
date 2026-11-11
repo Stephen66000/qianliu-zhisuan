@@ -1,0 +1,101 @@
+{
+  "phase": "GREEN(R4 修复后)",
+  "checks": [
+    {
+      "id": "A-head",
+      "desc": "回放后水位",
+      "contract": "0092_employee_monthly_quota",
+      "actual": "0092_employee_monthly_quota",
+      "pass": true
+    },
+    {
+      "id": "A1-inflight-request",
+      "desc": "缺口①：in-flight 请求行更新保全（切换后完成结算）",
+      "contract": "status=SUCCEEDED ∧ finished_at 非空",
+      "actual": "status=SUCCEEDED finished_at=Wed Nov 04 2026 17:45:00 GMT+0800 (Taiwan Standard Time)",
+      "pass": true
+    },
+    {
+      "id": "A2-inflight-attempt",
+      "desc": "缺口①：in-flight attempt 行更新保全",
+      "contract": "finished_at 非空 ∧ response_committed=true",
+      "actual": "finished_at=Wed Nov 04 2026 17:45:00 GMT+0800 (Taiwan Standard Time) committed=true",
+      "pass": true
+    },
+    {
+      "id": "A3-grant-update",
+      "desc": "缺口①：principal_grant 更新保全（额度域配置收紧）",
+      "contract": "quota_value=100000 ∧ allow_overage=false ∧ pool_model_alias='*' ∧ quota_basis='RAW_TOKEN'",
+      "actual": "{\"quota_value\":\"100000\",\"allow_overage\":false,\"pool_model_alias\":\"*\",\"quota_basis\":\"RAW_TOKEN\"}",
+      "pass": true
+    },
+    {
+      "id": "A4-enterprise-quota-from",
+      "desc": "缺口①：enterprise.employee_quota_monthly_from 保全（0092 域按迁移定义）",
+      "contract": "非空（2026-11-01）",
+      "actual": "Sun Nov 01 2026 08:00:00 GMT+0800 (Taiwan Standard Time)",
+      "pass": true
+    },
+    {
+      "id": "A5-finance-zero",
+      "desc": "红线：期初/充值类 finance 事件＝0",
+      "contract": "0",
+      "actual": "0",
+      "pass": true
+    },
+    {
+      "id": "B1-replay-fk-fail",
+      "desc": "缺口②：引用白名单外表的消费使影子回放失败（fail-closed）",
+      "contract": "exit≠0（FK 失败）",
+      "actual": "exit=6",
+      "pass": true
+    },
+    {
+      "id": "B2-live-intact",
+      "desc": "缺口②绿证：回放失败时 live 未动",
+      "contract": "水位＝0096",
+      "actual": "水位=0096_official_balance_refresh_request",
+      "pass": true
+    },
+    {
+      "id": "B3-consumption-intact",
+      "desc": "缺口②绿证：切换后消费仍在 live",
+      "contract": "request4 行仍在",
+      "actual": "count=1",
+      "pass": true
+    },
+    {
+      "id": "B4-shadow-dropped",
+      "desc": "缺口②绿证：失败后影子库已删除",
+      "contract": "影子不存在",
+      "actual": "exists=false",
+      "pass": true
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh export --container wp6-r4-red-pg --db-live wp6_r4_red_live --db-ref wp6_r4_red_ref --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/a.dump --out-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/a-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh restore --container wp6-r4-red-pg --db-shadow wp6_r4_red_shadow --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/a.dump",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh replay --container wp6-r4-red-pg --db-shadow wp6_r4_red_shadow --manifest /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/a-out/manifest.tsv --delta-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/a-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh export --container wp6-r4-red-pg --db-live wp6_r4_red_b_live --db-ref wp6_r4_red_b_ref --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/b.dump --out-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/b-out",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh restore --container wp6-r4-red-pg --db-shadow wp6_r4_red_b_shadow --dump-file /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/b.dump",
+      "exit": 0
+    },
+    {
+      "cmd": "bash /Users/mac/Projects/仟流智算-api-decouple/deploy/scripts/rollback-delta-20261106.sh replay --container wp6-r4-red-pg --db-shadow wp6_r4_red_b_shadow --manifest /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/b-out/manifest.tsv --delta-dir /var/folders/bd/x5tqktw96l5cw5r90mvnbty80000gp/T/wp6-r4-probe-8zilNK/b-out",
+      "exit": 6
+    }
+  ]
+}

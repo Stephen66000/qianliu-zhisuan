@@ -1,0 +1,10 @@
+== T4 neg-no-done-manifest 桩用例断言摘要（run-probes.sh green 组 CASE 12） ==
+被测脚本: deploy/scripts/rollback-delta-20261106.sh（原版，零改动）；docker 命令桩 PATH 前置＋DOCKER_HOST 指向不存在 sock；与已提交 green-probe-run.log 同一执行器
+夹具: manifest-no-done.tsv ＝ manifest-full.tsv 去 manifest_done 行（其余逐字一致，含有效水位 ref_migration_head=0091_recorded_cost_accounting_policy）
+断言与实测:
+  1. 到达完成标记校验: exit=6（非前置 die 2/3；require_env-true exit=0 容器可达，非'容器不可达'类前置失败）
+  2. 原因明确缺标记: stderr='FAIL-CLOSED[6]: 清单无 manifest_done 完成标记（export 未成功）——拒绝回放'
+  3. 未发回放 SQL: psql 调用仅 1 条＝影子库水位只读 SELECT（kysely_migration）；无回放执行调用、无 stdin SQL、无 pg_restore
+  4. live 零操作: 唯一破坏调用 dropdb target=shadow_ok（影子库）；other_live 无任何调用；无 ALTER DATABASE 改名
+  5. 无漂移: 既有 20 用例退出码与已提交 green-probe-run.log 逐例一致（新例插入为 CASE 12，其余编号顺移）
+证据: t4-green-probe.log（全 21 例原始输出）；t4-probe-work/captures/neg-no-done-manifest/（桩捕获 0001-0003 argv/stdin/meta）；t4-run.meta（起止）

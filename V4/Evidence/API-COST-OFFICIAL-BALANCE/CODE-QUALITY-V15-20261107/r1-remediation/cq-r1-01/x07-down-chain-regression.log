@@ -1,0 +1,20 @@
+# down 链回归（CQ-R1-01 修复后；本套件不调用 rollback-delta 脚本——纯回归确认）
+cwd: /Users/mac/Projects/仟流智算-api-decouple/packages/database
+commit: e136e8a476b699bf12b07eb5df67c40499a7d405
+cmd: DOCKER_HOST=unix:///Users/mac/.colima/default/docker.sock TESTCONTAINERS_RYUK_DISABLED=true npx vitest run --config ../../vitest.config.ts src/__tests-integration__/wp6-rollback-drill.integration.test.ts --maxWorkers=4
+
+
+ RUN  v3.2.4 /Users/mac/Projects/仟流智算-api-decouple/packages/database
+
+ ✓ src/__tests-integration__/wp6-rollback-drill.integration.test.ts (7 tests) 12797ms
+   ✓ AT-X07 回退半段演练（WP6 task 6.3；down 链 0096→0092＋0095 守卫两态＋0094 边界） > 断言 3：down 链到 0092——水位＝0092、数据逐字保留、约束与幂等仍在、零补期初  1789ms
+   ✓ AT-X07 回退半段演练（WP6 task 6.3；down 链 0096→0092＋0095 守卫两态＋0094 边界） > 断言 6：回退后重升 migrateToLatest 恢复 0096——金额仍可读、种入随 up 再次退役、数据零丢失  349ms
+   ✓ AT-X07 断言 4：0095 守卫两态（演练链语境；手法同 wp3-operating-sync-decouple） > 断言 4a：多行态——同日两条 attempt 后 0095 down 抛「回滚被拒绝」，daily_uq 保持不存在、数据原样  3770ms
+   ✓ AT-X07 断言 4：0095 守卫两态（演练链语境；手法同 wp3-operating-sync-decouple） > 断言 4b：单行态——单行库 down 到 0095 成功，daily_uq 重建且唯一性恢复  2898ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  18:02:50
+   Duration  14.61s (transform 898ms, setup 0ms, collect 1.65s, tests 12.80s, environment 0ms, prepare 35ms)
+
+downchain exit=0
