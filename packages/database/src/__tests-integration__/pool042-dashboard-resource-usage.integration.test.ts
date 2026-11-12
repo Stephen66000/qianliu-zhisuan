@@ -456,6 +456,21 @@ describe.sequential("POOL-042 首页 API 资源 Token 摘要", () => {
     expect(conserved.toString()).toBe(provider?.monthlyTotalTokens);
   });
 
+  it("排除已归档资源及其模型明细，保留历史账本", async () => {
+    const resourceId = await createApiResource("archived-overview", "20");
+    await addLine({
+      resourceId, modelId: null, historicalAlias: "historical-only", upstreamModel: "historical-only",
+      input: 100n, output: 50n, cache: 0n, reasoning: 0n, cost: "1",
+      quality: "PROVIDER_REPORTED", at: new Date(now.getTime() - 60_000),
+    });
+    await db.updateTable("provider_resource").set({ archived_at: now }).where("id", "=", resourceId).execute();
+    const overview = await new DashboardRepository(db).getResourceUsageOverview(enterpriseId, now.getTime());
+    expect(overview.providerSummaries.some((row) => row.providerCode === "archived-overview")).toBe(false);
+    expect(overview.modelDetails.some((row) => row.resourceId === resourceId)).toBe(false);
+    const line = await db.selectFrom("ledger_line").select("id").where("provider_resource_id", "=", resourceId).executeTakeFirst();
+    expect(line).toBeDefined();
+  });
+
   it("覆盖套餐、缺余额、零价格与 HIGH/MEDIUM 估算可信度", async () => {
     const modelId = randomUUID();
     await db.insertInto("unified_model").values({

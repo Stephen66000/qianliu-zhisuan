@@ -8,7 +8,7 @@
  */
 import type { ResourceBreakdownItem } from "../../api/types";
 import type { ReactNode } from "react";
-import { formatCount, formatDateTimeShort, formatDecimal, formatMoney, formatRatePerHour } from "../../lib/format";
+import { formatQuotaQuantity, formatTokens, formatDateTimeShort, formatMoney, formatRatePerHour } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { PRICE_BASIS_UNVERIFIED_LABEL } from "../../lib/usage-cost";
 import { ExpandableTableRow, RowDetail } from "../ui/ExpandableTableRow";
@@ -45,7 +45,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
               label={`${item.providerName} ${MODE_LABEL[item.mode]}`}
               leading={<><span className="font-medium">{item.providerName}</span><span className="block text-ql-fg-tertiary">{MODE_LABEL[item.mode]}</span></>}
               details={<>
-                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : `${formatCount(item.allocatedQuota)} Token`}</RowDetail>
+                <RowDetail label="分配额度">{item.allocatedQuota === null ? "—" : formatTokens(item.allocatedQuota)}</RowDetail>
                 <RowDetail label="当前订阅金额">{item.mode === "API" ? "—" : <>{item.packageCost === null ? "套餐费用待补" : `${item.currency ?? ""} ${formatMoney(item.packageCost)}`}<span className="block text-ql-fg-tertiary">订阅周期 {subscriptionPeriod(item)}</span></>}</RowDetail>
                 <RowDetail label="消耗速度">{usageRateText(item)}</RowDetail>
                 <RowDetail label="预计耗尽">{forecastExhaustionText(item)}{item.forecastConfidence ? <span className="block text-ql-fg-tertiary">可信度 {item.forecastConfidence}</span> : null}</RowDetail>
@@ -60,7 +60,7 @@ export function ResourceBreakdown({ items, scope = "" }: ResourceBreakdownProps)
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.mode === "API"
                   ? "—"
-                  : item.remainingQuota === null ? "—" : `${formatCount(item.remainingQuota)} ${item.quotaUnit?.trim() || "单位未知"}`}
+                  : item.remainingQuota === null ? "—" : formatQuotaQuantity(item.remainingQuota, item.quotaUnit?.trim() || "单位未知")}
               </td>
               <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
                 {item.monthlyCost === null
@@ -118,7 +118,7 @@ function monthlyTokenText(item: ResourceBreakdownItem): ReactNode {
   const unknown = item.monthlyUnknownCount ?? 0;
   return (
     <span title={`输入 ${item.monthlyInputTokens ?? "—"}；输出 ${item.monthlyOutputTokens ?? "—"}；缓存 ${item.monthlyCacheTokens ?? "—"}；推理 ${item.monthlyReasoningTokens ?? "—"}`}>
-      {formatCount(item.monthlyTotalTokens)}
+      {formatTokens(item.monthlyTotalTokens)}
       {unknown > 0 ? (
         <span className="block text-[13px] text-ql-fg-tertiary">
           已记录；另有 {unknown} 笔计量未知
@@ -133,7 +133,7 @@ function usageRateText(item: ResourceBreakdownItem): ReactNode {
   if (item.tokenRate24h === null && item.costRate24h === null) return "最近24小时无可用数据";
   return (
     <>
-      {item.tokenRate24h === null ? "Token 不可计算" : `${formatTokenRate(item.tokenRate24h)} Token/小时`}
+      {item.tokenRate24h === null ? "Token 不可计算" : `${formatTokens(item.tokenRate24h)}/小时`}
       {item.costRate24h === null ? null : (
         <span className="block text-[13px] text-ql-fg-tertiary">
           {item.currency ?? "金额"} {formatMoney(item.costRate24h)}/小时
@@ -141,10 +141,6 @@ function usageRateText(item: ResourceBreakdownItem): ReactNode {
       )}
     </>
   );
-}
-
-function formatTokenRate(value: string): string {
-  return formatDecimal(value);
 }
 
 function statusTone(status: string): "neutral" | "warning" | "danger" {

@@ -31,11 +31,11 @@ describe("POOL-043 账单展示口径", () => {
     for (const label of ["精确用量", "估算用量", "账号汇总", "混合口径", "用量未知"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(accountCount("1200", "EXACT")).toBe("1,200");
-    expect(accountCount("1200", "ESTIMATED")).toBe("1,200");
-    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("1,200");
-    expect(accountCount("1200", "MIXED")).toBe("1,200");
-    expect(accountCount("1200", "UNKNOWN")).toBe("1,200");
+    expect(accountCount("1200", "EXACT")).toBe("0.12 万 Token");
+    expect(accountCount("1200", "ESTIMATED")).toBe("0.12 万 Token");
+    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("0.12 万 Token");
+    expect(accountCount("1200", "MIXED")).toBe("0.12 万 Token");
+    expect(accountCount("1200", "UNKNOWN")).toBe("0.12 万 Token");
     expect(accountCount(null, "EXACT")).toBe("未知");
     expect(accountPercentage("60.00", "EXACT")).toBe("60.00%");
     expect(accountPercentage("40.00", "ESTIMATED")).toBe("40.00%");
@@ -135,7 +135,7 @@ function quotaBoundaryTotals(allocated: string, used: string): OperatingBillMetr
     allocatedQuota: allocated, deductedQuota: "600", apiCost: "12.5", packageAllocatedCost: "2.5", totalAllocatedCost: "15",
     activeDays: 2, requestCount: 3, lastUsedAt: "2026-10-31T15:59:00Z", usageQuality: "EXACT" };
 }
-it.each([["2200000000", "2709467730", "2,709,467,730"], ["0", "120", "120"]])("员工账不把%s跨池配置混算为预算或不限", (allocated, used, displayed) => {
+it.each([["2200000000", "2709467730", "27.09 亿 Token"], ["0", "120", "0.01 万 Token"]])("员工账不把%s跨池配置混算为预算或不限", (allocated, used, displayed) => {
   const totals = quotaBoundaryTotals(allocated!, used!);
   const row = { subjectId: "employee", subjectName: "额度边界员工", isUnassigned: false, allocatedQuota: allocated,
     projectOwner: null, projectDepartments: [], providers: [], totals };
@@ -154,6 +154,6 @@ it("项目和部门调用点不传员工scope时保持原额度列与值", () =>
   render(<><MetricGrid totals={totals} /><table><tbody><tr><SubjectUsageCells row={row} providers={[]} /></tr></tbody></table></>);
   expect(getSubjectUsageHeaders([]).slice(0, 4)).toEqual(["本月分配额度", "本月token使用量", "token使用率", "本月剩余额度"]);
   expect(screen.getAllByText("12.0%")).toHaveLength(2);
-  expect(screen.getAllByText("880")).toHaveLength(2);
+  expect(screen.getAllByText("0.09 万 Token")).toHaveLength(2);
   expect(screen.queryByRole("link", { name: "员工接入配置" })).toBeNull();
 });

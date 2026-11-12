@@ -1,3 +1,4 @@
+import { formatTokens } from "../../lib/format";
 import { useMemo } from "react";
 import type { OperatingAnalysis } from "../../api/operating-analysis";
 import { BillCard, SectionHeading } from "./BillShared";
@@ -57,10 +58,8 @@ function apiMoney(value: string | null, currency: string | null, multiCurrency: 
   return currency === "CNY" ? money(value) : `${currency} ${formatMoney(value)}`;
 }
 
-function tokenBillions(value: string | null): string {
-  if (value === null) return "—";
-  const tokens = Number(value);
-  return Number.isFinite(tokens) ? `${(tokens / 100_000_000).toFixed(2)} 亿` : value;
+function displayTokens(value: string | null): string {
+  return value === null ? "—" : formatTokens(value);
 }
 
 function shanghaiTime(value: string): string {
@@ -271,7 +270,7 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                   <td className="p-3 text-right tabular-nums">{apiMoney(row.apiSpend, row.apiCurrency, row.multiCurrency)}</td>
                   <td className="p-3 text-right tabular-nums">{money(row.planCost)}</td>
                   <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{money(row.usageSpendTotal)}</td>
-                  <td className="p-3 text-right tabular-nums">{tokenBillions(row.tokensTotal)}</td>
+                  <td className="p-3 text-right tabular-nums">{displayTokens(row.tokensTotal)}</td>
                   <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{row.costPerMillion === null ? "—" : `¥ ${row.costPerMillion} / M`}</td>
                   <td className="p-3 text-right tabular-nums">{row.activeUsers === null ? "—" : `${row.activeUsers} 人`}</td>
                 </tr>)}
@@ -284,7 +283,7 @@ export function FinancialLedgerSection({ analysis }: FinancialLedgerSectionProps
                 <td className="p-3 text-right tabular-nums">{apiMoney(totals.apiSpend, totals.apiCurrency, totals.multiCurrency)}</td>
                 <td className="p-3 text-right tabular-nums">{money(totals.planCost)}</td>
                 <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{money(totals.usageSpendTotal)}</td>
-                <td className="p-3 text-right tabular-nums">{tokenBillions(totals.tokensTotal)}</td>
+                <td className="p-3 text-right tabular-nums">{displayTokens(totals.tokensTotal)}</td>
                 <td className="p-3 text-right tabular-nums font-semibold text-ql-fg">{totals.costPerMillion === null ? "—" : `¥ ${totals.costPerMillion} / M`}</td>
                 <td className="p-3 text-right tabular-nums">{totals.activeUsers === null ? "—" : `${totals.activeUsers} 人`}</td>
               </tr>

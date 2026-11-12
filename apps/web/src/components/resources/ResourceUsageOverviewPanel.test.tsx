@@ -94,7 +94,7 @@ describe("厂商资源用量总览", () => {
     const providerRow = screen.getAllByText("DeepSeek")[0]!.closest("tr")!;
     expect(within(providerRow).getByText(/预计耗尽/)).toBeVisible();
     fireEvent.click(within(providerRow).getByRole("button"));
-    expect(screen.getByRole("region", { name: "DeepSeek API详情" })).toHaveTextContent("1,000");
+    expect(screen.getByRole("region", { name: "DeepSeek API详情" })).toHaveTextContent("0.1 万 Token");
     expect(within(providerRow).getByText("已记录；另有 2 笔计量未知")).toBeInTheDocument();
 
     const apiRow = screen.getByText("ql-deepseek-v4").closest("tr")!;

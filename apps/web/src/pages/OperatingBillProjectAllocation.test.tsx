@@ -154,10 +154,10 @@ describe("项目账归集详情页", () => {
 
   it("未分配卡展示汇总、原因拆分与明细前 5 行，超 5 行提示合计", () => {
     showPage();
-    expect(screen.getByText("12345")).toBeInTheDocument();
-    expect(screen.getByText("无参与关系 1000；权重余量 234")).toBeInTheDocument();
-    expect(screen.getByText("历史关系未知 · 员工1 · 10 Token")).toBeInTheDocument();
-    expect(screen.getByText("无参与关系 · 员工2 · 20 Token")).toBeInTheDocument();
+    expect(screen.getByText("1.23 万 Token")).toBeInTheDocument();
+    expect(screen.getByText("无参与关系 0.1 万 Token；权重余量 0.02 万 Token")).toBeInTheDocument();
+    expect(screen.getByText("历史关系未知 · 员工1 · <0.01 万 Token")).toBeInTheDocument();
+    expect(screen.getByText("无参与关系 · 员工2 · <0.01 万 Token")).toBeInTheDocument();
     expect(screen.queryByText(/未知员工/)).not.toBeInTheDocument();
     expect(screen.queryByText("员工6")).not.toBeInTheDocument();
     expect(screen.getByText("共 7 条未分配源行")).toBeInTheDocument();
@@ -168,7 +168,7 @@ describe("项目账归集详情页", () => {
     view.byReason = { SOME_NEW_REASON: "88" };
     m.state.unallocated = view;
     showPage();
-    expect(screen.getByText("SOME_NEW_REASON 88")).toBeInTheDocument();
+    expect(screen.getByText("SOME_NEW_REASON 0.01 万 Token")).toBeInTheDocument();
     expect(screen.queryByText(/条未分配源行/)).not.toBeInTheDocument();
   });
 
@@ -177,7 +177,7 @@ describe("项目账归集详情页", () => {
     expect(screen.getByRole("cell", { name: "成员规则分摊（50.00%）" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "项目直接调用" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "项目主体" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "13.0000" })).toBeInTheDocument();
+    expect(screen.getAllByRole("cell", { name: "<0.01 万 Token" })).toHaveLength(2);
     expect(screen.getByRole("cell", { name: "0.12 CNY" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "0.30" })).toBeInTheDocument();
     expect(screen.getAllByRole("cell", { name: "—" })).toHaveLength(2);

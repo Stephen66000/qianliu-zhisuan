@@ -122,6 +122,26 @@ describe("W20-04 /usage/overview", () => {
     expect(response.json().trend).toHaveLength(7);
   });
 
+  it("员工排名返回各厂商的当前分配额度和单位，不合并不同口径", async () => {
+    await db.insertInto("principal_grant").values([
+      { enterprise_id: enterpriseId, principal_id: employeeId, provider: "deepseek",
+        model_alias: "*", pool_model_alias: "*", quota_value: 300_000_000n, quota_basis: "RAW_TOKEN",
+        valid_from: new Date("2026-08-01T00:00:00Z"), valid_until: null, authorization_rule_version_id: null },
+      { enterprise_id: enterpriseId, principal_id: employeeId, provider: "kimi",
+        model_alias: "*", pool_model_alias: "*", quota_value: 50_000_000n, quota_basis: "PLAN_QUOTA",
+        valid_from: new Date("2026-08-01T00:00:00Z"), valid_until: null, authorization_rule_version_id: null },
+    ]).execute();
+    const response = await app.inject({
+      method: "GET", url: "/usage/overview?subject_type=employee&period=month&anchor=2026-08-12T04%3A00%3A00.000Z",
+      headers: { cookie: adminCookie },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().ranking[0].providerAllocations).toMatchObject([
+      { provider: "deepseek", amount: "300000000", basis: "RAW_TOKEN" },
+      { provider: "kimi", amount: "50000000", basis: "PLAN_QUOTA" },
+    ]);
+  });
+
   it("主体列表支持服务端搜索与分页，且保留旧响应字段", async () => {
     const first = await app.inject({
       method: "GET",

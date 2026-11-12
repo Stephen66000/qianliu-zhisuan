@@ -258,14 +258,14 @@ describe("W20-04 用量概览 Web", () => {
     expect(within(chart).getByText(`09/${String(count).padStart(2, "0")}`, { exact: true })).toBeInTheDocument();
   });
 
-  it("趋势峰值包含日期和精确值，每根柱子保留悬停及读屏文字", () => {
+  it("趋势峰值使用万，悬停和读屏保留精确值", () => {
     const seed = overview().trend[0]!;
     const trend = ["1000", "3000", "2000"].map((value, index) => ({
       ...seed, bucketStart: `2026-09-0${index + 1}T00:00:00Z`, label: `09/0${index + 1}`, realTokens: value,
     }));
     useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
     renderPanel();
-    expect(screen.getByText("峰值 09/02 · 3,000 Token")).toBeInTheDocument();
+    expect(screen.getByText("峰值 09/02 · 0.3 万 Token")).toBeInTheDocument();
     const chart = screen.getByRole("group", { name: "用量趋势图" });
     for (const item of trend) {
       const summary = `${item.label}：${Number(item.realTokens).toLocaleString("zh-CN")} Token`;
@@ -291,14 +291,19 @@ describe("W20-04 用量概览 Web", () => {
   it("员工22亿旧配置与27.1亿实际用量不再混算，零配置不冒充不限", () => {
     const base = overview();
     useUsageOverviewMock.mockReturnValue({ isLoading: false, data: overview({ subjectType: "EMPLOYEE", subjectId: null,
-      ranking: [ { ...base.ranking[0]!, subjectId: "employee-one", subjectName: "混合单位员工", allocatedQuota: "2200000000", realTokens: "2709467730" },
+      ranking: [ { ...base.ranking[0]!, subjectId: "employee-one", subjectName: "混合单位员工", allocatedQuota: "2200000000", realTokens: "2709467730",
+        providerAllocations: [
+          { provider: "deepseek", name: "DeepSeek", amount: "300000000", basis: "RAW_TOKEN" },
+          { provider: "kimi", name: "Kimi", amount: "50000000", basis: "PLAN_QUOTA" },
+        ] },
         { ...base.ranking[0]!, subjectId: "employee-zero", subjectName: "零配置员工", allocatedQuota: "0", realTokens: "120" } ] }), refetch: vi.fn() });
     renderPanel("/usage?tab=overview&subject_type=EMPLOYEE&period=MONTH");
     const ranking = screen.getByRole("region", { name: "用量排名表格" });
-    expect(within(ranking).getByText("2,709,467,730")).toBeInTheDocument();
-    expect(within(ranking).getByText("厂商额度")).toBeInTheDocument();
-    expect(within(ranking).getByRole("link", { name: "混合单位员工按厂商池查看额度" })).toHaveAttribute("href", "/principals");
-    expect(within(ranking).getByRole("link", { name: "零配置员工按厂商池查看额度" })).toHaveAttribute("href", "/principals");
+    expect(within(ranking).getByText("27.09 亿 Token")).toBeInTheDocument();
+    expect(within(ranking).getByText("当前分配额度")).toBeInTheDocument();
+    expect(within(ranking).getByText("DeepSeek 3 亿 Token")).toBeInTheDocument();
+    expect(within(ranking).getByText("Kimi 50,000,000 套餐折算额度")).toBeInTheDocument();
+    expect(within(ranking).queryByText("按厂商池查看")).toBeNull();
     for (const misleading of ["分配额度", "token使用率", "剩余额度", "2,200,000,000", "不限", "18.1 亿"]) expect(within(ranking).queryByText(misleading, { exact: true })).toBeNull();
   });
   it("项目仍沿用原分配、使用率与剩余展示合同", () => {
@@ -308,7 +313,7 @@ describe("W20-04 用量概览 Web", () => {
     const ranking = screen.getByRole("region", { name: "用量排名表格" });
     expect(within(ranking).getByText("分配额度")).toBeInTheDocument();
     expect(within(ranking).getByText("12.0%")).toBeInTheDocument();
-    expect(within(ranking).getByText("880")).toBeInTheDocument();
+    expect(within(ranking).getByText("0.09 万 Token")).toBeInTheDocument();
     expect(within(ranking).queryByText("按厂商池查看")).toBeNull();
   });
 

@@ -123,13 +123,21 @@ export class DashboardRepository {
   async getResourceUsageOverview(
     enterpriseId: string,
     now: number = Date.now(),
-  ): Promise<ResourceUsageOverview> {
+  ): Promise<ResourceUsageOverview & { currentResourceIds: string[] }> {
     const date = new Date(now);
     const { start: monthStart, end: monthEnd } = shanghaiNaturalMonth(date);
-    const [currentOperatingSnapshots, monthlyOperatingCosts] = await Promise.all([
+    const [currentOperatingSnapshots, monthlyOperatingCosts, currentResources] = await Promise.all([
       new ProviderRepository(this.db).listCurrentOperatingSnapshots(enterpriseId, date),
       loadMonthlyOperatingCosts(this.db, enterpriseId, monthStart, monthEnd),
+      this.db.selectFrom("provider_resource as pr").innerJoin("provider as p", "p.id", "pr.provider_id")
+        .select("pr.id").where("pr.enterprise_id", "=", enterpriseId)
+        .where("pr.archived_at", "is", null).where("p.archived_at", "is", null)
+        .where("p.status", "=", "ACTIVE").where("pr.status", "not in", ["DELETED", "DISABLED"]).execute(),
     ]);
+    const currentResourceIds = currentResources.map((resource) => resource.id);
+    if (!currentResourceIds.length) return {
+      generatedAt: date.toISOString(), providerSummaries: [], modelDetails: [], currentResourceIds,
+    };
     const [providerSummaries, modelDetails] = await Promise.all([
       buildResourceBreakdown(
         this.db,
@@ -139,6 +147,7 @@ export class DashboardRepository {
         date,
         currentOperatingSnapshots,
         monthlyOperatingCosts.resources,
+        currentResourceIds,
       ),
       loadResourceModelUsageDetails(
         this.db,
@@ -147,9 +156,10 @@ export class DashboardRepository {
         monthEnd,
         date,
         currentOperatingSnapshots,
+        currentResourceIds,
       ),
     ]);
-    return { generatedAt: date.toISOString(), providerSummaries, modelDetails };
+    return { generatedAt: date.toISOString(), providerSummaries, modelDetails, currentResourceIds };
   }
 
   /** 1. 资源账号数（未删除的资源账号数量）。 */

@@ -67,18 +67,19 @@ export function ProviderResourcesPanel({ resources }: { resources: Resources }) 
       />
     );
   }
+  const callAttentionCount = resources.providers.filter((provider) => provider.statusCategory !== "NORMAL").length;
   return (
     <div data-testid="home-provider-resources">
       <div className="mb-3 flex flex-wrap items-center gap-3 text-[12px] text-ql-fg-tertiary">
         <span data-testid="home-provider-meta">
           {resources.providerCount} 家厂商 · {resources.resourceCount} 项资源
         </span>
-        {resources.attentionProviderCount > 0 ? (
+        {callAttentionCount > 0 ? (
           <span
             className="ql-status-warning inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[12px] font-medium leading-[18px]"
             data-testid="home-provider-attention-count"
           >
-            {resources.attentionProviderCount} 家需关注
+            {callAttentionCount} 家调用需关注
           </span>
         ) : null}
       </div>

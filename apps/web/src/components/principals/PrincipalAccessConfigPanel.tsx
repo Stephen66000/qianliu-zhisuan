@@ -21,6 +21,7 @@ import type {
   AccessConfigPutResult,
   AccessConfiguration,
 } from "../../api/types";
+import { formatDecimal, formatTokens } from "../../lib/format";
 import { Button } from "../ui/Button";
 
 /** 千分位格式化（展示层；内部状态仍是纯数字字符串）。 */
@@ -34,21 +35,31 @@ function parseQuota(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-function quotaStateLabel(pool: AccessConfigPool): string {
+function formatPoolQuota(value: string, basis: NonNullable<AccessConfigPool["quota"]>["quota_basis"] | undefined): string {
+  if (basis === "RAW_TOKEN") return formatTokens(value);
+  return `${formatDecimal(value)}${basis === "PLAN_QUOTA" ? " 套餐折算额度" : ""}`;
+}
+
+function quotaStateLabel(pool: AccessConfigPool, modes: Set<"API" | "CODING_PLAN">): string {
   const quota = pool.quota;
-  if (!quota) return `已用 ${formatThousands(pool.quota_used)} / ${formatThousands(pool.quota_value)}`;
-  if (quota.mode !== "MONTHLY") return "历史额度待核账";
+  if (!quota || quota.mode !== "MONTHLY") {
+    const basis = quota?.quota_basis ?? (modes.size === 1
+      ? modes.has("API") ? "RAW_TOKEN" : "PLAN_QUOTA"
+      : null);
+    return `已分配 ${formatPoolQuota(pool.quota_value, basis)}`;
+  }
+  const format = quota.quota_basis === "RAW_TOKEN" ? formatTokens : formatDecimal;
   const basis = quota.quota_basis === "RAW_TOKEN" ? "实际 Token" : "套餐折算额度";
   const prefix = `${quota.period_key} · ${basis}`;
   if (quota.completeness !== "COMPLETE") {
-    return `${prefix} · 用量待核账 · 未结清预占 ${formatThousands(quota.reserved_value ?? "0")}`;
+    return `${prefix} · 用量待核账 · 未结清预占 ${format(quota.reserved_value ?? "0")}`;
   }
   const values = [
-    `已用 ${formatThousands(quota.used_value ?? "0")}`,
-    `可用 ${formatThousands(quota.available_value ?? "0")}`,
+    `已用 ${format(quota.used_value ?? "0")}`,
+    `可用 ${format(quota.available_value ?? "0")}`,
   ];
-  if (BigInt(quota.reserved_value ?? "0") > 0n) values.push(`预占 ${formatThousands(quota.reserved_value!)}`);
-  if (BigInt(quota.overage_value ?? "0") > 0n) values.push(`超额 ${formatThousands(quota.overage_value!)}`);
+  if (BigInt(quota.reserved_value ?? "0") > 0n) values.push(`预占 ${format(quota.reserved_value!)}`);
+  if (BigInt(quota.overage_value ?? "0") > 0n) values.push(`超额 ${format(quota.overage_value!)}`);
   return `${prefix} · ${values.join(" · ")}`;
 }
 
@@ -237,7 +248,7 @@ export function PrincipalAccessConfigPanel({ principalId }: { principalId: strin
                   <span className="font-medium">{provider.provider_name}</span>
                   {provider.pool && (
                     <span className="text-sm text-ql-fg-secondary">
-                      {quotaStateLabel(provider.pool)}
+                      {quotaStateLabel(provider.pool, new Set(provider.models.filter((model) => model.enabled).map((model) => model.resource_mode)))}
                     </span>
                   )}
                 </div>

@@ -112,9 +112,9 @@ describe("接入配置暂不可用存量授权", () => {
     putMock.mockResolvedValue({ config_version: 9, changes: {}, takeover: {} });
   });
 
-  it("legacy额度显示待核账，不把不同厂商池混成总Token", () => {
+  it("旧额度显示已分配值，不冒充当月结余", () => {
     render(<PrincipalAccessConfigPanel principalId="compass" />);
-    expect(screen.getByText("历史额度待核账")).toBeInTheDocument();
+    expect(screen.getByText(/^已分配 /)).toBeInTheDocument();
     expect(screen.getByText("各厂商额度按对应计量口径分别展示")).toBeInTheDocument();
     expect(screen.queryByText(/总额度 .*Token/)).not.toBeInTheDocument();
   });
@@ -145,7 +145,7 @@ describe("接入配置暂不可用存量授权", () => {
     };
     useAccessConfigurationMock.mockReturnValue({ isLoading: false, isError: false, data: value });
     render(<PrincipalAccessConfigPanel principalId="compass" />);
-    expect(screen.getByText(/用量待核账 · 未结清预占 100/)).toBeInTheDocument();
+    expect(screen.getByText(/用量待核账 · 未结清预占 0.01 万 Token/)).toBeInTheDocument();
     expect(screen.queryByText(/可用 0/)).not.toBeInTheDocument();
   });
 

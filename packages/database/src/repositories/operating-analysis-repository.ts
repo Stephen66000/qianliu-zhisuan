@@ -22,6 +22,7 @@ export async function loadOperatingAnalysis(
   enterpriseId: string,
   selectedMonth: string,
   now = new Date(),
+  view: "full" | "overview" = "full",
 ) {
   const selected = operatingBillMonthRange(selectedMonth);
   const year = selectedMonth.slice(0, 4),
@@ -38,8 +39,8 @@ export async function loadOperatingAnalysis(
       const finance = new ProviderFinanceRepository(trx);
       const [facts, cashRows, views, officialApiBalances] = await Promise.all([
         loadAnalysisUsage(trx, enterpriseId, now),
-        loadAnalysisPurchases(trx, enterpriseId, selectedMonth, now),
-        Promise.all(
+        loadAnalysisPurchases(trx, enterpriseId, selectedMonth, now, view === "overview"),
+        view === "overview" ? [] : Promise.all(
           months.map(async (month) => {
             const { start, end } = operatingBillMonthRange(month);
             if (start > now || month > selectedMonth) return [];
@@ -51,7 +52,7 @@ export async function loadOperatingAnalysis(
             );
           }),
         ),
-        sql<{
+        view === "overview" ? { rows: [] } : sql<{
           provider_code: string; provider_name: string; provider_resource_id: string;
           resource_name: string; currency: string; current_balance: string;
           collected_at: Date; balance_updated_at: Date | null;
@@ -192,10 +193,10 @@ export async function loadOperatingAnalysis(
         ),
       ].sort();
       const providerCodes = [...new Set(keys.map((key) => key.split(":")[0]!))];
-      const estimationByMonthProvider = await loadAnalysisEstimationByMonthProvider(
+      const estimationByMonthProvider = view === "overview" ? new Map() : await loadAnalysisEstimationByMonthProvider(
         trx, enterpriseId, months, selectedMonth, now, providerCodes, views,
       );
-      const apiAccounts = buildAnalysisApiAccounts({
+      const apiAccounts = view === "overview" ? [] : buildAnalysisApiAccounts({
         keys, months, currentMonth, facts, cashRows, views, estimationByMonthProvider,
       });
       const apiReviews = buildAnalysisApiReviews(apiAccounts, monthNumber);

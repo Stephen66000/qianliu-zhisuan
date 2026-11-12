@@ -3,8 +3,7 @@
  *
  * 判定口径（服务端权威，`activation-state`）：
  *  - `strict_writes_enabled === false` → 尚未激活 ⇒ 展示**初始化向导**；
- *  - `strict_writes_enabled === true`  → 已激活 ⇒ 展示**日常资金面板**，并在其上方常驻
- *    **不可变激活回执**；
+ *  - `strict_writes_enabled === true`  → 已激活 ⇒ 展示**日常资金面板**；
  *  - `mode === "OFF"` → 资金路由本身不注册，本容器不渲染任何内容（保持既有封闭语义）。
  *
  * 本容器只做「切换 + 取数」，不承载草稿逻辑；日常入账仍完全由既有 `ProviderFinancePanel`
@@ -20,7 +19,6 @@ import {
 import type { Provider, ProviderFinanceMode, ProviderResourceItem } from "../../api/types";
 import { useAccess } from "../../permissions";
 import { ProviderFinancePanel } from "./ProviderFinancePanel";
-import { ActivationReceiptPanel } from "./ActivationReceiptPanel";
 import { ProviderFinanceActivationWizard } from "./ProviderFinanceActivationWizard";
 import type { ResourceOption } from "./ActivationDraftEditor";
 import { Button } from "../ui/Button";
@@ -113,12 +111,6 @@ export function FinanceInitializationPanel({
 
   return (
     <PanelShell>
-      {activationState.activation_receipt ? (
-        <div className="mb-4">
-          <ActivationReceiptPanel activatedAt={activationState.activated_at}
-            receipt={activationState.activation_receipt} />
-        </div>
-      ) : null}
       <ProviderFinancePanel mode={serverMode} providers={providers} resources={resources} />
     </PanelShell>
   );

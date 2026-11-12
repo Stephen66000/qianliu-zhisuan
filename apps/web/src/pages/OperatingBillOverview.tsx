@@ -1,4 +1,4 @@
-import { formatCount } from "../lib/format";
+import { formatTokens } from "../lib/format";
 import type { AnalysisPayment } from "../api/operating-analysis";
 import { Link } from "react-router-dom";
 
@@ -42,7 +42,7 @@ export function OperatingBillOverview({
     ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
     : "—";
   const remainingQuota = allocatedQuotaNum > 0 && monthTokens !== null && monthTokens !== undefined
-    ? formatCount(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
+    ? formatTokens(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
     : "不限";
 
   // WP4-S4（总指挥裁定）：历史/现行分流维度＝bill.status。CLOSED＝已关账历史版本
@@ -52,9 +52,10 @@ export function OperatingBillOverview({
   const provisionalBalance = bill.summary.endingBalance === null
     && (bill.summary.provisionalEndingBalances?.length ?? 0) > 0;
   const hasUnknownApiCost = bill.gaps.some((gap) => gap.code === "API_COST_UNKNOWN");
+  const requiresUsageReview = bill.gaps.some((gap) => !closed && gap.code === "API_COST_UNKNOWN" && gap.requiresUsageReview !== false);
   const metrics: string[][] = [
-    ["本月分配额度", allocatedQuotaNum > 0 ? formatCount(allocatedQuota!) : "不限"],
-    ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatCount(monthTokens)],
+    ["本月分配额度", allocatedQuotaNum > 0 ? formatTokens(allocatedQuota!) : "不限"],
+    ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatTokens(monthTokens)],
     ["token使用率", usageRate],
     ["本月剩余额度", remainingQuota],
     ...(closed ? [
@@ -119,7 +120,7 @@ export function OperatingBillOverview({
           已随后端停产（monthly-operating-cost.ts 改产 BRIDGE_UNAVAILABLE 且不产缺口），
           "期初余额未登记→补充资金记录"提示整段退役；现行视图不据此阻断费用估算。 */}
       <BalanceQualityNotice gaps={bill.gaps} provisionalBalance={provisionalBalance} />
-      {bill.gaps.some(gap=>gap.code==='API_COST_UNKNOWN')?<p role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">存在尚未计价的 API 请求，当前金额仅包含已确认部分。<Link className="underline" to="/usage">核查用量</Link></p>:null}
+      {requiresUsageReview ? <p role="alert" className="rounded-lg bg-ql-warning-soft p-3 text-[13px] text-ql-warning">存在尚未计价的 API 请求，当前金额仅包含已确认部分。<Link className="underline" to="/usage">核查用量</Link></p>:null}
       <BillCard className="overflow-hidden">
         <SectionHeading title="厂商投入构成" />
         <Table

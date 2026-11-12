@@ -7,7 +7,7 @@ import type { RequestShapeSummary } from "@qianliu/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { LoadingState } from "../components/states/LoadingState";
 import { StatusTag } from "../components/dashboard/StatusTag";
-import { formatCount, formatDateTimeFull, formatDecimal, formatDuration } from "../lib/format";
+import { formatCount, formatTokens, formatDateTimeFull, formatDecimal, formatDuration } from "../lib/format";
 import { costMoneyExactText, costMoneyText, unavailableUsageCostLabel } from "../lib/usage-cost";
 import type { AttemptsResult, DispatchDecisionItem, GatewayRequestDetail } from "../api/types";
 
@@ -24,9 +24,9 @@ export function SettlementSummary({ settlement, errorCode }: SettlementSummaryPr
       <h3 className="text-[13px] font-semibold leading-5 text-ql-fg">结算汇总</h3>
       {settlement ? (
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] leading-5 sm:grid-cols-4">
-          <Field label="输入 Token" value={formatCount(settlement.totalInputTokens)} />
-          <Field label="输出 Token" value={formatCount(settlement.totalOutputTokens)} />
-          <Field label="缓存 Token" value={formatCount(settlement.totalCacheTokens)} />
+          <Field label="输入 Token" value={formatTokens(settlement.totalInputTokens)} />
+          <Field label="输出 Token" value={formatTokens(settlement.totalOutputTokens)} />
+          <Field label="缓存 Token" value={formatTokens(settlement.totalCacheTokens)} />
           <Field label="扣减额度" value={formatCount(settlement.totalDeductedQuota)} />
           <Field
             label="API费用估算"
@@ -130,7 +130,7 @@ export function UpstreamAttempts({ attempts }: UpstreamAttemptsProps) {
                       className="text-[13px] leading-[18px] text-ql-fg-tertiary [font-variant-numeric:tabular-nums]"
                       key={i}
                     >
-                      输入 {m.inputTokens} · 输出 {m.outputTokens} · 缓存 {m.cacheTokens}
+                      输入 {formatTokens(m.inputTokens)} · 输出 {formatTokens(m.outputTokens)} · 缓存 {formatTokens(m.cacheTokens)}
                       {m.reasoningTokens !== "0" ? ` · 推理 ${m.reasoningTokens}` : ""}
                       {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                       {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"

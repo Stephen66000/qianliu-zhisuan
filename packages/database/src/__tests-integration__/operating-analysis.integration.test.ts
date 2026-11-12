@@ -49,6 +49,11 @@ describe("经营分析真实数据链", () => {
     expect(report.summary).toMatchObject({companyTokens:"400",ytdAverageTokens:"300.00",ytdAverageChange:"50.00",perCapitaTokens:"200.00",perCapitaChange:"0.00",planUtilization:"100.00"});
     expect(report.months[8]).toMatchObject({totalTokens:"400",usageIncomplete:true});
     expect(report.months[9]!.totalTokens).toBeNull();
+    const overview = await loadOperatingAnalysis(db, t.enterpriseId, "2026-09", new Date("2026-09-06T12:00:00Z"), "overview");
+    expect(overview.summary).toEqual(report.summary);
+    expect(overview.months).toEqual(report.months);
+    expect(overview.payments).toEqual(report.payments);
+    expect(overview.apiAccounts).toEqual([]);
     const kimi = report.plans.find((p)=>p.providerCode==="kimi")!;
     expect(kimi).toMatchObject({peakTokens:"300",historyIncomplete:true});
     expect(kimi.months[7]).toMatchObject({totalTokens:"200",utilization:"66.67",usageIncomplete:true});

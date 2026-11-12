@@ -17,7 +17,7 @@ describe("经营报表展示已记录数值", () => {
     render(<OperatingTrends data={partial()} />);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.getByText("公司当月使用 Token").closest("article")).not.toHaveTextContent("约");
-    expect(screen.getByText("公司当月使用 Token").closest("article")).toHaveTextContent("100,000,000");
+    expect(screen.getByText("公司当月使用 Token").closest("article")).toHaveTextContent(/1\s*亿 Token/);
     expect(screen.getByText("2026-08").closest("tr")).not.toHaveTextContent("不完整");
   });
   it("套餐峰值和利用率正常显示，不传播近似标记", () => {

@@ -4,7 +4,7 @@ import { loadOperatingAnalysis } from "@qianliu/database";
 import { requireAuth } from "../plugins/auth-guard.js";
 
 export function registerOperatingAnalysisRoute(app: FastifyInstance) {
-  app.get<{ Params: { month: string } }>(
+  app.get<{ Params: { month: string }; Querystring: { view?: string } }>(
     "/operating-bills/:month/analysis",
     { preHandler: [requireAuth] },
     async (req, reply) => {
@@ -16,7 +16,8 @@ export function registerOperatingAnalysisRoute(app: FastifyInstance) {
         return reply
           .code(400)
           .send({ error: "invalid_request", message: "账单月份不合法" });
-      return loadOperatingAnalysis(app.db, req.admin!.enterpriseId, month.data);
+      const view = req.query.view === "overview" ? "overview" : "full";
+      return loadOperatingAnalysis(app.db, req.admin!.enterpriseId, month.data, new Date(), view);
     },
   );
 }

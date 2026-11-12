@@ -2,7 +2,7 @@ import { Button } from "../ui/Button";
 import type { ProviderOfficialBalanceState, ProviderResourceItem } from "../../api/types";
 import { useRefreshOfficialBalance } from "../../api/hooks";
 import { currencyMoney } from "../../lib/currency";
-import { formatCount, formatDateTimeFull, formatMoney, formatShanghaiDate } from "../../lib/format";
+import { formatQuotaQuantity, formatTokens, formatDateTimeFull, formatMoney, formatShanghaiDate } from "../../lib/format";
 
 /**
  * WP3 C2 / OAB-01..04：API 资源的资金列改消费 `official_balance`（官方来源）——
@@ -140,19 +140,19 @@ export function ResourceQuotaColumn({ resource }: { resource: ProviderResourceIt
     return (
       <span className="block leading-5">
         <span className="block">分配额度 {allocated
-          ? `${formatCount(allocated)} ${quotaUnit}`
+          ? formatQuotaQuantity(allocated, quotaUnit)
           : "待补"}</span>
-        <span className="block">周期真实 Token {finance.currentPeriod ? formatCount(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
+        <span className="block">周期真实 Token {finance.currentPeriod ? formatTokens(finance.currentPeriod.trueTokens) : "无有效周期"}</span>
         <span className="block">{finance.currentPeriod ? `${formatShanghaiDate(finance.currentPeriod.periodStart)} ～ ${formatShanghaiDate(finance.currentPeriod.periodEndExclusive)}` : "—"}</span>
       </span>
     );
   }
-  if (!resource.operating_snapshot) return <span>{allocated ? `分配额度 ${formatCount(allocated)} ${quotaUnit}` : "未录入/未同步"}</span>;
+  if (!resource.operating_snapshot) return <span>{allocated ? `分配额度 ${formatQuotaQuantity(allocated, quotaUnit)}` : "未录入/未同步"}</span>;
   return (
     <span className="block leading-5">
-      <span className="block">分配额度 {allocated ? `${formatCount(allocated)} ${quotaUnit}` : "未知"}</span>
-      <span className="block">系统已用 {resource.operating_snapshot.used_quota ? formatCount(resource.operating_snapshot.used_quota) : "未知"}</span>
-      <span className="block">剩余 {resource.operating_snapshot.remaining_quota ? formatCount(resource.operating_snapshot.remaining_quota) : "未知"} {resource.operating_snapshot.quota_unit ?? ""}</span>
+      <span className="block">分配额度 {allocated ? formatQuotaQuantity(allocated, quotaUnit) : "未知"}</span>
+      <span className="block">系统已用 {resource.operating_snapshot.used_quota ? formatQuotaQuantity(resource.operating_snapshot.used_quota, quotaUnit) : "未知"}</span>
+      <span className="block">剩余 {resource.operating_snapshot.remaining_quota ? formatQuotaQuantity(resource.operating_snapshot.remaining_quota, quotaUnit) : "未知"}</span>
     </span>
   );
 }

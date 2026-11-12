@@ -62,6 +62,7 @@ export function registerUsageRoutes(
     try {
       return await new UsageOverviewRepository(app.db).getOverview({
         enterpriseId: req.admin!.enterpriseId,
+        includeEmployeeAllocations: true,
         subjectType: parsed.data.subject_type.toUpperCase() as UsageOverviewSubjectType,
         subjectId: parsed.data.subject_id,
         period: parsed.data.period.toUpperCase() as UsageOverviewPeriod,

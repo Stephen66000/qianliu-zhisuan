@@ -10,6 +10,7 @@ import {
   type UsageOverviewRange,
 } from "./usage-overview-facts.js";
 import { type UsageQualitySummary } from "./usage-quality.js";
+import { loadEmployeeAllocations } from "./usage-overview-allocations.js";
 import { loadApiCostEstimation, type ApiCostEstimation } from "./api-cost-estimation.js";
 
 export type UsageOverviewSubjectType = "EMPLOYEE" | "PROJECT";
@@ -23,6 +24,7 @@ export interface UsageOverviewQuery {
   anchor: Date;
   /** Internal report override; ordinary requests use the enterprise timezone. */
   timezone?: string;
+  includeEmployeeAllocations?: boolean;
 }
 
 export interface UsageOverviewMetrics {
@@ -65,6 +67,7 @@ export interface UsageOverviewRankingItem extends Omit<UsageOverviewMetrics, "ac
   departmentLabel: string | null;
   share: string;
   allocatedQuota: string;
+  providerAllocations?: Array<{ provider: string; name: string; amount: string; basis: "RAW_TOKEN" | "PLAN_QUOTA" | null }>;
 }
 
 export interface UsageOverviewResult {
@@ -118,6 +121,25 @@ export class UsageOverviewRepository {
     private now: () => Date = () => new Date(),
   ) {}
 
+  async getActiveSubjectSummary(input: Omit<UsageOverviewQuery, "subjectId">) {
+    return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) => {
+      const range = await resolveUsageOverviewRange(trx, input);
+      if (!range) throw new UsageOverviewEnterpriseNotFoundError();
+      const coverage = await loadUsageAggregateCoverage(trx, input, range, this.now());
+      const facts = coverage.complete
+        ? buildAggregateUsageFacts(input, range)
+        : buildLiveUsageFacts(input, range);
+      const result = await sql<{ count: string }>`
+        SELECT count(DISTINCT subject_id)::text AS count FROM (${facts}) AS facts
+      `.execute(trx);
+      return {
+        timezone: range.timezone,
+        range: { from: range.range_start.toISOString(), to: range.range_end.toISOString() },
+        activeSubjects: Number(result.rows[0]?.count ?? 0),
+      };
+    });
+  }
+
   async getOverview(input: UsageOverviewQuery): Promise<UsageOverviewResult> {
     return this.db.transaction().setIsolationLevel("repeatable read").execute(async (trx) =>
       new UsageOverviewRepository(trx, this.now).getOverviewSnapshot(input));
@@ -147,6 +169,10 @@ export class UsageOverviewRepository {
       // priceBasisUnverified 相应省略（undefined 而非 false：旧 schema 无核实概念）。
       this.loadPriceBasisEstimation(input, range),
     ]);
+    if (input.includeEmployeeAllocations && input.subjectType === "EMPLOYEE" && ranking.length) {
+      const allocations = await loadEmployeeAllocations(this.db, input.enterpriseId, ranking.map((row) => row.subjectId), currentTime);
+      for (const row of ranking) row.providerAllocations = allocations.get(row.subjectId) ?? [];
+    }
     const metrics: UsageOverviewMetrics = {
       ...aggregate.metrics,
       ...(estimation && {

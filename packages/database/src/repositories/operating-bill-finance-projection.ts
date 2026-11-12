@@ -5,7 +5,7 @@ import type { OperatingBillSnapshot, OperatingBillSubjectRow } from "./operating
 import { PROVIDER_FINANCE_CUTOVER } from "./provider-finance-types.js";
 import { loadApiCostGaps } from "./provider-finance-api-cost-gaps.js";
 import { balanceQualityGaps, monthlyExpenseGaps } from "./operating-bill-finance-quality.js";
-import { loadApiCostEstimation } from "./api-cost-estimation.js";
+import type { buildOperatingBillDraft } from "./operating-bill-draft.js";
 import { apiEstimationGapText } from "./dashboard-monthly-spend.js";
 import { estimatedApiCostFields } from "./operating-bill-monthly-cost.js";
 import type { ResourceFinanceView } from "./provider-finance-types.js";
@@ -32,13 +32,16 @@ function one(values: Array<{ currency: string; amount: string }>): string | null
 
 export async function projectOperatingBillFinance(
   db: Kysely<Database>, enterpriseId: string, month: string,
-  snapshot: OperatingBillSnapshot, views: ResourceFinanceView[],
+  { snapshot, estimationByResource, enterpriseEstimation }: Awaited<ReturnType<typeof buildOperatingBillDraft>>,
+  views: ResourceFinanceView[],
 ): Promise<OperatingBillSnapshot> {
   const byResource = new Map(views.map((view) => [view.resourceId, view]));
   const { start, end } = operatingBillMonthRange(month);
+  const hasArchivedAccounts = views.some((view) => view.mode === "API"
+    && view.accounts.some((account) => account.balanceState === "LEGACY_ARCHIVED"));
   const [monthlyFacts, historicalFacts] = await Promise.all([
-    loadApiCostGaps(db, enterpriseId, start, end),
-    loadApiCostGaps(db, enterpriseId, PROVIDER_FINANCE_CUTOVER, start),
+    loadApiCostGaps(db, enterpriseId, start, end, true),
+    hasArchivedAccounts ? loadApiCostGaps(db, enterpriseId, PROVIDER_FINANCE_CUTOVER, start) : [],
   ]);
   const names = new Map(snapshot.providers.map((provider) => [provider.providerResourceId, provider.resourceName]));
   const financeGaps = balanceQualityGaps(views, historicalFacts, names);
@@ -47,23 +50,6 @@ export async function projectOperatingBillFinance(
     .map((view) => ({ code: "API_LEGACY_ARCHIVED", providerResourceId: view.resourceId,
       field: "ledger_line.api_cost",
       message: `${names.get(view.resourceId) ?? view.resourceId} 本期属于资金切账前历史区间，费用不能由切账后账户的零金额推定` }));
-  // WP2-S5（WP1 合同 §4 裁定 2 后端部分 / ACE-03/04/06/07）：finance 开路径的 API 金额
-  // 权威切同源估算——与 draft 主路径（operating-bill-draft.ts S3b）同源同语义：按资源
-  // 逐个调用（providers 行需资源级金额字面值）＋全企业一次调用（summary，资源范围互斥
-  // 切分故恒等）。资金域桥接口径（missingAccountGaps / API_FINANCE_ACCOUNT_NOT_UNIQUE /
-  // 资金账户 monthlyApiCost 覆盖）随裁定 2 退役；bridge 字段（opening/recharge/ending、
-  // provisionalEndingBalances）、CP 套餐投影、allocatePlanCostsByCalendarMonthTokens
-  // （含 API_LEGACY_COST_ADJUSTMENT 未归属行）与 archivedExpenseGaps 原样保留（WP4 处置）。
-  const apiResourceIds = snapshot.providers.filter((provider) => provider.mode === "API")
-    .map((provider) => provider.providerResourceId);
-  const [estimationPairs, enterpriseEstimation] = await Promise.all([
-    Promise.all(apiResourceIds.map(async (resourceId) => [
-      resourceId,
-      await loadApiCostEstimation(db, enterpriseId, { start, end, resourceIds: [resourceId] }),
-    ] as const)),
-    loadApiCostEstimation(db, enterpriseId, { start, end }),
-  ]);
-  const estimationByResource = new Map(estimationPairs);
   const estimatedSummary = estimatedApiCostFields(enterpriseEstimation);
   const expenseGaps = [...monthlyExpenseGaps(monthlyFacts, names), ...archivedExpenseGaps];
   const providers = snapshot.providers.map((provider) => {

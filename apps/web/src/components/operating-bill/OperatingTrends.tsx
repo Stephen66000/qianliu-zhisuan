@@ -1,11 +1,11 @@
 import type { OperatingAnalysis } from "../../api/operating-analysis";
-import { formatDecimal } from "../../lib/format";
+import { formatDecimal, formatTokens } from "../../lib/format";
 import { Cell, Num, Table } from "../../pages/OperatingBillShared";
 import { BillCard, SectionHeading } from "./BillShared";
 import { BillStat } from "./BillStat";
 
 export const analysisTokens = (value: string | null) =>
-  value === null ? "—" : formatDecimal(value, 2);
+  value === null ? "—" : formatTokens(value);
 export const analysisPercent = (value: string | null, signed = false) =>
   value === null
     ? "—"

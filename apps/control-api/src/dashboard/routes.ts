@@ -48,14 +48,13 @@ export function registerDashboardRoutes(
   app.get("/dashboard/home", { preHandler: [requireAuth] }, async (req) => {
     const enterpriseId = req.admin!.enterpriseId;
     const asOf = new Date();
-    const [bill, financeRead] = await Promise.all([
-      app.operatingBillRepo.getBill(enterpriseId, shanghaiMonthAt(asOf)),
-      financeReadModelEnabled(app.providerFinanceMode, app.providerFinanceRepo, enterpriseId),
-    ]);
+    const financeRead = await financeReadModelEnabled(
+      app.providerFinanceMode, app.providerFinanceRepo, enterpriseId,
+    );
     return getStandardHomeSummary(app.db, {
       enterpriseId,
       asOf,
-      bill,
+      bill: app.operatingBillRepo.getBill(enterpriseId, shanghaiMonthAt(asOf)),
       financeRead,
     });
   });

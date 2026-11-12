@@ -179,7 +179,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/余额/)).not.toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 10,000,000"));
-    expect(within(row).getByText("1 / 9,000,000")).toBeInTheDocument();
+    expect(within(row).getByText("1 / 900 万 Token")).toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 9,000,000"));
     expect(within(row).getByText(/距最近使用 2 天/)).toBeInTheDocument();
   });
@@ -190,7 +190,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/5 小时：/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/周：/)).not.toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toBeInTheDocument();
-    expect(within(row).getByText("0 / 0")).toBeInTheDocument();
+    expect(within(row).getByText("0 / 0 万 Token")).toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 0"));
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
     fireEvent.click(within(row).getByRole("button"));
@@ -228,7 +228,7 @@ describe("W20-08 资源利用事实 Web", () => {
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("300,000,000 TOKEN");
+    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("3 亿 Token");
     expect(within(row).getByText("90.0%")).toBeInTheDocument();
     expect(within(row).queryByText("部分调用缺少扣减额度，利用率暂不可算")).not.toBeInTheDocument();
     expect(within(row).queryByText("缺少订阅额度事实")).not.toBeInTheDocument();
@@ -255,7 +255,7 @@ describe("W20-08 资源利用事实 Web", () => {
     renderPanel();
     const row = screen.getByText("Kimi · Coding Plan").closest("tr")!;
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("3,530,100,000 TOKEN");
+    expect(screen.getByRole("region", { name: "Kimi · Coding Plan详情" })).toHaveTextContent("35.3 亿 Token");
   });
 
   it("POOL20-041：缺订阅结束日期时不把额度比例包装为周期累计", () => {
@@ -347,7 +347,7 @@ describe("W20-08 资源利用事实 Web", () => {
     row.tokenUtilization = { ...row.tokenUtilization!, rate: "900719925.47409930" };
     useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
     renderPanel();
-    expect(screen.getByText("1 / 9,007,199,254,740,993")).toBeInTheDocument();
+    expect(screen.getByText("1 / 90,071,992.55 亿 Token")).toBeInTheDocument();
     expect(screen.getByTitle(/本月真实 Token 9,007,199,254,740,993/)).toBeInTheDocument();
   });
 

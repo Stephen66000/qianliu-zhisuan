@@ -19,6 +19,9 @@ export function registerProviderUsageOverviewRoutes(app: FastifyInstance): void 
           enterpriseId, shanghaiMonthAt(now), now,
         ),
     ]);
-    return finance.length > 0 ? projectFinanceUsageOverview(overview, finance) : overview;
+    const { currentResourceIds, ...visibleOverview } = overview;
+    const currentIds = new Set(currentResourceIds);
+    const currentFinance = finance.filter((view) => currentIds.has(view.resourceId));
+    return currentFinance.length ? projectFinanceUsageOverview(visibleOverview, currentFinance) : visibleOverview;
   });
 }

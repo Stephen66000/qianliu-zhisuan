@@ -115,7 +115,7 @@ export interface StandardHomeOptions {
   enterpriseId: string;
   asOf: Date;
   /** 经营账单当前月快照（由路由层经 OperatingBillRepository.getBill 取得后传入，保证与月度总览同源）。 */
-  bill: OperatingBillSnapshot;
+  bill: OperatingBillSnapshot | Promise<OperatingBillSnapshot>;
   /** 资金读模型是否生效（决定上月同期费用口径）。 */
   financeRead: boolean;
 }

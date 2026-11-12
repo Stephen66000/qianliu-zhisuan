@@ -8,26 +8,10 @@
 import type { StandardHomeSummary, StandardHomeWindow } from "../../api/types";
 import { currencyFacts, currencyMoney } from "../../lib/currency";
 
+import { formatTokenMagnitude } from "../../lib/format";
+export { formatTokenMagnitude } from "../../lib/format";
+
 const SHANGHAI_OFFSET_MS = 8 * 3_600_000;
-
-/** Token 数量级缩放：≥1 亿 → 亿；≥1 万 → 万；其余原值千分位。 */
-export function formatTokenMagnitude(value: string): { value: string; unit: string } {
-  const tokens = BigInt(value);
-  if (tokens >= 100_000_000n) {
-    return { value: magnitude(tokens, 100_000_000n), unit: "亿 Token" };
-  }
-  if (tokens >= 10_000n) {
-    return { value: magnitude(tokens, 10_000n), unit: "万 Token" };
-  }
-  return { value: tokens.toLocaleString("zh-CN"), unit: "Token" };
-}
-
-function magnitude(tokens: bigint, scale: bigint): string {
-  const units = (tokens * 100n) / scale;
-  const whole = units / 100n;
-  const fraction = units % 100n;
-  return `${whole.toLocaleString("zh-CN")}.${fraction.toString().padStart(2, "0")}`;
-}
 
 /**
  * 金额/Token 同期百分比：上期为 0、负值或任一侧不可解析时返回 null（不输出正常百分比）。

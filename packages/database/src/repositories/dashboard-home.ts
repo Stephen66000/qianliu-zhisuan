@@ -55,11 +55,12 @@ export async function getStandardHomeSummary(
   db: Kysely<Database>,
   options: StandardHomeOptions,
 ): Promise<StandardHomeSummary> {
-  const { enterpriseId, asOf, bill, financeRead } = options;
+  const { enterpriseId, asOf, financeRead } = options;
   const shanghaiMonth = shanghaiNaturalMonthRange(asOf);
   const prevShanghai = previousShanghaiMonthWindow(asOf);
 
   const [
+    bill,
     employeeOverview,
     tokenCurrent,
     tokenPrevious,
@@ -71,7 +72,8 @@ export async function getStandardHomeSummary(
     currentFinanceWindow,
     resources,
   ] = await Promise.all([
-    new UsageOverviewRepository(db).getOverview({
+    options.bill,
+    new UsageOverviewRepository(db).getActiveSubjectSummary({
       enterpriseId,
       subjectType: "EMPLOYEE",
       period: "MONTH",
@@ -155,7 +157,7 @@ export async function getStandardHomeSummary(
       timezone: employeeOverview.timezone,
       rangeStart: employeeOverview.range.from,
       rangeEndExclusive: employeeOverview.range.to,
-      current: employeeOverview.metrics.activeSubjects,
+      current: employeeOverview.activeSubjects,
       previous: {
         count: employeePrevious.count,
         window: windowToIso(employeePrevious.window),

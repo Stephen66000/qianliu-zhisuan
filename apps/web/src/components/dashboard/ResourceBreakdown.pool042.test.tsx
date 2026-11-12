@@ -97,7 +97,7 @@ describe("POOL-042 ResourceBreakdown 边界展示", () => {
     expect(screen.queryByText("按模型查看")).not.toBeInTheDocument();
     expect(screen.getByText("不可计算（计量未知）")).toBeInTheDocument();
     expect(screen.getByText("最近24小时无可用数据")).toBeInTheDocument();
-    expect(screen.getByText("not-a-number Token/小时")).toBeInTheDocument();
+    expect(screen.getByText("not-a-number/小时")).toBeInTheDocument();
     expect(screen.getByText("金额 2/h")).toBeInTheDocument();
     expect(screen.getByText("2/h 额度")).toBeInTheDocument();
     expect(screen.getByText("余额未知")).toBeInTheDocument();
@@ -134,10 +134,10 @@ describe("厂商总览额度单位", () => {
     const row = screen.getByText("基础厂商").closest("tr")!;
     // 断言迁移（WP4-S2 合同 4）：余额列拆分为官方余额＋剩余额度两列，套餐剩余额度右移一列。
     expect(within(row).getAllByRole("cell")[2]).toHaveTextContent(/^—$/);
-    expect(within(row).getByText(`1,200 ${quotaUnit}`)).toBeVisible();
+    expect(within(row).getByText(quotaUnit === "TOKEN" ? "0.12 万 Token" : `1,200 ${quotaUnit}`)).toBeVisible();
     fireEvent.click(within(row).getByRole("button", { name: "展开基础厂商 Coding Plan详情" }));
     const details = screen.getByRole("region", { name: "基础厂商 Coding Plan详情" });
-    expect(within(details).getByText("2,500 Token")).toBeVisible();
+    expect(within(details).getByText("0.25 万 Token")).toBeVisible();
     expect(within(details).queryByText(`2,500 ${quotaUnit}`)).not.toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe("厂商总览额度单位", () => {
     const row = screen.getByText("基础厂商").closest("tr")!;
     expect(within(row).getByText("80 单位未知")).toBeVisible();
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("50 Token");
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("0.01 万 Token");
   });
 
   it("零额度有单位，单位首尾空白不进入展示", () => {
@@ -154,15 +154,15 @@ describe("厂商总览额度单位", () => {
     const row = screen.getByText("基础厂商").closest("tr")!;
     expect(within(row).getByText("0 POINT")).toBeVisible();
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("0 Token");
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("0 万 Token");
   });
 
   it("大整数额度带单位且不损失精度", () => {
     render(<ResourceBreakdown items={[item({ mode: "CODING_PLAN", quotaUnit: "TOKEN", remainingQuota: "9007199254740993", allocatedQuota: "9007199254740995" })]} />);
     const row = screen.getByText("基础厂商").closest("tr")!;
-    expect(within(row).getByText("9,007,199,254,740,993 TOKEN")).toBeVisible();
+    expect(within(row).getByText("90,071,992.55 亿 Token")).toBeVisible();
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("9,007,199,254,740,995 Token");
+    expect(screen.getByRole("region", { name: "基础厂商 Coding Plan详情" })).toHaveTextContent("90,071,992.55 亿 Token");
   });
 
   it("未知额度保留占位，不伪装成零额度", () => {
@@ -184,6 +184,6 @@ describe("厂商总览额度单位", () => {
     expect(within(row).queryByText(/余额待补/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/POINT/)).not.toBeInTheDocument();
     fireEvent.click(within(row).getByRole("button"));
-    expect(screen.getByRole("region", { name: "基础厂商 API详情" })).toHaveTextContent("2,500 Token");
+    expect(screen.getByRole("region", { name: "基础厂商 API详情" })).toHaveTextContent("0.25 万 Token");
   });
 });

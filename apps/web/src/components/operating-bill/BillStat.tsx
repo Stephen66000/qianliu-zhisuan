@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef } from "react";
-import { formatDecimal } from "../../lib/format";
+import { formatTokenMagnitude } from "../../lib/format";
 
 export function compactBillTokens(value: string): {
   text: string;
   unit: string;
 } {
-  return { text: formatDecimal(value, 2), unit: "" };
+  const display = formatTokenMagnitude(value);
+  return { text: display.value, unit: display.unit };
 }
 
 export function BillStat({

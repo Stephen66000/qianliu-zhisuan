@@ -48,6 +48,32 @@ export function formatDecimal(value: string, maximumFractionDigits = 2): string 
   return `${displaySign}${integer.toLocaleString("zh-CN")}${decimals ? `.${decimals}` : ""}`;
 }
 
+/** Token 展示统一用万、亿。用十进制移位保留原始精度，再做展示舍入。 */
+export function formatTokenMagnitude(value: string): { value: string; unit: string } {
+  const match = /^([+-]?)(\d+)(?:\.(\d*))?$/.exec(value.replaceAll(",", ""));
+  if (!match) return { value, unit: "" };
+  const [, sign, integer, fraction = ""] = match;
+  const useHundredMillions = BigInt(integer!) >= 100_000_000n;
+  const digits = integer!.padStart(useHundredMillions ? 9 : 5, "0");
+  const places = useHundredMillions ? 8 : 4;
+  const scaled = `${sign}${digits.slice(0, -places)}.${digits.slice(-places)}${fraction}`;
+  const display = formatDecimal(scaled, 2);
+  return {
+    value: display === "0" && /[1-9]/.test(digits + fraction) ? "<0.01" : display,
+    unit: useHundredMillions ? "亿 Token" : "万 Token",
+  };
+}
+
+export function formatQuotaQuantity(value: string, unit: string | null | undefined): string {
+  const label = unit?.trim() ?? "";
+  return /^tokens?$/i.test(label) ? formatTokens(value) : [formatCount(value), label].filter(Boolean).join(" ");
+}
+
+export function formatTokens(value: string): string {
+  const display = formatTokenMagnitude(value);
+  return display.unit ? `${display.value} ${display.unit}` : display.value;
+}
+
 /** 超额比例：小数文本（"0.0500"）→ "5.00%"（展示层 ×100，仅格式转换）。 */
 export function formatRatioAsPercent(ratio: string): string {
   const num = Number(ratio);

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { patch } from "../../api/client";
 import { QUERY_KEYS, usePrincipalAgentUsage } from "../../api/hooks";
-import { formatCount, formatDateTimeFull, formatMoney } from "../../lib/format";
+import { formatCount, formatTokens, formatDateTimeFull, formatMoney } from "../../lib/format";
 
 const EXPECTED_AGENT_OPTIONS = [
   ["WORKBUDDY", "WorkBuddy"], ["CODEX", "Codex"], ["ZCODE", "Z Code"],
@@ -65,7 +65,7 @@ export function AgentUsagePanel({ principalId }: { principalId: string }) {
               <td className="p-2 font-medium">{AGENT_LABEL[agent.agentFamily] ?? agent.agentFamily}<span className="block font-normal text-ql-fg-tertiary">{agent.latestVersion ? `v${agent.latestVersion}` : "版本未知"}</span>{(query.data?.expectedAgentFamilies.length ?? 0) > 0 && !query.data?.expectedAgentFamilies.includes(agent.agentFamily) ? <span className="block text-[13px] font-normal text-ql-warning">与预期不一致</span> : null}</td>
               <td className="p-2 text-ql-fg-secondary">{(agent.identitySources ?? [agent.identitySource]).join("、")}<span className="block text-ql-fg-tertiary">{agent.identityConfidence}</span></td>
               <td className="p-2 text-right">{formatCount(agent.requestCount)}</td>
-              <td className="p-2 text-right">{formatCount(agent.totalTokens)}</td>
+              <td className="p-2 text-right">{formatTokens(agent.totalTokens)}</td>
               <td className="p-2 text-right">{formatMoney(agent.totalApiCost)}</td>
               <td className="p-2">{formatDateTimeFull(agent.firstUsedAt)}</td>
               <td className="p-2">{formatDateTimeFull(agent.lastUsedAt)}</td>

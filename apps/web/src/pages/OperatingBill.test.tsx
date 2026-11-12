@@ -86,6 +86,13 @@ describe("POOL-025 经营账单", () => {
     expect(screen.getByText(/DeepSeek 有5条费用待核实/)).toBeInTheDocument();
     expect(screen.getByText(/存在尚未计价的 API 请求/)).toBeInTheDocument();
   });
+  it("失败且未返回计量的记录仍提示金额不完整，但不要求日常核查", () => {
+    currentBill = { ...bill, gaps: [{ code: "API_COST_UNKNOWN", message: "失败请求未返回计量", requiresUsageReview: false }] };
+    render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
+    expect(screen.getByText("API费用估算（含待计价）")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "核查用量" })).toBeNull();
+  });
+
   it("已知金额格式化与未知金额占位保持不同语义", () => {
     expect(money("12.34")).toBe("¥12.34");
     expect(money(null)).toBe("—");
@@ -468,5 +475,5 @@ describe("POOL-025 经营账单", () => {
 it("monthly overview starts with the selected month's exact total tokens", () => {
   render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
   const card=screen.getByText("本月token使用量").closest("article");
-  expect(card).toHaveTextContent("100,000,000");
+  expect(card).toHaveTextContent("1 亿 Token");
 });

@@ -1,7 +1,7 @@
 import { BarChart3 } from "lucide-react";
 import { useResourceUsageOverview } from "../../api/hooks";
 import type { ResourceModelUsageDetail } from "../../api/types";
-import { formatCount, formatDateTimeShort, formatDecimal, formatMoney } from "../../lib/format";
+import { formatTokens, formatDateTimeShort, formatDecimal, formatMoney } from "../../lib/format";
 import { resourceStatusLabel } from "../../lib/resource-status";
 import { ResourceBreakdown } from "../dashboard/ResourceBreakdown";
 import { StatusTag } from "../dashboard/StatusTag";
@@ -75,7 +75,7 @@ function modelTokenText(item: ResourceModelUsageDetail) {
   const unknown = item.unknownCount ?? 0;
   if (item.monthlyTotalTokens === null) return "Token 未知";
   if (item.monthlyTotalTokens === "0" && unknown > 0) return <><span className="font-sans">暂无成功计量</span><span className="block font-sans text-[13px] text-ql-fg-tertiary">{unknown} 笔计量未知</span></>;
-  return <>{formatCount(item.monthlyTotalTokens)}{unknown > 0 ? <span className="block font-sans text-[13px] text-ql-fg-tertiary">已记录；另有 {unknown} 笔计量未知</span> : null}</>;
+  return <>{formatTokens(item.monthlyTotalTokens)}{unknown > 0 ? <span className="block font-sans text-[13px] text-ql-fg-tertiary">已记录；另有 {unknown} 笔计量未知</span> : null}</>;
 }
 
 function statusTone(status: string): "neutral" | "warning" | "danger" {

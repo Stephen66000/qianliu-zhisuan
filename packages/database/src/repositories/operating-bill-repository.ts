@@ -410,10 +410,8 @@ export class OperatingBillRepository {
   ): Promise<OperatingBillSnapshot> {
     const { start, end } = operatingBillMonthRange(month);
     const values = period ? await listOperatingBillValueItems(this.db, enterpriseId, period.id) : [];
-    const draft = await buildOperatingBillDraft(
-      this.db, enterpriseId, month, period, values, start, end,
-    );
-    if (!await this.financeEnabled(enterpriseId)) return draft;
+    const draft = await buildOperatingBillDraft(this.db, enterpriseId, month, period, values, start, end);
+    if (!await this.financeEnabled(enterpriseId)) return draft.snapshot;
     const asOf = new Date(Math.min(Date.now(), end.getTime() - 1));
     const finance = new ProviderFinanceRepository(this.db);
     const views = this.transactionBound

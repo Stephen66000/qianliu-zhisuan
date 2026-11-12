@@ -13,6 +13,7 @@ export interface ApiCostGapFact {
   providerResourceId: string;
   count: string;
   requestCount: string;
+  actionableRequestCount?: string;
   requestRangeFrom: Date;
   requestRangeTo: Date;
 }
@@ -20,6 +21,7 @@ export interface ApiCostGapFact {
 /** Shared expense-quality facts for monthly reports and cumulative balance explanations. */
 export async function loadApiCostGaps(
   db: Kysely<Database>, enterpriseId: string, start: Date, end: Date,
+  includeReviewability = false,
 ): Promise<ApiCostGapFact[]> {
   const effectiveStart = start < PROVIDER_FINANCE_CUTOVER ? PROVIDER_FINANCE_CUTOVER : start;
   if (effectiveStart >= end) return [];
@@ -38,9 +40,15 @@ export async function loadApiCostGaps(
     )
     SELECT gap.code, line.provider_resource_id AS "providerResourceId",
            COUNT(*)::text AS count, COUNT(DISTINCT line.ai_request_id)::text AS "requestCount",
+           ${includeReviewability ? sql`(COUNT(DISTINCT line.ai_request_id) FILTER (WHERE NOT (
+             COALESCE(request.status IN ('FAILED','CANCELLED'), false)
+             AND line.raw_input_tokens=0 AND line.raw_output_tokens=0
+             AND COALESCE(line.raw_cache_tokens,0)=0 AND COALESCE(line.raw_reasoning_tokens,0)=0
+           )))::text AS "actionableRequestCount",` : sql``}
            MIN(COALESCE(line.settled_at,line.created_at)) AS "requestRangeFrom",
            MAX(COALESCE(line.settled_at,line.created_at)) AS "requestRangeTo"
       FROM ledger_line line
+      ${includeReviewability ? sql`LEFT JOIN ai_request request ON request.id=line.ai_request_id AND request.enterprise_id=line.enterprise_id` : sql``}
       LEFT JOIN provider_finance_legacy_cost_resolution resolution
         ON resolution.enterprise_id=line.enterprise_id AND resolution.id=line.legacy_cost_resolution_id
       CROSS JOIN LATERAL (VALUES

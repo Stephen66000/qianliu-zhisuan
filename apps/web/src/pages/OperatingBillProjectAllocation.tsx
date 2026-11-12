@@ -1,3 +1,4 @@
+import { formatTokens } from "../lib/format";
 /**
  * 项目账归集详情页（候选 C3 WP05；合同 11 §5）。
  * 成员贡献视角的项目归集明细 + 未分配汇总 + 计算状态；固定 run 分页。
@@ -63,7 +64,7 @@ function UnallocatedDetailList({ view }: { view: UnallocatedView | undefined }) 
           {" · "}
           {line.employeeName ?? "未知员工"}
           {" · "}
-          {line.shareInputTokens} Token
+          {formatTokens(line.shareInputTokens)}
         </p>
       ))}
       {(view?.detail?.total ?? 0) > 5 && (
@@ -136,10 +137,10 @@ export function OperatingBillProjectAllocationPage() {
             </BillCard>
             <BillCard className="p-4">
               <p className="text-[13px] text-ql-fg-secondary">未分配 Token</p>
-              <p className={`${METRIC_CLASS} tabular-nums`}>{unallocated.data?.tokens ?? "—"}</p>
+              <p className={`${METRIC_CLASS} tabular-nums`}>{unallocated.data ? formatTokens(unallocated.data.tokens) : "—"}</p>
               <p className="text-[13px] text-ql-fg-secondary">
                 {Object.entries(unallocated.data?.byReason ?? {})
-                  .map(([reason, tokens]) => `${REASON_LABELS[reason] ?? reason} ${tokens}`)
+                  .map(([reason, tokens]) => `${REASON_LABELS[reason] ?? reason} ${formatTokens(tokens)}`)
                   .join("；") || "无明细"}
               </p>
               {/* 项目明细只含本项目份额；企业级未分配明细在此呈现（合同 §3.3）。 */}
@@ -178,7 +179,7 @@ export function OperatingBillProjectAllocationPage() {
                     {SOURCE_LABELS[line.allocationSource] ?? line.allocationSource}
                     {line.weightBps !== null ? `（${(line.weightBps / 100).toFixed(2)}%）` : ""}
                   </Cell>
-                  <Num>{(Number(line.shareInputTokens) + Number(line.shareOutputTokens)).toFixed(4)}</Num>
+                  <Num>{formatTokens((Number(line.shareInputTokens) + Number(line.shareOutputTokens)).toFixed(4))}</Num>
                   <Num>{line.shareApiCost === null ? "—" : `${line.shareApiCost} ${line.apiCostCurrency ?? ""}`}</Num>
                   <Num>{line.sharePackageCost ?? "—"}</Num>
                   <Cell>{usageQualityLabel(line.usageQuality)}</Cell>

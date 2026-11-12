@@ -19,7 +19,7 @@ import {
   useRecordProviderFinance,
 } from "../../api/provider-finance";
 import { ApiError } from "../../api/client";
-import { formatCount, formatDateTimeFull, formatMoney, formatShanghaiDate } from "../../lib/format";
+import { formatTokens, formatDateTimeFull, formatMoney, formatShanghaiDate } from "../../lib/format";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { MoneyAmountInput, validateMoneyAmount } from "../writes/MoneyAmountInput";
 import { QueryGate } from "../states/QueryGate";
@@ -263,7 +263,7 @@ export function ProviderFinancePanel({
       </section> : null}
 
       <section className="mt-4 rounded-xl border border-ql-border-zone bg-ql-surface p-4">
-        <div className="grid gap-3 md:grid-cols-2"><FormField htmlFor="finance-history-resource" label="历史记录资源"><select disabled={entryOpen} className={INPUT_CLASS} id="finance-history-resource" onChange={(event) => setResourceId(event.target.value || null)} value={resourceId ?? ""}><option value="">请选择</option>{resources.map((resource) => <option key={resource.id} value={resource.id}>{providerName(resource)} · {resource.name}</option>)}</select></FormField>{selected?.mode === "CODING_PLAN" ? <FinanceMetric label="当前服务周期" value={periods.data?.periods.find((period) => period.current_status === "ACTIVE") ? `${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_start)} ～ ${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_end_exclusive)} · ${formatCount(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.token_usage.true_tokens)} Token` : "无有效周期"} /> : null}</div>
+        <div className="grid gap-3 md:grid-cols-2"><FormField htmlFor="finance-history-resource" label="历史记录资源"><select disabled={entryOpen} className={INPUT_CLASS} id="finance-history-resource" onChange={(event) => setResourceId(event.target.value || null)} value={resourceId ?? ""}><option value="">请选择</option>{resources.map((resource) => <option key={resource.id} value={resource.id}>{providerName(resource)} · {resource.name}</option>)}</select></FormField>{selected?.mode === "CODING_PLAN" ? <FinanceMetric label="当前服务周期" value={periods.data?.periods.find((period) => period.current_status === "ACTIVE") ? `${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_start)} ～ ${formatShanghaiDate(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.period_end_exclusive)} · ${formatTokens(periods.data.periods.find((period) => period.current_status === "ACTIVE")!.token_usage.true_tokens)}` : "无有效周期"} /> : null}</div>
         {selected?.mode === "CODING_PLAN" ? <SubscriptionAutoRenewal key={selected.id} resourceId={selected.id} writable={mode === "ACTIVE"} /> : null}
         {selected?.mode === "CODING_PLAN" ? <SubscriptionHistory periods={periods.data?.periods ?? []} /> : null}
         <h3 className="mt-4 text-[14px] font-semibold text-ql-fg">{month} 历史资金记录（旧口径，只读）</h3>

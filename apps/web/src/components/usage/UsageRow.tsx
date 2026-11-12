@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { UsageRecord } from "../../api/types";
-import { formatCount, formatDateTimeFull, formatDuration, formatMoney } from "../../lib/format";
+import { formatCount, formatTokens, formatDateTimeFull, formatDuration, formatMoney } from "../../lib/format";
 import { RequestDrilldown } from "../../pages/RequestDrilldown";
 import { StatusTag } from "../dashboard/StatusTag";
 import { unavailableUsageCostLabel } from "../../lib/usage-cost";
@@ -73,9 +73,9 @@ export function UsageRow({ record, expanded, onToggle }: {
           <span className="block text-[13px]">{record.finalProviderName ?? record.finalProviderCode ?? "未知厂商"}</span>
         </> : "—"}
       </td>
-      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatCount(record.totalInputTokens)}</td>
-      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatCount(record.totalOutputTokens)}</td>
-      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatCount(record.totalCacheTokens)}</td>
+      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatTokens(record.totalInputTokens)}</td>
+      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatTokens(record.totalOutputTokens)}</td>
+      <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">{formatTokens(record.totalCacheTokens)}</td>
       <td className="py-2.5 pr-4 text-right [font-variant-numeric:tabular-nums]">
         {formatCount(record.totalDeductedQuota)}
         {record.overage === true ? <span className="ml-1 text-[13px] text-ql-danger">超额</span> : null}

@@ -75,7 +75,7 @@ describe("W20-06 部门预算 Web", () => {
     expect(screen.getByText("实际 Token")).toBeInTheDocument();
     expect(screen.getByText("正常")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
-    expect(screen.getByText("120")).toBeInTheDocument();
+    expect(screen.getByText("0.01 万 Token")).toBeInTheDocument();
     const amount = screen.getByRole("spinbutton", { name: "研发部月度预算" });
     const threshold = screen.getByRole("spinbutton", { name: "研发部警戒线" });
     await user.clear(amount);

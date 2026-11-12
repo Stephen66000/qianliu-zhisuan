@@ -101,15 +101,14 @@ export interface OperatingAnalysis {
   }>;
 }
 export const OPERATING_REFRESH_MS = 30_000;
-export function useOperatingAnalysis(month: string, enabled = true) {
+export function useOperatingAnalysis(month: string, enabled = true, tab?: string) {
+  const view = tab === "overview" ? "overview" : "full";
   return useQuery({
-    queryKey: ["operating-analysis", month],
+    queryKey: ["operating-analysis", month, view],
     queryFn: ({ signal }) =>
-      get<OperatingAnalysis>(`/operating-bills/${month}/analysis`, signal),
+      get<OperatingAnalysis>(`/operating-bills/${month}/analysis${view === "overview" ? "?view=overview" : ""}`, signal),
     enabled,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
+    staleTime: OPERATING_REFRESH_MS,
     refetchInterval: OPERATING_REFRESH_MS,
     refetchIntervalInBackground: false,
     retry: 1,

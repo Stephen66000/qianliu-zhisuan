@@ -61,7 +61,7 @@ export function OperatingBillPage() {
   // WP4-S4：bill 查询全页签启用——CLOSED 历史标识横幅需要 status/version，
   // 采购复盘页需要 status 做现行/历史分流（D5／AFR-06）。
   const bill = useOperatingBill(month, true);
-  const analysis = useOperatingAnalysis(month, reporting);
+  const analysis = useOperatingAnalysis(month, reporting, tab);
   useRedirectOnUnauthorized(bill.error ?? analysis.error);
   if (requested === "subjects")
     return <Navigate replace to={`/operating-bill/employees?month=${month}`} />;

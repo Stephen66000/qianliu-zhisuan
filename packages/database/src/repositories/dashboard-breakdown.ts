@@ -84,13 +84,14 @@ export async function buildResourceBreakdown(
   now: Date,
   currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
   monthlyOperatingCosts: MonthlyOperatingCostResource[],
+  currentResourceIds: string[],
 ): Promise<ResourceBreakdownItem[]> {
   const usageFor = await loadDashboardResourceUsage(db, enterpriseId, monthStart, monthEnd, now);
   const rows = await db
     .selectFrom("provider_resource")
     .innerJoin("provider", "provider.id", "provider_resource.provider_id")
     .where("provider_resource.enterprise_id", "=", enterpriseId)
-    .where("provider_resource.status", "<>", "DELETED")
+    .where("provider_resource.id", "in", currentResourceIds)
     .groupBy(["provider.code", "provider.name", "provider_resource.mode"])
     .select([
       "provider.code as provider_code",
@@ -111,7 +112,7 @@ export async function buildResourceBreakdown(
     ])
     .where("provider_resource.enterprise_id", "=", enterpriseId)
     .where("provider.enterprise_id", "=", enterpriseId)
-    .where("provider_resource.status", "<>", "DELETED")
+    .where("provider_resource.id", "in", currentResourceIds)
     .execute();
   const breakdown: ResourceBreakdownItem[] = [];
   const operatingSnapshotByResource = new Map(

@@ -97,14 +97,13 @@ describe("状态切换", () => {
     expect(screen.getByTestId("activation-draft-editor")).toBeInTheDocument();
   });
 
-  it("已激活展示日常资金面板与不可变激活回执，且不再展示向导", () => {
+  it("已激活时展示日常资金面板", () => {
     mocks.state.data = makeState({
       strict_writes_enabled: true, activation_receipt: RECEIPT, activated_at: RECEIPT.activatedAt,
     });
     view();
     expect(screen.getByTestId("daily-finance-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("activation-receipt")).toHaveTextContent("严格资金写激活回执");
-    expect(screen.getByTestId("activation-receipt")).toHaveTextContent("守恒通过");
+    expect(screen.queryByTestId("activation-receipt")).toBeNull();
     expect(screen.queryByTestId("activation-wizard")).not.toBeInTheDocument();
   });
 

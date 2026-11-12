@@ -107,6 +107,7 @@ export interface OperatingBillSubjectRow {
 
 export interface OperatingBillGap {
   code: string;
+  requiresUsageReview?: boolean;
   message: string;
   providerResourceId?: string;
   field?: string;

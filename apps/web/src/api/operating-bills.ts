@@ -130,7 +130,7 @@ export interface OperatingBill {
   providers: OperatingBillProvider[];
   subjects: OperatingBillSubject[];
   values: OperatingBillValue[];
-  gaps: Array<{ code: string; message: string; providerResourceId?: string; field?: string; snapshotId?: string | null; snapshotVersion?: number | null; requestRangeFrom?: string | null; requestRangeTo?: string | null }>;
+  gaps: Array<{ code: string; requiresUsageReview?: boolean; message: string; providerResourceId?: string; field?: string; snapshotId?: string | null; snapshotVersion?: number | null; requestRangeFrom?: string | null; requestRangeTo?: string | null }>;
   versions: Array<{ id: string; version: number; closedAt: string; closedBy: string; closeNote: string | null; exceptions: Array<Record<string, unknown>> }>;
   events: Array<{ id: string; action: string; version: number | null; reason: string | null; actor: string; createdAt: string }>;
 }

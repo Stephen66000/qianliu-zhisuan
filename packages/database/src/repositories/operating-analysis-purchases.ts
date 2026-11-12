@@ -13,9 +13,9 @@ export interface AnalysisPurchaseFact {
  * A later non-overlapping confirmed subscription period is a renewal; source identifies system sync versus manual entry.
  * A migrated legacy ID is excluded so the same payment cannot appear in both ledgers.
  */
-export async function loadAnalysisPurchases(db: Kysely<Database>, enterpriseId: string, selectedMonth: string, now: Date) {
+export async function loadAnalysisPurchases(db: Kysely<Database>, enterpriseId: string, selectedMonth: string, now: Date, monthOnly = false) {
   const selected = operatingBillMonthRange(selectedMonth);
-  const start = new Date(`${selectedMonth.slice(0, 4)}-01-01T00:00:00+08:00`);
+  const start = monthOnly ? selected.start : new Date(`${selectedMonth.slice(0, 4)}-01-01T00:00:00+08:00`);
   const until = new Date(Math.min(now.getTime(), selected.end.getTime() - 1));
   const result = await sql<AnalysisPurchaseFact>`WITH payments AS (
     SELECT event.id::text AS id,event.provider_resource_id,event.event_type::text,event.account_currency AS currency,

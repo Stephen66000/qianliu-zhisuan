@@ -195,7 +195,7 @@ describe("标准版首页（两分区）", () => {
     });
     renderPage();
     const tokenCard = screen.getByTestId("home-token-card");
-    expect(within(tokenCard).getByText("10.00")).toBeInTheDocument();
+    expect(within(tokenCard).getByText("10")).toBeInTheDocument();
     expect(within(tokenCard).getByText("亿 Token")).toBeInTheDocument();
     expect(within(tokenCard).getByText(/较上月同期 \+20\.0%/)).toBeInTheDocument();
     expect(within(tokenCard).getByText("上月同期 8.33 亿 Token")).toBeInTheDocument();
@@ -362,7 +362,7 @@ describe("标准版首页（两分区）", () => {
     const tokenCard = screen.getByTestId("home-token-card");
     const text = tokenCard.textContent ?? "";
     expect(text).not.toContain("+20.0%");
-    expect(text).toContain("10.00");
+    expect(text).toContain("10");
     expect(within(tokenCard).getByText("本期或同期用量不完整，不计算百分比")).toBeInTheDocument();
   });
 
@@ -449,7 +449,7 @@ describe("标准版首页（两分区）", () => {
     });
     renderPage();
     expect(screen.getByTestId("home-provider-meta").textContent).toBe("2 家厂商 · 3 项资源");
-    expect(screen.getByTestId("home-provider-attention-count").textContent).toBe("1 家需关注");
+    expect(screen.getByTestId("home-provider-attention-count").textContent).toBe("1 家调用需关注");
     const rows = screen.getAllByTestId("home-provider-row");
     expect(rows).toHaveLength(2);
     expect(within(rows[1]!).getByText("OpenAI")).toBeInTheDocument();
@@ -462,6 +462,16 @@ describe("标准版首页（两分区）", () => {
       .toContain("调用状态与额度/余额同步状态分别判断");
     expect(screen.getByRole("link", { name: "查看OpenAI资源状态与处理入口" }))
       .toHaveAttribute("href", "/resources?tab=supply-health");
+  });
+
+  it("调用全正常时保留低余额提醒，首页不报调用异常", () => {
+    const data = seededHome();
+    for (const provider of data.resources.providers) provider.statusCategory = "NORMAL";
+    data.resources.providers[1]!.attention = "当前余额偏低";
+    useStandardHomeMock.mockReturnValue({ isLoading: false, error: null, data, isFetching: false, refetch: vi.fn() });
+    renderPage();
+    expect(screen.queryByTestId("home-provider-attention-count")).toBeNull();
+    expect(screen.getByText("当前余额偏低")).toBeInTheDocument();
   });
 
   it("无资源时显示空状态引导", () => {

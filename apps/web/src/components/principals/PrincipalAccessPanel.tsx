@@ -7,7 +7,7 @@ import { QUERY_KEYS, useAccessConfiguration, useGrants, usePrincipalKeys, useUni
 import type { AccessConfiguration, Principal, PrincipalGrantItem } from "../../api/types";
 import { StatusTag } from "../dashboard/StatusTag";
 import { ConfirmDialog } from "../writes/ConfirmDialog";
-import { formatCount } from "../../lib/format";
+import { formatQuotaQuantity } from "../../lib/format";
 import { AgentUsagePanel } from "./AgentUsagePanel";
 import { PrincipalAccessConfigPanel } from "./PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "./PrincipalKeyDialog";
@@ -337,7 +337,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   </td>
                   <td className="p-2 text-ql-fg-secondary">{grant.provider}</td>
                   <td className="p-2 text-right font-mono">
-                    {formatCount(grant.quota_value)}
+                    {formatQuotaQuantity(grant.quota_value, grant.quota_unit)}
                   </td>
                   <td className="p-2">
                     {grant.allow_overage ? "允许" : "不允许"}

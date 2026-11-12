@@ -13,6 +13,8 @@ export function monthlyExpenseGaps(
   facts: ApiCostGapFact[], names: Map<string, string>,
 ): OperatingBillGap[] {
   return facts.map((fact) => ({
+    ...(fact.code === "API_USAGE_COST_UNKNOWN" && fact.actionableRequestCount === "0"
+      ? { requiresUsageReview: false } : {}),
     code: fact.code === "API_USAGE_COST_UNKNOWN" ? "API_COST_UNKNOWN" : fact.code,
     message: `${names.get(fact.providerResourceId) ?? fact.providerResourceId} 本期费用事实存在缺口：${fact.count} 条账本、${fact.requestCount} 个请求；范围 ${rangeLabel(fact)}`,
     providerResourceId: fact.providerResourceId,

@@ -58,9 +58,10 @@ export async function loadResourceModelUsageDetails(
   monthEnd: Date,
   now: Date,
   currentOperatingSnapshots: CurrentProviderOperatingSnapshot[],
+  currentResourceIds: string[],
 ): Promise<ResourceModelUsageDetail[]> {
   const recentStart = new Date(now.getTime() - RECENT_HOURS * 60 * 60 * 1_000);
-  const [registered, monthlyRows, recentRows, forecastResult] = await Promise.all([
+  const [registered, monthlyFacts, recentFacts, forecastResult] = await Promise.all([
     sql<RegisteredModelRow>`
       SELECT DISTINCT pr.id AS resource_id, pr.name AS resource_name,
              p.code AS provider_code, p.name AS provider_name, pr.mode,
@@ -76,7 +77,7 @@ export async function loadResourceModelUsageDetails(
        WHERE mr.enterprise_id = ${enterpriseId}
          AND mr.archived_at IS NULL
          AND um.archived_at IS NULL
-         AND pr.status <> 'DELETED'
+         AND pr.id = ANY(${currentResourceIds}::uuid[])
        ORDER BY p.name, pr.name, um.alias
     `.execute(db),
     queryUsageRows(db, enterpriseId, monthStart, monthEnd),
@@ -93,6 +94,9 @@ export async function loadResourceModelUsageDetails(
        ORDER BY f.provider_resource_id, f.snapshot_at DESC
     `.execute(db),
   ]);
+  const activeIds = new Set(currentResourceIds);
+  const monthlyRows = monthlyFacts.filter((row) => activeIds.has(row.resource_id));
+  const recentRows = recentFacts.filter((row) => activeIds.has(row.resource_id));
   const snapshotByResource = new Map(
     currentOperatingSnapshots.map((snapshot) => [snapshot.provider_resource_id, snapshot]),
   );

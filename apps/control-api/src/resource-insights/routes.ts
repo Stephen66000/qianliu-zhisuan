@@ -32,29 +32,19 @@ export function registerResourceInsightRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_request", message: "month 必须为 YYYY-MM" });
     }
-    const { resources, generatedAt } = await loadResourceUtilizationSnapshot(
-      app.db, req.admin!.enterpriseId, parsed.data.month,
-    );
-    const financeRead = await financeReadModelEnabled(
-      app.providerFinanceMode, app.providerFinanceRepo, req.admin!.enterpriseId,
-    );
-    const finance = !financeRead ? []
-      : await app.providerFinanceRepo.listResourceFinanceViews(
-        req.admin!.enterpriseId, parsed.data.month,
-      );
+    const enterpriseId = req.admin!.enterpriseId;
+    const month = parsed.data.month;
+    const asOf = new Date();
+    const [{ resources, generatedAt }, finance] = await Promise.all([
+      loadResourceUtilizationSnapshot(app.db, enterpriseId, month, asOf),
+      financeReadModelEnabled(app.providerFinanceMode, app.providerFinanceRepo, enterpriseId)
+        .then((enabled) => enabled ? app.providerFinanceRepo.listResourceFinanceViews(enterpriseId, month, asOf) : []),
+    ]);
     const financeByResource = new Map(finance.map((item) => [item.resourceId, item]));
-    const allocatedQuotas = new Map<string, string>();
-    for (const resource of resources) {
-      if (resource.providerCode) {
-        const key = `${resource.providerCode}:${resource.mode}`;
-        if (!allocatedQuotas.has(key)) {
-          const quota = await sumAllocatedQuota(
-            app.db, req.admin!.enterpriseId, resource.providerCode, resource.mode, new Date(),
-          );
-          allocatedQuotas.set(key, quota);
-        }
-      }
-    }
+    const quotaGroups = new Map(resources.filter((resource) => resource.providerCode)
+      .map((resource) => [`${resource.providerCode}:${resource.mode}`, resource] as const));
+    const allocatedQuotas = new Map<string, string>(await Promise.all([...quotaGroups].map(async ([key, resource]) =>
+      [key, await sumAllocatedQuota(app.db, enterpriseId, resource.providerCode!, resource.mode, asOf)] as const)));
     return {
       month: parsed.data.month,
       resources: resources.map((resource) => {

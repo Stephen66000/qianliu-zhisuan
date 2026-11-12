@@ -235,7 +235,7 @@ describe("POOL-043 经营账单员工账／项目账", () => {
     expect(screen.getByRole("link", { name: "员工账" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "项目账" })).toHaveAttribute("href", "/operating-bill/projects?month=2026-08");
     const row = screen.getByRole("row", { name: /于滔/ });
-    expect(within(row).getByText("1,500")).toBeInTheDocument();
+    expect(within(row).getByText("0.15 万 Token")).toBeInTheDocument();
     expect(within(row).getByText("¥12.50")).toBeInTheDocument();
     expect(within(row).getByRole("link", { name: "于滔" })).toHaveAttribute(
       "href",
