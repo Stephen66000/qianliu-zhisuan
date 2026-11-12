@@ -268,6 +268,10 @@ export interface StandardHomeSummary {
   };
 }
 
+export type StandardHomeCost = StandardHomeSummary["monthlyCost"]
+  | { mtdComparison: NonNullable<StandardHomeSummary["monthlyCost"]["mtdComparison"]> };
+export type StandardHomePageData = Omit<StandardHomeSummary, "monthlyCost"> & { monthlyCost?: StandardHomeCost };
+
 export interface UsageRecord {
   requestId: string;
   principalId: string;

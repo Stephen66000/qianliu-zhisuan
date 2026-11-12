@@ -179,7 +179,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/余额/)).not.toBeInTheDocument();
     expect(within(row).queryByText("0.0%")).not.toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("近 3 个完整月月均 Token 10,000,000"));
-    expect(within(row).getByText("1 / 900 万 Token")).toBeInTheDocument();
+    expect(within(row).getByRole("cell", { name: "1 / 900 万 Token" })).toBeInTheDocument();
     expect(within(row).getByText("90.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 9,000,000"));
     expect(within(row).getByText(/距最近使用 2 天/)).toBeInTheDocument();
   });
@@ -190,7 +190,7 @@ describe("W20-08 资源利用事实 Web", () => {
     expect(within(row).queryByText(/5 小时：/)).not.toBeInTheDocument();
     expect(within(row).queryByText(/周：/)).not.toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toBeInTheDocument();
-    expect(within(row).getByText("0 / 0 万 Token")).toBeInTheDocument();
+    expect(within(row).getByRole("cell", { name: "0 / 0 万 Token" })).toBeInTheDocument();
     expect(within(row).getByText("0.0%")).toHaveAttribute("title", expect.stringContaining("本月真实 Token 0"));
     expect(within(row).queryByText("订阅周期累计")).not.toBeInTheDocument();
     fireEvent.click(within(row).getByRole("button"));
@@ -347,7 +347,7 @@ describe("W20-08 资源利用事实 Web", () => {
     row.tokenUtilization = { ...row.tokenUtilization!, rate: "900719925.47409930" };
     useResourceUtilizationMock.mockReturnValue({ data: { resources: [row] }, isLoading: false, error: null, refetch: vi.fn() });
     renderPanel();
-    expect(screen.getByText("1 / 90,071,992.55 亿 Token")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "1 / 90,071,992.55 亿 Token" })).toBeInTheDocument();
     expect(screen.getByTitle(/本月真实 Token 9,007,199,254,740,993/)).toBeInTheDocument();
   });
 

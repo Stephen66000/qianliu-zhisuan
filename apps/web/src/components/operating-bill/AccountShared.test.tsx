@@ -31,11 +31,11 @@ describe("POOL-043 账单展示口径", () => {
     for (const label of ["精确用量", "估算用量", "账号汇总", "混合口径", "用量未知"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(accountCount("1200", "EXACT")).toBe("0.12 万 Token");
-    expect(accountCount("1200", "ESTIMATED")).toBe("0.12 万 Token");
-    expect(accountCount("1200", "ACCOUNT_AGGREGATED")).toBe("0.12 万 Token");
-    expect(accountCount("1200", "MIXED")).toBe("0.12 万 Token");
-    expect(accountCount("1200", "UNKNOWN")).toBe("0.12 万 Token");
+    for (const quality of ["EXACT", "ESTIMATED", "ACCOUNT_AGGREGATED", "MIXED", "UNKNOWN"] as const) {
+      const { getByTitle, unmount } = render(<>{accountCount("1200", quality)}</>);
+      expect(getByTitle("1200 Token")).toHaveTextContent("0.12 万 Token");
+      unmount();
+    }
     expect(accountCount(null, "EXACT")).toBe("未知");
     expect(accountPercentage("60.00", "EXACT")).toBe("60.00%");
     expect(accountPercentage("40.00", "ESTIMATED")).toBe("40.00%");
@@ -154,6 +154,8 @@ it("项目和部门调用点不传员工scope时保持原额度列与值", () =>
   render(<><MetricGrid totals={totals} /><table><tbody><tr><SubjectUsageCells row={row} providers={[]} /></tr></tbody></table></>);
   expect(getSubjectUsageHeaders([]).slice(0, 4)).toEqual(["本月分配额度", "本月token使用量", "token使用率", "本月剩余额度"]);
   expect(screen.getAllByText("12.0%")).toHaveLength(2);
-  expect(screen.getAllByText("0.09 万 Token")).toHaveLength(2);
+  const remaining = screen.getAllByTitle("880 Token");
+  expect(remaining).toHaveLength(2);
+  for (const value of remaining) expect(value).toHaveTextContent("0.09 万 Token");
   expect(screen.queryByRole("link", { name: "员工接入配置" })).toBeNull();
 });

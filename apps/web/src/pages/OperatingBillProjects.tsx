@@ -1,4 +1,4 @@
-import { formatTokens } from "../lib/format";
+import { TokenAmount } from "../components/ui/TokenAmount";
 import { BriefcaseBusiness } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
@@ -135,7 +135,7 @@ export function OperatingBillProjectsPage() {
                                 <span className="flex flex-col text-[13px] text-ql-fg-tertiary">
                                   <span>
                                     {(row as { allocation?: { totalTokens: string } | null }).allocation
-                                      ? `归集 ${formatTokens((row as { allocation?: { totalTokens: string } | null }).allocation!.totalTokens)}`
+                                      ? <>归集 <TokenAmount value={(row as { allocation?: { totalTokens: string } | null }).allocation!.totalTokens} /></>
                                       : "无归集批次"}
                                   </span>
                                   <Link

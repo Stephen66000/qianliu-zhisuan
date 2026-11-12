@@ -1,3 +1,4 @@
+import { TokenAmount } from "../components/ui/TokenAmount";
 /**
  * W20 路由过程下钻的展示区块 —— 结算汇总 / 上游尝试 / 计价决策（自 RequestDrilldown.tsx 拆出）。
  * 字体三级收敛 + 颜色纪律；区块只做声明式展示（加载/空态/明细），
@@ -7,7 +8,7 @@ import type { RequestShapeSummary } from "@qianliu/contracts";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { LoadingState } from "../components/states/LoadingState";
 import { StatusTag } from "../components/dashboard/StatusTag";
-import { formatCount, formatTokens, formatDateTimeFull, formatDecimal, formatDuration } from "../lib/format";
+import { formatCount, formatDateTimeFull, formatDecimal, formatDuration } from "../lib/format";
 import { costMoneyExactText, costMoneyText, unavailableUsageCostLabel } from "../lib/usage-cost";
 import type { AttemptsResult, DispatchDecisionItem, GatewayRequestDetail } from "../api/types";
 
@@ -24,9 +25,9 @@ export function SettlementSummary({ settlement, errorCode }: SettlementSummaryPr
       <h3 className="text-[13px] font-semibold leading-5 text-ql-fg">结算汇总</h3>
       {settlement ? (
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] leading-5 sm:grid-cols-4">
-          <Field label="输入 Token" value={formatTokens(settlement.totalInputTokens)} />
-          <Field label="输出 Token" value={formatTokens(settlement.totalOutputTokens)} />
-          <Field label="缓存 Token" value={formatTokens(settlement.totalCacheTokens)} />
+          <Field label="输入 Token" value={<TokenAmount value={settlement.totalInputTokens} />} />
+          <Field label="输出 Token" value={<TokenAmount value={settlement.totalOutputTokens} />} />
+          <Field label="缓存 Token" value={<TokenAmount value={settlement.totalCacheTokens} />} />
           <Field label="扣减额度" value={formatCount(settlement.totalDeductedQuota)} />
           <Field
             label="API费用估算"
@@ -130,8 +131,8 @@ export function UpstreamAttempts({ attempts }: UpstreamAttemptsProps) {
                       className="text-[13px] leading-[18px] text-ql-fg-tertiary [font-variant-numeric:tabular-nums]"
                       key={i}
                     >
-                      输入 {formatTokens(m.inputTokens)} · 输出 {formatTokens(m.outputTokens)} · 缓存 {formatTokens(m.cacheTokens)}
-                      {m.reasoningTokens !== "0" ? ` · 推理 ${m.reasoningTokens}` : ""}
+                      输入 <TokenAmount value={m.inputTokens} /> · 输出 <TokenAmount value={m.outputTokens} /> · 缓存 <TokenAmount value={m.cacheTokens} />
+                      {m.reasoningTokens !== "0" ? <> · 推理 <TokenAmount value={m.reasoningTokens} /></> : null}
                       {m.deductedQuota !== null ? ` · 扣减 ${m.deductedQuota}` : ""}
                       {m.apiCost !== null && m.apiCost !== "0" && m.apiCost !== "0.00000000"
                         ? ` · 估算 ${costMoneyText(m.apiCost, m.billingRuleSnapshot?.currency)}${priceBasisSuffix(m.billingRuleSnapshot)}`
@@ -263,7 +264,7 @@ function requestShapeText(shape: RequestShapeSummary): string {
   ].filter(Boolean).join(" · ");
 }
 
-export function Field({ label, value }: { label: string; value: string }) {
+export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-2">
       <span className="shrink-0 text-[13px] text-ql-fg-tertiary">{label}</span>

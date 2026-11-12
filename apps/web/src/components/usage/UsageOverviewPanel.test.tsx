@@ -265,7 +265,7 @@ describe("W20-04 用量概览 Web", () => {
     }));
     useUsageOverviewMock.mockReturnValue({ isLoading: false, error: null, data: overview({ trend }) });
     renderPanel();
-    expect(screen.getByText("峰值 09/02 · 0.3 万 Token")).toBeInTheDocument();
+    expect(screen.getByText(/峰值 09\/02/)).toHaveTextContent("0.3 万 Token");
     const chart = screen.getByRole("group", { name: "用量趋势图" });
     for (const item of trend) {
       const summary = `${item.label}：${Number(item.realTokens).toLocaleString("zh-CN")} Token`;
@@ -299,10 +299,15 @@ describe("W20-04 用量概览 Web", () => {
         { ...base.ranking[0]!, subjectId: "employee-zero", subjectName: "零配置员工", allocatedQuota: "0", realTokens: "120" } ] }), refetch: vi.fn() });
     renderPanel("/usage?tab=overview&subject_type=EMPLOYEE&period=MONTH");
     const ranking = screen.getByRole("region", { name: "用量排名表格" });
-    expect(within(ranking).getByText("27.09 亿 Token")).toBeInTheDocument();
+    const usage = within(ranking).getByTitle("2709467730 Token");
+    expect(usage).toHaveTextContent("27.09 亿 Token");
     expect(within(ranking).getByText("当前分配额度")).toBeInTheDocument();
-    expect(within(ranking).getByText("DeepSeek 3 亿 Token")).toBeInTheDocument();
-    expect(within(ranking).getByText("Kimi 50,000,000 套餐折算额度")).toBeInTheDocument();
+    const deepseek = within(ranking).getByTitle("300000000 Token");
+    const kimi = within(ranking).getByTitle("50000000 Token（套餐折算额度）");
+    expect(deepseek.closest("li")).toHaveTextContent("DeepSeek 3 亿 Token");
+    expect(kimi.closest("li")).toHaveTextContent("Kimi 5,000 万 Token");
+    expect(deepseek.closest("td")).toHaveClass("font-mono");
+    expect(usage.closest("td")).toHaveClass("font-mono");
     expect(within(ranking).queryByText("按厂商池查看")).toBeNull();
     for (const misleading of ["分配额度", "token使用率", "剩余额度", "2,200,000,000", "不限", "18.1 亿"]) expect(within(ranking).queryByText(misleading, { exact: true })).toBeNull();
   });
@@ -313,7 +318,7 @@ describe("W20-04 用量概览 Web", () => {
     const ranking = screen.getByRole("region", { name: "用量排名表格" });
     expect(within(ranking).getByText("分配额度")).toBeInTheDocument();
     expect(within(ranking).getByText("12.0%")).toBeInTheDocument();
-    expect(within(ranking).getByText("0.09 万 Token")).toBeInTheDocument();
+    expect(within(ranking).getByTitle("880 Token")).toHaveTextContent("0.09 万 Token");
     expect(within(ranking).queryByText("按厂商池查看")).toBeNull();
   });
 

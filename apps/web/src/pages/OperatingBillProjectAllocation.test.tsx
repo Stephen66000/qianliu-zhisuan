@@ -154,10 +154,11 @@ describe("项目账归集详情页", () => {
 
   it("未分配卡展示汇总、原因拆分与明细前 5 行，超 5 行提示合计", () => {
     showPage();
-    expect(screen.getByText("1.23 万 Token")).toBeInTheDocument();
-    expect(screen.getByText("无参与关系 0.1 万 Token；权重余量 0.02 万 Token")).toBeInTheDocument();
-    expect(screen.getByText("历史关系未知 · 员工1 · <0.01 万 Token")).toBeInTheDocument();
-    expect(screen.getByText("无参与关系 · 员工2 · <0.01 万 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("12345 Token")).toHaveTextContent("1.23 万 Token");
+    expect(screen.getByTitle("1000 Token").parentElement).toHaveTextContent("无参与关系 0.1 万 Token");
+    expect(screen.getByTitle("234 Token").parentElement).toHaveTextContent("权重余量 0.02 万 Token");
+    expect(screen.getByTitle("10 Token").parentElement).toHaveTextContent("历史关系未知 · 员工1 · <0.01 万 Token");
+    expect(screen.getByTitle("20 Token").parentElement).toHaveTextContent("无参与关系 · 员工2 · <0.01 万 Token");
     expect(screen.queryByText(/未知员工/)).not.toBeInTheDocument();
     expect(screen.queryByText("员工6")).not.toBeInTheDocument();
     expect(screen.getByText("共 7 条未分配源行")).toBeInTheDocument();
@@ -168,7 +169,7 @@ describe("项目账归集详情页", () => {
     view.byReason = { SOME_NEW_REASON: "88" };
     m.state.unallocated = view;
     showPage();
-    expect(screen.getByText("SOME_NEW_REASON 0.01 万 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("88 Token").parentElement).toHaveTextContent("SOME_NEW_REASON 0.01 万 Token");
     expect(screen.queryByText(/条未分配源行/)).not.toBeInTheDocument();
   });
 

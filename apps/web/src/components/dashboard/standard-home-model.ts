@@ -5,7 +5,7 @@
  * （单位缩放、百分比、数量差、窗口描述）。同期比较的可比性规则（上期 0、
  * 无已记录金额、多币种不可比不输出正常百分比）在此处统一实现。
  */
-import type { StandardHomeSummary, StandardHomeWindow } from "../../api/types";
+import type { StandardHomeCost, StandardHomePageData, StandardHomeSummary, StandardHomeWindow } from "../../api/types";
 import { currencyFacts, currencyMoney } from "../../lib/currency";
 
 import { formatTokenMagnitude } from "../../lib/format";
@@ -111,7 +111,7 @@ export function previousWindowLabel(window: StandardHomeWindow): string {
 }
 
 /** 概览区脚注：同期窗口 + 时区说明 + 员工/项目分别统计。 */
-export function overviewFootnote(data: StandardHomeSummary): string {
+export function overviewFootnote(data: StandardHomePageData): string {
   const tokenWindow = previousWindowLabel(data.tokenUsage.previous.window);
   const employeeTzNote = data.activeEmployees.timezone === "Asia/Shanghai"
     ? ""
@@ -181,7 +181,7 @@ function mtdCostCard(
 
 /** 概览四卡文案模型（R01-F01/F02 可比性规则集中于此，页面组件只渲染）。 */
 export function buildOverviewCards(
-  data: StandardHomeSummary,
+  data: StandardHomePageData,
 ): { token: OverviewTokenCard; cost: OverviewCostCard } {
   const token = data.tokenUsage;
   const tokenCurrent = formatTokenMagnitude(token.current.totalTokens);
@@ -197,7 +197,21 @@ export function buildOverviewCards(
       : "上月同期为 0 或用量未知，不计算百分比";
   const previousTokenNote = previousTokenQualityNote(token.previous);
 
-  const cost = data.monthlyCost;
+  return {
+    token: {
+      value: tokenCurrent.value,
+      unit: tokenCurrent.unit,
+      delta: tokenDelta,
+      footnote: `上月同期 ${tokenPrevious.value} ${tokenPrevious.unit}${previousTokenNote ? `（${previousTokenNote}）` : ""}`,
+    },
+    cost: buildCostCard(data.monthlyCost),
+  };
+}
+
+function buildCostCard(cost: StandardHomeCost | undefined): OverviewCostCard {
+  if (!cost) return { primary: null, additional: [], emptyText: "正在加载费用…", delta: "", footnote: "" };
+  if (cost.mtdComparison) return mtdCostCard(cost.mtdComparison);
+  if (!("current" in cost)) return { primary: null, additional: [], emptyText: "费用加载失败", delta: "", footnote: "" };
   const costComplete = cost.current.incompleteReason === null
     && (!cost.previous || cost.previous.incompleteReason === null);
   const costAmounts = cost.current.totalSpends.map((fact) =>
@@ -230,20 +244,12 @@ export function buildOverviewCards(
     : "暂无可比数据";
 
   return {
-    token: {
-      value: tokenCurrent.value,
-      unit: tokenCurrent.unit,
-      delta: tokenDelta,
-      footnote: `上月同期 ${tokenPrevious.value} ${tokenPrevious.unit}${previousTokenNote ? `（${previousTokenNote}）` : ""}`,
-    },
-    cost: cost.mtdComparison?.basis === "FINANCE_READ_MODEL" ? mtdCostCard(cost.mtdComparison) : {
-      primary: costAmounts[0] ?? null,
-      additional: costAmounts.slice(1),
-      emptyText: costAmounts.length === 0
-        ? cost.current.incompleteReason ? costGapLabel(cost.current.incompleteReason) : "暂无可计算费用"
-        : null,
-      delta: costDelta,
-      footnote: `上月同期 ${costPreviousText}`,
-    },
+    primary: costAmounts[0] ?? null,
+    additional: costAmounts.slice(1),
+    emptyText: costAmounts.length === 0
+      ? (cost.current.incompleteReason ? costGapLabel(cost.current.incompleteReason) : "暂无可计算费用")
+      : null,
+    delta: costDelta,
+    footnote: `上月同期 ${costPreviousText}`,
   };
 }

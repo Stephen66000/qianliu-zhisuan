@@ -27,7 +27,7 @@ it.each(["kimi", "zhipu"])("%s 扣减缺失仍保留周期真实 Token", (provid
       trueTokens: "9000000", deductedQuota: null, deductedQuotaComplete: false, requestCount: "100" },
   } };
   render(<ResourceFinanceDisplay resource={resource} />);
-  expect(screen.getByText("周期真实 Token 900 万 Token")).toBeInTheDocument();
+  expect(screen.getByTitle("9000000 Token").parentElement).toHaveTextContent("周期真实 Token 900 万 Token");
   expect(screen.queryByText(/周期已扣减|事实不完整/)).not.toBeInTheDocument();
   expect(screen.getByText("2026-08-19 ～ 2026-09-19")).toBeInTheDocument();
 });
@@ -70,16 +70,16 @@ describe("ResourceFinanceColumn & ResourceQuotaColumn 列拆分测试", () => {
     unmountFinance();
 
     const { unmount: unmountQuota } = render(<ResourceQuotaColumn resource={resource} />);
-    expect(screen.getByText("分配额度 30 亿 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("3000000000 Token").parentElement).toHaveTextContent("分配额度 30 亿 Token");
     expect(screen.queryByText(/订阅额度/)).not.toBeInTheDocument();
-    expect(screen.getByText("周期真实 Token 2.23 亿 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("223157358 Token").parentElement).toHaveTextContent("周期真实 Token 2.23 亿 Token");
     expect(screen.getByText("2026-08-19 ～ 2026-09-19")).toBeInTheDocument();
     expect(screen.queryByText(/当前订阅金额/)).not.toBeInTheDocument();
     unmountQuota();
 
     // 优先显示主体分配额度（跟随接受主体调整实时变化）
     render(<ResourceQuotaColumn resource={{ ...resource, allocated_quota: "3530100000" }} />);
-    expect(screen.getByText("分配额度 35.3 亿 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("3530100000 Token").parentElement).toHaveTextContent("分配额度 35.3 亿 Token");
   });
 
   // 断言迁移（WP4-S2 合同 2 / D5＋AFR-07）：API 资源内部资金三行（本月充值/余额/本月
@@ -172,8 +172,8 @@ describe("ResourceFinanceColumn & ResourceQuotaColumn 列拆分测试", () => {
     // CP 资源：套餐费用与额度栏目保留（W5/W6 域不受 API 资金退役影响）。
     expect(screen.getByText("当前订阅金额 CNY 199.00")).toBeInTheDocument();
     expect(screen.getByText("本月订阅实付 ¥199.00")).toBeInTheDocument();
-    expect(screen.getByText("分配额度 30 亿 Token")).toBeInTheDocument();
-    expect(screen.getByText("周期真实 Token 2.23 亿 Token")).toBeInTheDocument();
+    expect(screen.getByTitle("3000000000 Token").parentElement).toHaveTextContent("分配额度 30 亿 Token");
+    expect(screen.getByTitle("223157358 Token").parentElement).toHaveTextContent("周期真实 Token 2.23 亿 Token");
     expect(screen.getByText("2026-10-19 ～ 2026-11-19")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createKysely, migrateToLatest, type Database } from "@qianliu/database";
 import { startPostgresContainer, type PostgresTestInstance } from "@qianliu/testing";
@@ -59,8 +59,8 @@ afterAll(async () => {
 }, 60_000);
 
 describe("标准版首页 /dashboard/home 权限边界", () => {
-  it("未登录请求返回 401", async () => {
-    const response = await app.inject({ method: "GET", url: "/dashboard/home" });
+  it.each(["", "?scope=overview", "?scope=cost"])("未登录请求返回 401 (%s)", async (query) => {
+    const response = await app.inject({ method: "GET", url: `/dashboard/home${query}` });
     expect(response.statusCode).toBe(401);
   });
 
@@ -74,5 +74,36 @@ describe("标准版首页 /dashboard/home 权限边界", () => {
     expect(body.resources.resourceCount).toBe(0);
     expect(JSON.stringify(body)).not.toContain("B 独有厂商");
     expect(body.tokenUsage.current.totalTokens).toBe("0");
+  });
+
+  it("首页概览和财务同期费用都不读取整月账单", async () => {
+    const mode = app.providerFinanceMode;
+    app.providerFinanceMode = "DARK";
+    const bill = vi.spyOn(app.operatingBillRepo, "getBill");
+    try {
+      const overview = await app.inject({
+        method: "GET", url: "/dashboard/home?scope=overview", headers: { cookie: cookieA },
+      });
+      expect(overview.statusCode).toBe(200);
+      const body = overview.json();
+      expect(body).not.toHaveProperty("monthlyCost");
+      expect(body.resources.providerCount).toBe(0);
+      expect(body.tokenUsage.current.totalTokens).toBe("0");
+
+      const cost = await app.inject({
+        method: "GET",
+        url: `/dashboard/home?scope=cost&as_of=${encodeURIComponent(body.asOf)}`,
+        headers: { cookie: cookieA },
+      });
+      expect(cost.statusCode).toBe(200);
+      expect(cost.json().mtdComparison).toMatchObject({
+        basis: "FINANCE_READ_MODEL",
+        current: { window: { rangeEndExclusive: body.asOf } },
+      });
+      expect(bill).not.toHaveBeenCalled();
+    } finally {
+      app.providerFinanceMode = mode;
+      bill.mockRestore();
+    }
   });
 });

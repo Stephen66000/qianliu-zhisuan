@@ -1,3 +1,4 @@
+import { QuotaAmount, TokenAmount } from "../ui/TokenAmount";
 import { useEffect, useState } from "react";
 import {
   useResourceMonthlyBudget,
@@ -5,7 +6,7 @@ import {
   useSaveResourceMonthlyBudget,
 } from "../../api/v2-hooks";
 import type { ProviderResourceItem } from "../../api/types";
-import { formatQuotaQuantity, formatCount, formatTokens, formatDecimal, formatMoney } from "../../lib/format";
+import { formatCount, formatDecimal, formatMoney } from "../../lib/format";
 import { QueryGate } from "../states/QueryGate";
 import { Gauge } from "lucide-react";
 import type { ResourceUtilization } from "../../api/v2-types";
@@ -97,15 +98,15 @@ export function ResourceUtilizationPanel({ resources: _resources }: { resources:
           leading={<><span className="font-medium">{row.providerName} · {row.resourceName}</span><span className="block text-ql-fg-tertiary">{row.mode === "API" ? "API" : "Coding Plan"}</span></>}
           details={<>
             <RowDetail label="订阅周期">{subscriptionDisplay(row)}</RowDetail>
-            <RowDetail label="分配额度">{row.mode !== "CODING_PLAN" ? "—" : row.allocatedQuota ? formatQuotaQuantity(row.allocatedQuota, row.quotaUnit) : row.totalQuota === null ? "待补" : formatQuotaQuantity(row.totalQuota, row.quotaUnit)}</RowDetail>
+            <RowDetail label="分配额度">{row.mode !== "CODING_PLAN" ? "—" : row.allocatedQuota ? <QuotaAmount value={row.allocatedQuota} unit={row.quotaUnit} /> : row.totalQuota === null ? "待补" : <QuotaAmount value={row.totalQuota} unit={row.quotaUnit} />}</RowDetail>
             <RowDetail label="最近使用 / 无调用">{recentUsageDisplay(row)}</RowDetail>
             <RowDetail label="利用率口径"><p className="text-ql-fg-secondary">本月真实 Token / 近最多三个完整自然月月均真实 Token</p>
-              {row.tokenUtilization ? <p className="text-ql-fg-secondary">本月 {formatTokens(row.tokenUtilization.currentMonthTokens)}；历史月均 {row.tokenUtilization.trailingThreeMonthAverageTokens === null ? "—" : formatTokens(row.tokenUtilization.trailingThreeMonthAverageTokens)}；基准月 {row.tokenUtilization.baselineMonths.join("、") || "暂无完整历史自然月"}</p> : null}
+              {row.tokenUtilization ? <p className="text-ql-fg-secondary">本月 <TokenAmount value={row.tokenUtilization.currentMonthTokens} />；历史月均 <TokenAmount value={row.tokenUtilization.trailingThreeMonthAverageTokens} />；基准月 {row.tokenUtilization.baselineMonths.join("、") || "暂无完整历史自然月"}</p> : null}
             </RowDetail>
             <RowDetail label="预算差额">{row.mode !== "API" ? "—" : row.budgetDifference === null ? "不可计算" : `${row.budgetCurrency} ${formatMoney(row.budgetDifference)}`}</RowDetail>
           </>}
         >
-          <td className="text-right font-mono">{row.requestCount} / {formatTokens(row.realTokens)}</td>
+          <td className="text-right font-mono">{row.requestCount} / <TokenAmount value={row.realTokens} /></td>
           <td className="text-right font-mono">{row.mode === "API" ? row.apiCost === null ? "API费用估算不可计算" : `${row.currency ?? "CNY"} ${formatMoney(row.apiCost)}` : row.packageCost === null ? "套餐费用未知" : `${row.currency ?? "CNY"} ${formatMoney(row.packageCost)}`}</td>
           <td>{utilizationDisplay(row)}<span className="block text-ql-fg-tertiary">{!row.lastSettledRequestAt ? "暂无结算用量" : row.continuousNoCallDays === null ? "距最近使用时间未知" : row.continuousNoCallDays === 0 ? "今日有使用" : `距最近使用 ${row.continuousNoCallDays} 天`}</span></td>
           <td>{row.mode === "API" ? <div>{row.budgetAmount ? <><span>{row.budgetCurrency} {formatMoney(row.budgetAmount)}</span><span className="block text-ql-fg-tertiary">差额 {row.budgetDifference === null ? "不可计算" : `${row.budgetCurrency} ${formatMoney(row.budgetDifference)}`}</span></> : <span className="block text-ql-fg-tertiary">未设置预算</span>}

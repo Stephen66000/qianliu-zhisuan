@@ -1,10 +1,11 @@
+import { TokenAmount } from "../ui/TokenAmount";
 import { Button } from "../ui/Button";
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 
 import { useDepartmentBill, useSaveDepartmentBudget } from "../../api/v2-hooks";
 import type { DepartmentBill } from "../../api/v2-types";
-import { formatTokens, formatMoney } from "../../lib/format";
+import { formatMoney } from "../../lib/format";
 import { StatusTag } from "../dashboard/StatusTag";
 import { QueryGate } from "../states/QueryGate";
 import { INPUT_CLASS } from "../writes/FormField";
@@ -63,7 +64,7 @@ function BudgetRow({ billStatus, month, row }: {
     <td className="p-2 font-medium">{row.departmentName}</td>
     <td><input aria-label={`${row.departmentName}月度预算`} className={`${INPUT_CLASS} w-32`} disabled={billStatus === "CLOSED"} min="0" onChange={(event) => setAmount(event.target.value)} placeholder="未设置" step="0.01" type="number" value={amount}/></td>
     <td>{row.totalCost === null ? "—" : `¥${formatMoney(row.totalCost)}`}</td>
-    <td className="font-mono">{formatTokens(row.actualTokens)}</td>
+    <td className="font-mono"><TokenAmount value={row.actualTokens} /></td>
     <td>{row.budgetUsageRate === null ? "—" : `${(Number(row.budgetUsageRate) * 100).toFixed(1)}%`}</td>
     <td><input aria-label={`${row.departmentName}警戒线`} className={`${INPUT_CLASS} w-24`} disabled={billStatus === "CLOSED"} max="1" min="0.00000001" onChange={(event) => setWarning(event.target.value)} step="0.01" type="number" value={warning}/></td>
     <td><StatusTag tone={state.tone}>{state.label}</StatusTag></td>

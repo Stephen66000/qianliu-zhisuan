@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -476,4 +476,6 @@ it("monthly overview starts with the selected month's exact total tokens", () =>
   render(<MemoryRouter><OperatingBillPage /></MemoryRouter>);
   const card=screen.getByText("本月token使用量").closest("article");
   expect(card).toHaveTextContent("1 亿 Token");
+  expect(within(card!).getByText("1")).toHaveClass("font-semibold");
+  expect(within(card!).getByText("亿 Token")).toHaveClass("font-normal", "text-ql-fg-secondary");
 });

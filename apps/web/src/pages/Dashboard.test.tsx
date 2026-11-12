@@ -189,6 +189,20 @@ describe("标准版首页（两分区）", () => {
     expect(screen.getByRole("heading", { name: "首页看板" })).toBeInTheDocument();
   });
 
+  it("费用未返回时先展示首页用量与资源，费用出错时仍可查看首页", () => {
+    const data = { ...seededHome(), monthlyCost: undefined };
+    useStandardHomeMock.mockReturnValue({ isLoading: false, data, refetch: vi.fn() });
+    const { rerender } = renderPage();
+    expect(screen.getByTestId("home-token-card")).toHaveTextContent("10亿 Token");
+    expect(screen.getByRole("heading", { name: "接入资源" })).toBeInTheDocument();
+    expect(screen.getByTestId("home-cost-card")).toHaveTextContent("正在加载费用");
+
+    useStandardHomeMock.mockReturnValue({ isLoading: false, data, costError: new Error("timeout"), refetch: vi.fn() });
+    rerender(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.getByTestId("home-token-card")).toBeInTheDocument();
+    expect(screen.getByTestId("home-cost-card")).toHaveTextContent("费用加载失败");
+  });
+
   it("四张卡片展示真实字段与同期参照，且不再输出卡片内解释行", () => {
     useStandardHomeMock.mockReturnValue({
       isLoading: false, error: null, data: seededHome(), isFetching: false, refetch: vi.fn(),

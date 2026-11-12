@@ -51,75 +51,27 @@ function windowToIso(window: { start: Date; end: Date; truncated: boolean }): St
   };
 }
 
-export async function getStandardHomeSummary(
+/** First paint only needs usage, subjects and resource status. */
+export async function getStandardHomeOverview(
   db: Kysely<Database>,
-  options: StandardHomeOptions,
-): Promise<StandardHomeSummary> {
-  const { enterpriseId, asOf, financeRead } = options;
+  enterpriseId: string,
+  asOf: Date,
+): Promise<Omit<StandardHomeSummary, "monthlyCost">> {
   const shanghaiMonth = shanghaiNaturalMonthRange(asOf);
   const prevShanghai = previousShanghaiMonthWindow(asOf);
-
-  const [
-    bill,
-    employeeOverview,
-    tokenCurrent,
-    tokenPrevious,
-    projectsCurrent,
-    projectsPrevious,
-    employeePrevious,
-    bridgeSummary,
-    financeWindow,
-    currentFinanceWindow,
-    resources,
-  ] = await Promise.all([
-    options.bill,
-    new UsageOverviewRepository(db).getActiveSubjectSummary({
-      enterpriseId,
-      subjectType: "EMPLOYEE",
-      period: "MONTH",
-      anchor: asOf,
-    }),
+  const [employeeOverview, tokenCurrent, tokenPrevious, projectsCurrent, projectsPrevious, employeePrevious, resources] = await Promise.all([
+    new UsageOverviewRepository(db).getActiveSubjectSummary({ enterpriseId, subjectType: "EMPLOYEE", period: "MONTH", anchor: asOf }),
     tokenTotalsForRange(db, enterpriseId, shanghaiMonth.start, shanghaiMonth.end),
     tokenTotalsForRange(db, enterpriseId, prevShanghai.start, prevShanghai.end),
     countActiveProjectsRange(db, enterpriseId, shanghaiMonth.start, shanghaiMonth.end),
     countActiveProjectsRange(db, enterpriseId, prevShanghai.start, prevShanghai.end),
     previousEmployeeWindow(db, enterpriseId, asOf),
-    !financeRead
-      ? loadWindowBridgeCosts(db, enterpriseId, prevShanghai.start, prevShanghai.end)
-      : null,
-    financeRead
-      ? loadWindowOperatingFinance(db, enterpriseId, prevShanghai.start, prevShanghai.end)
-      : null,
-    // 整月账单可能含未来日期的已登记费用；MTD 分子和分母必须使用相同查询及截止时刻。
-    financeRead
-      ? loadWindowOperatingFinance(db, enterpriseId, shanghaiMonth.start, asOf)
-      : null,
     loadStandardHomeResources(db, enterpriseId, asOf),
   ]);
 
-  const previousCost = financeWindow
-    ? {
-      totalSpends: financeWindow.totalSpends,
-      incompleteReason: financeWindow.incompleteReason,
-      basis: "FINANCE_READ_MODEL" as const,
-      window: windowToIso(prevShanghai),
-    }
-    : bridgeSummary
-      ? {
-        // 已知部分保留：总额不完整时透出已计价 API 花费 + 套餐费用（如上月 Kimi 套餐），
-        // 缺口由 incompleteReason 显式标记，而不是把已知金额丢弃为"不可完整计算"。
-        totalSpends: bridgeSummary.totalSpends.length > 0
-          ? bridgeSummary.totalSpends
-          : bridgeKnownSpends(bridgeSummary),
-        incompleteReason: bridgeIncompleteReason(bridgeSummary),
-        basis: "BALANCE_BRIDGE" as const,
-        window: windowToIso(prevShanghai),
-      }
-      : null;
-
   return {
     asOf: asOf.toISOString(),
-    month: bill.month,
+    month: new Date(asOf.getTime() + 8 * 3_600_000).toISOString().slice(0, 7),
     tokenUsage: {
       rangeStart: shanghaiMonth.start.toISOString(),
       rangeEndExclusive: shanghaiMonth.end.toISOString(),
@@ -136,22 +88,6 @@ export async function getStandardHomeSummary(
         unknownCount: tokenPrevious.unknownCount,
         window: windowToIso(prevShanghai),
       },
-    },
-    monthlyCost: {
-      month: bill.month,
-      billStatus: bill.status,
-      ...(currentFinanceWindow && financeWindow ? { mtdComparison: {
-        basis: "FINANCE_READ_MODEL" as const,
-        current: { ...currentFinanceWindow, window: windowToIso({ start: shanghaiMonth.start, end: asOf, truncated: false }) },
-        previous: { ...financeWindow, window: windowToIso(prevShanghai) },
-      } } : {}),
-      current: {
-        totalSpends: bill.summary.totalSpends,
-        apiSpends: bill.summary.apiSpends,
-        packageCosts: bill.summary.packageCosts,
-        incompleteReason: billIncompleteReason(bill),
-      },
-      previous: previousCost,
     },
     activeEmployees: {
       timezone: employeeOverview.timezone,
@@ -171,4 +107,69 @@ export async function getStandardHomeSummary(
     },
     resources,
   };
+}
+
+/** The finance-mode card uses these two as-of windows, independently of the full monthly bill. */
+export async function getStandardHomeMtdComparison(
+  db: Kysely<Database>,
+  enterpriseId: string,
+  asOf: Date,
+): Promise<NonNullable<StandardHomeSummary["monthlyCost"]["mtdComparison"]>> {
+  const { start } = shanghaiNaturalMonthRange(asOf);
+  const previous = previousShanghaiMonthWindow(asOf);
+  const [currentCost, previousCost] = await Promise.all([
+    loadWindowOperatingFinance(db, enterpriseId, start, asOf),
+    loadWindowOperatingFinance(db, enterpriseId, previous.start, previous.end),
+  ]);
+  return {
+    basis: "FINANCE_READ_MODEL",
+    current: { ...currentCost, window: windowToIso({ start, end: asOf, truncated: false }) },
+    previous: { ...previousCost, window: windowToIso(previous) },
+  };
+}
+
+export async function getStandardHomeMonthlyCost(
+  db: Kysely<Database>,
+  { enterpriseId, asOf, bill, financeRead }: StandardHomeOptions,
+): Promise<StandardHomeSummary["monthlyCost"]> {
+  const previousWindow = previousShanghaiMonthWindow(asOf);
+  const [snapshot, mtdComparison, bridgeSummary] = await Promise.all([
+    bill,
+    financeRead ? getStandardHomeMtdComparison(db, enterpriseId, asOf) : null,
+    financeRead ? null : loadWindowBridgeCosts(db, enterpriseId, previousWindow.start, previousWindow.end),
+  ]);
+  const previous = mtdComparison
+    ? { ...mtdComparison.previous, basis: "FINANCE_READ_MODEL" as const }
+    : bridgeSummary
+      ? {
+        totalSpends: bridgeSummary.totalSpends.length > 0 ? bridgeSummary.totalSpends : bridgeKnownSpends(bridgeSummary),
+        incompleteReason: bridgeIncompleteReason(bridgeSummary),
+        basis: "BALANCE_BRIDGE" as const,
+        window: windowToIso(previousWindow),
+      }
+      : null;
+
+  return {
+    month: snapshot.month,
+    billStatus: snapshot.status,
+    ...(mtdComparison ? { mtdComparison } : {}),
+    current: {
+      totalSpends: snapshot.summary.totalSpends,
+      apiSpends: snapshot.summary.apiSpends,
+      packageCosts: snapshot.summary.packageCosts,
+      incompleteReason: billIncompleteReason(snapshot),
+    },
+    previous,
+  };
+}
+
+export async function getStandardHomeSummary(
+  db: Kysely<Database>,
+  options: StandardHomeOptions,
+): Promise<StandardHomeSummary> {
+  const [overview, monthlyCost] = await Promise.all([
+    getStandardHomeOverview(db, options.enterpriseId, options.asOf),
+    getStandardHomeMonthlyCost(db, options),
+  ]);
+  return { ...overview, month: monthlyCost.month, monthlyCost };
 }

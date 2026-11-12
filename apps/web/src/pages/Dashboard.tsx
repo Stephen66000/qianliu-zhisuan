@@ -4,7 +4,7 @@
  * 分区 1「本月概览」：本月 Token、本月综合费用（含 API 估算）、本月活跃员工、本月活跃项目四张卡片，
  * Token 为本视窗唯一青色焦点；每卡提供上月同期参照（同期可比性规则见
  * standard-home-model.ts）。分区 2「接入资源」：完整厂商清单 + 调用状态 + 关注信息。
- * 数据全部来自 GET /dashboard/home 后端聚合（口径与各目的页同源，见 contract.md），
+ * 首页概览先加载，费用随后独立读取；数据口径与各目的页同源，见 contract.md。
  * 前端只格式化；五个跳转以计划第 3 节为准，经真实路由工具生成。
  */
 import { RefreshCw } from "lucide-react";
@@ -100,7 +100,7 @@ export function DashboardPage() {
           <OverviewMetricCard
             additionalValues={cards.cost.additional}
             delta={cards.cost.delta}
-            emptyText={cards.cost.emptyText ?? undefined}
+            emptyText={query.costError && !data.monthlyCost ? "费用加载失败" : cards.cost.emptyText ?? undefined}
             footnote={cards.cost.footnote}
             /* ACE-07（WP4-S4）：金额=套餐+API 费用估算按币种合计，标注含 API 估算口径。 */
             label="本月综合费用（含 API 估算）"

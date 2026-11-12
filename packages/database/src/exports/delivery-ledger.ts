@@ -104,6 +104,9 @@ export {
 
 export {
   getStandardHomeSummary,
+  getStandardHomeOverview,
+  getStandardHomeMonthlyCost,
+  getStandardHomeMtdComparison,
 } from "../repositories/dashboard-home.js";
 
 export {

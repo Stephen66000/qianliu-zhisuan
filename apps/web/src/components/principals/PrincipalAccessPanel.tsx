@@ -1,3 +1,4 @@
+import { QuotaAmount } from "../ui/TokenAmount";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, KeyRound, Settings2 } from "lucide-react";
@@ -7,7 +8,6 @@ import { QUERY_KEYS, useAccessConfiguration, useGrants, usePrincipalKeys, useUni
 import type { AccessConfiguration, Principal, PrincipalGrantItem } from "../../api/types";
 import { StatusTag } from "../dashboard/StatusTag";
 import { ConfirmDialog } from "../writes/ConfirmDialog";
-import { formatQuotaQuantity } from "../../lib/format";
 import { AgentUsagePanel } from "./AgentUsagePanel";
 import { PrincipalAccessConfigPanel } from "./PrincipalAccessConfigPanel";
 import { PrincipalKeyDialog } from "./PrincipalKeyDialog";
@@ -337,7 +337,7 @@ export function PrincipalAccessPanel({ principal }: { principal: Principal }) {
                   </td>
                   <td className="p-2 text-ql-fg-secondary">{grant.provider}</td>
                   <td className="p-2 text-right font-mono">
-                    {formatQuotaQuantity(grant.quota_value, grant.quota_unit)}
+                    <QuotaAmount value={grant.quota_value} unit={grant.quota_unit} />
                   </td>
                   <td className="p-2">
                     {grant.allow_overage ? "允许" : "不允许"}

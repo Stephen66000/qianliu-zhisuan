@@ -11,7 +11,8 @@ import type {
   BillingRulesResult,
   DashboardSummary,
   DispatchPoliciesResult,
-  StandardHomeSummary,
+  StandardHomeCost,
+  StandardHomePageData,
   SupplyForecastsResult,
   UsageQueryParams,
   UsageResult,
@@ -28,12 +29,27 @@ export function useDashboard() {
 
 /** 标准版首页两分区聚合（HOME-STANDARD-20260910）。 */
 export function useStandardHome() {
-  return useQuery({
+  const overview = useQuery({
     queryKey: QUERY_KEYS.standardHome,
-    queryFn: ({ signal }) => get<StandardHomeSummary>("/dashboard/home", signal),
+    queryFn: ({ signal }) => get<StandardHomePageData>("/dashboard/home?scope=overview", signal),
     retry: 1,
     staleTime: 30_000,
   });
+  const asOf = overview.data?.asOf;
+  const cost = useQuery({
+    queryKey: [...QUERY_KEYS.standardHome, "cost", asOf],
+    queryFn: ({ signal }) => get<StandardHomeCost>(
+      `/dashboard/home?scope=cost&as_of=${encodeURIComponent(asOf!)}`, signal,
+    ),
+    enabled: Boolean(asOf) && !overview.data?.monthlyCost,
+    retry: 1,
+    staleTime: 30_000,
+  });
+  return {
+    ...overview,
+    data: overview.data ? { ...overview.data, monthlyCost: overview.data.monthlyCost ?? cost.data } : undefined,
+    costError: cost.error,
+  };
 }
 
 export function useUsage(params: UsageQueryParams) {

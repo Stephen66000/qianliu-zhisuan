@@ -1,3 +1,4 @@
+import { TokenAmount } from "../ui/TokenAmount";
 import { Link } from "react-router-dom";
 import { accountApiMoney, legacyAccountQuota } from "./AccountShared";
 import { Fragment } from "react";
@@ -81,9 +82,9 @@ export function SubjectUsageCells({
 
   return (
     <>
-      {quota ? <AccountCell numeric>{quota.allocated}</AccountCell> : null}
+      {quota ? <AccountCell numeric><TokenAmount value={quota.allocated} /></AccountCell> : null}
       <AccountCell numeric>{accountCount(totals.totalTokens, totals.usageQuality)}</AccountCell>
-      {quota ? <><AccountCell numeric>{quota.usageRate}</AccountCell><AccountCell numeric>{quota.remaining}</AccountCell></> :
+      {quota ? <><AccountCell numeric>{quota.usageRate}</AccountCell><AccountCell numeric><TokenAmount value={quota.remaining} /></AccountCell></> :
         <AccountCell><Link className="text-ql-action" to="/principals" aria-label={`${row.subjectName}按厂商池查看额度`}>按厂商池查看</Link></AccountCell>}
       {[
         totals.inputTokens,

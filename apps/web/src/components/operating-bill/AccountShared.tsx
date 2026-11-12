@@ -1,3 +1,4 @@
+import { TokenAmount } from "../ui/TokenAmount";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
@@ -6,7 +7,7 @@ import type {
   OperatingBillMetricTotals,
   OperatingBillUsageQuality,
 } from "../../api/operating-bill-accounts";
-import { formatCount, formatTokens, formatMoney } from "../../lib/format";
+import { formatCount, formatMoney } from "../../lib/format";
 import { StatusTag } from "../dashboard/StatusTag";
 import { BillStat } from "./BillStat";
 import { inputClass } from "./BillShared";
@@ -31,9 +32,8 @@ export function UsageQualityTag({ quality }: { quality: OperatingBillUsageQualit
 export function accountCount(
   value: string | null,
   _quality: OperatingBillUsageQuality,
-): string {
-  if (value === null) return "未知";
-  return formatTokens(value);
+): ReactNode {
+  return value === null ? "未知" : <TokenAmount value={value} />;
 }
 
 export function accountPercentage(
@@ -75,9 +75,9 @@ export function legacyAccountQuota(allocatedQuota: string | null | undefined, to
   const allocated = allocatedQuota ? Number(allocatedQuota) : 0;
   const used = totalTokens ? Number(totalTokens) : 0;
   return {
-    allocated: allocated > 0 ? formatTokens(allocatedQuota!) : "不限",
+    allocated: allocated > 0 ? allocatedQuota! : "不限",
     usageRate: allocated > 0 && totalTokens !== null ? `${((used / allocated) * 100).toFixed(1)}%` : "—",
-    remaining: allocated > 0 && totalTokens !== null ? formatTokens(String(Math.max(0, allocated - used))) : "不限",
+    remaining: allocated > 0 && totalTokens !== null ? String(Math.max(0, allocated - used)) : "不限",
   };
 }
 
@@ -94,6 +94,7 @@ export function MetricGrid({ totals, quotaScope }: { totals: OperatingBillMetric
     {
       label: "本月分配额度",
       value: quota?.allocated ?? null,
+      tokens: true,
     },
     {
       label: "本月token使用量",
@@ -107,6 +108,7 @@ export function MetricGrid({ totals, quotaScope }: { totals: OperatingBillMetric
     {
       label: "本月剩余额度",
       value: quota?.remaining ?? null,
+      tokens: true,
     },
     {
       label: "月度总花费",

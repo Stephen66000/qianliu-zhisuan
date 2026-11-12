@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { formatTokenMagnitude } from "../../lib/format";
+import { TokenAmount } from "../ui/TokenAmount";
 
 export function compactBillTokens(value: string): {
   text: string;
@@ -23,12 +24,6 @@ export function BillStat({
   highlight?: boolean;
 }) {
   const root = useRef<HTMLElement>(null);
-  const display =
-    value === null
-      ? { text: missing, unit: "" }
-      : tokens
-        ? compactBillTokens(value)
-        : { text: value, unit: "" };
   useLayoutEffect(() => {
     const fit = () =>
       root.current
@@ -74,18 +69,13 @@ export function BillStat({
       <strong
         data-fit="value"
         aria-label={
-          value === null ? "数据缺失" : tokens ? `${value} Token` : value
+          value === null ? "数据缺失" : tokens && formatTokenMagnitude(value).unit ? `${value} Token` : value
         }
         className={`mt-2 block whitespace-nowrap text-[24px] font-semibold tabular-nums ${
           highlight ? "text-ql-action" : "text-ql-fg"
         }`}
       >
-        {display.text}
-        {display.unit ? (
-          <span className="ml-1 text-[13px] font-normal text-ql-fg-secondary">
-            {display.unit}
-          </span>
-        ) : null}
+        {tokens ? <TokenAmount value={value} missing={missing} /> : value ?? missing}
       </strong>
     </article>
   );

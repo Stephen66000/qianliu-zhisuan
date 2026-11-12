@@ -1,11 +1,12 @@
+import { TokenAmount } from "../ui/TokenAmount";
 import type { OperatingAnalysis } from "../../api/operating-analysis";
-import { formatDecimal, formatTokens } from "../../lib/format";
+import { formatDecimal } from "../../lib/format";
 import { Cell, Num, Table } from "../../pages/OperatingBillShared";
 import { BillCard, SectionHeading } from "./BillShared";
 import { BillStat } from "./BillStat";
 
 export const analysisTokens = (value: string | null) =>
-  value === null ? "—" : formatTokens(value);
+  <TokenAmount value={value} />;
 export const analysisPercent = (value: string | null, signed = false) =>
   value === null
     ? "—"

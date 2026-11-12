@@ -1,14 +1,16 @@
+import { QuotaAmount } from "../ui/TokenAmount";
+import type { ReactNode } from "react";
 import { SyncModelsPanel } from "./ResourceModelDiscovery";
 import { ConfirmDialog } from "../writes/ConfirmDialog";
 import { FormField, INPUT_CLASS } from "../writes/FormField";
 import { IntegerAmountInput } from "../writes/IntegerAmountInput";
 import { MoneyAmountInput } from "../writes/MoneyAmountInput";
-import { formatQuotaQuantity, formatDateTimeFull, formatMoney } from "../../lib/format";
+import { formatDateTimeFull, formatMoney } from "../../lib/format";
 import { MONEY_OPERATING_KEYS, RESET_CYCLE_LABELS, operatingFieldsForMode, operatingMoneyError, planDraftError } from "./resource-form-contract";
 import type { ResourcesPageModel } from "../../pages/resources-page-model";
 import { Button } from "../ui/Button";
 
-function ReadOnlyMetric({ label, value }: { label: string; value: string }) {
+function ReadOnlyMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-lg border border-ql-border bg-ql-surface px-3 py-2">
       <p className="text-[13px] text-ql-fg-tertiary">{label}</p>
@@ -107,13 +109,13 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
               <ReadOnlyMetric
                 label="系统已用额度"
                 value={operatingTarget.operating_snapshot?.used_quota
-                  ? formatQuotaQuantity(operatingTarget.operating_snapshot.used_quota, operatingTarget.operating_snapshot.quota_unit)
+                  ? <QuotaAmount value={operatingTarget.operating_snapshot.used_quota} unit={operatingTarget.operating_snapshot.quota_unit} />
                   : "未知"}
               />
               <ReadOnlyMetric
                 label="系统剩余额度"
                 value={operatingTarget.operating_snapshot?.remaining_quota
-                  ? formatQuotaQuantity(operatingTarget.operating_snapshot.remaining_quota, operatingTarget.operating_snapshot.quota_unit)
+                  ? <QuotaAmount value={operatingTarget.operating_snapshot.remaining_quota} unit={operatingTarget.operating_snapshot.quota_unit} />
                   : "未知"}
               />
               <ReadOnlyMetric
@@ -193,7 +195,7 @@ export function ResourceDialogs({ model }: { model: ResourcesPageModel }) {
                       <td className="p-2">v{snapshot.version} · {snapshot.source}</td>
                       <td className="p-2">
                         {operatingTarget.mode === "CODING_PLAN"
-                          ? `总 ${snapshot.total_quota ? formatQuotaQuantity(snapshot.total_quota, snapshot.quota_unit) : "未知"} · ${snapshot.package_name ?? "未命名套餐"} · ${snapshot.currency ?? ""} ${snapshot.package_cost === null ? "费用未知" : formatMoney(snapshot.package_cost)}`
+                          ? <>总 <QuotaAmount value={snapshot.total_quota} unit={snapshot.quota_unit} missing="未知" /> · {snapshot.package_name ?? "未命名套餐"} · {snapshot.currency ?? ""} {snapshot.package_cost === null ? "费用未知" : formatMoney(snapshot.package_cost)}</>
                           : `充值 ${snapshot.currency ?? ""} ${snapshot.recharge_amount === null ? "未知" : formatMoney(snapshot.recharge_amount)} · 余额 ${snapshot.current_balance === null ? "未知" : formatMoney(snapshot.current_balance)} · 本期费用 ${snapshot.current_period_cost === null ? "未知" : formatMoney(snapshot.current_period_cost)}`}
                       </td>
                       <td className="p-2">

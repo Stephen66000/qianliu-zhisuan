@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -114,7 +114,9 @@ describe("接入配置暂不可用存量授权", () => {
 
   it("旧额度显示已分配值，不冒充当月结余", () => {
     render(<PrincipalAccessConfigPanel principalId="compass" />);
-    expect(screen.getByText(/^已分配 /)).toBeInTheDocument();
+    const amount = screen.getByTitle("300000000 Token");
+    expect(amount).toHaveTextContent("3 亿 Token");
+    expect(within(amount).getByText("亿 Token")).toHaveClass("font-normal");
     expect(screen.getByText("各厂商额度按对应计量口径分别展示")).toBeInTheDocument();
     expect(screen.queryByText(/总额度 .*Token/)).not.toBeInTheDocument();
   });
@@ -130,12 +132,14 @@ describe("接入配置暂不可用存量授权", () => {
     };
     useAccessConfigurationMock.mockReturnValue({ isLoading: false, isError: false, data: value });
     render(<PrincipalAccessConfigPanel principalId="compass" />);
-    expect(screen.getByText(/2026-12 · 套餐折算额度 · 已用 1,200 · 可用 0 · 预占 100 · 超额 200/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("DeepSeek"));
+    expect(screen.getByLabelText("月度额度状态")).toHaveTextContent(
+      "2026-12 · 套餐折算额度 · 已用 1,200 · 可用 0 · 预占 100 · 超额 200",
+    );
     expect(screen.getByText(/每月 1 日零点重置/)).toHaveTextContent("当前允许超额，超额用量仍记录。");
   });
 
-  it("未知实耗不展示精确可用或超额", () => {
+  it("未知实耗不展示精确可用或超额", async () => {
     const value = configuration();
     value.providers[0]!.pool!.quota = {
       mode: "MONTHLY", period_key: "2026-12", period_start: "2026-11-30T16:00:00Z",
@@ -145,8 +149,10 @@ describe("接入配置暂不可用存量授权", () => {
     };
     useAccessConfigurationMock.mockReturnValue({ isLoading: false, isError: false, data: value });
     render(<PrincipalAccessConfigPanel principalId="compass" />);
-    expect(screen.getByText(/用量待核账 · 未结清预占 0.01 万 Token/)).toBeInTheDocument();
-    expect(screen.queryByText(/可用 0/)).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText("DeepSeek"));
+    const status = screen.getByLabelText("月度额度状态");
+    expect(status).toHaveTextContent("用量待核账 · 未结清预占 0.01 万 Token");
+    expect(status).not.toHaveTextContent("可用");
   });
 
   it("保存 K3 时原样携带已配置但耗尽的 DeepSeek 型号", async () => {

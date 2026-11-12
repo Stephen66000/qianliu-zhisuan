@@ -1,4 +1,3 @@
-import { formatTokens } from "../lib/format";
 import type { AnalysisPayment } from "../api/operating-analysis";
 import { Link } from "react-router-dom";
 
@@ -42,7 +41,7 @@ export function OperatingBillOverview({
     ? `${((usedTokensNum / allocatedQuotaNum) * 100).toFixed(1)}%`
     : "—";
   const remainingQuota = allocatedQuotaNum > 0 && monthTokens !== null && monthTokens !== undefined
-    ? formatTokens(String(Math.max(0, allocatedQuotaNum - usedTokensNum)))
+    ? String(Math.max(0, allocatedQuotaNum - usedTokensNum))
     : "不限";
 
   // WP4-S4（总指挥裁定）：历史/现行分流维度＝bill.status。CLOSED＝已关账历史版本
@@ -53,11 +52,11 @@ export function OperatingBillOverview({
     && (bill.summary.provisionalEndingBalances?.length ?? 0) > 0;
   const hasUnknownApiCost = bill.gaps.some((gap) => gap.code === "API_COST_UNKNOWN");
   const requiresUsageReview = bill.gaps.some((gap) => !closed && gap.code === "API_COST_UNKNOWN" && gap.requiresUsageReview !== false);
-  const metrics: string[][] = [
-    ["本月分配额度", allocatedQuotaNum > 0 ? formatTokens(allocatedQuota!) : "不限"],
-    ["本月token使用量", monthTokens === null || monthTokens === undefined ? "—" : formatTokens(monthTokens)],
+  const metrics: ReadonlyArray<readonly [string, string, boolean?]> = [
+    ["本月分配额度", allocatedQuotaNum > 0 ? allocatedQuota! : "不限", true],
+    ["本月token使用量", monthTokens ?? "—", true],
     ["token使用率", usageRate],
-    ["本月剩余额度", remainingQuota],
+    ["本月剩余额度", remainingQuota, true],
     ...(closed ? [
       [
         "期初余额",
@@ -78,13 +77,13 @@ export function OperatingBillOverview({
           : currencyFacts(bill.summary.endingBalances, bill.summary.endingBalance, bill.summary.endingBalanceCurrency),
       ],
       ["API 花费", currencyFacts(apiSpends, null)],
-    ] : [
+    ] as const : [
       // ACE-01/AFR-07：现行月 API 金额＝估算口径命名；gaps 含 API_COST_UNKNOWN 时附完整性提示。
       [
         hasUnknownApiCost ? "API费用估算（含待计价）" : "API费用估算",
         currencyFacts(apiSpends, null),
       ],
-    ]),
+    ] as const),
     [
       "套餐费用",
       currencyFacts(
@@ -112,8 +111,8 @@ export function OperatingBillOverview({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map(([label, value]) => (
-          <BillStat key={label} label={label!} value={value!} />
+        {metrics.map(([label, value, tokens]) => (
+          <BillStat key={label} label={label} value={value} tokens={tokens} />
         ))}
       </div>
       {/* WP4-S4（AFR-07／WP2 遗留③）：API_OPENING_BALANCE_MISSING/OPENING_BALANCE_MISSING
