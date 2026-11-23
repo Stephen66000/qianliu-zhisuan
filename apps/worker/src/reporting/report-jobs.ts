@@ -583,7 +583,11 @@ export async function runPersonalWeeklyReports(
       },
     ];
 
-    for (const row of personalQuota.rows) metrics.push({ label: `${row.provider} · ${row.basis}`, value: row.detail });
+    if (monthly) {
+      for (const row of personalQuota.rows) {
+        metrics.push({ label: `${row.provider} · ${row.basis}`, value: row.detail });
+      }
+    }
 
     if (topModelName) {
       metrics.push({
@@ -595,6 +599,7 @@ export async function runPersonalWeeklyReports(
     const cardData: PersonalWeeklyReportData = {
       userName: item.subjectName,
       dateRange: weekLabel,
+      period: monthly ? "MONTH" : "WEEK",
       quote: pickPersonalWeeklyQuote(item.subjectName, rangeStart),
       metrics,
     };

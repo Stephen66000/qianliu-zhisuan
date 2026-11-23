@@ -80,7 +80,16 @@ describe("employee report frozen facts", () => {
     const personal = await runPersonalWeeklyReports({ ...input, userPersonId: "欧阳测试长姓名成员" });
     expect(company.dateRange).toBe("10.26 - 11.1"); expect(company.summaryText).toContain("截至11月1日");
     expect(company.svg).toContain("共 5 个，展示 Top3");
-    expect(personal[0]!.svg).toContain("截至11月1日"); expect(personal[0]!.svg).toContain("历史余额待核账");
+    const report = personal[0]!;
+    expect(report.svg).toContain('viewBox="47 65 446 635" width="540" height="769"');
+    expect(report.svg).toContain("一周小结 10.26 - 11.1");
+    expect(report.svg).toContain("核心主力模型");
+    expect(report.svg).toContain("截至11月1日");
+    expect(report.svg).toContain("历史余额待核账");
+    for (const row of reportFacts.quotaForPrincipal(employee).rows) {
+      expect(report.svg).not.toContain(`${row.provider} · ${row.basis}`);
+      expect(report.summaryText).toContain(`${row.provider}（${row.basis}）：${row.detail}`);
+    }
     expect(company.svg).not.toContain("18.1"); expect(company.svg).not.toContain("project-provider");
     const quotaBefore = await db.selectFrom("principal_quota_period").selectAll().where("enterprise_id", "=", enterpriseId).execute();
     expect(quotaBefore).toHaveLength(0);

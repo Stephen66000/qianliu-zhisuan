@@ -23,7 +23,7 @@ describe("1080px reporting layout previews", () => {
     const svg = generateCompanyWeeklySvg(companyData);
     const monthly = generateCompanyWeeklySvg({ ...companyData, reportMonth: "2026 年 10 月",
       monthQuotaTotal: "22.0 亿", monthTokenUsageRate: "123.2%", monthConsumedTokens: "27.1 亿", monthQuotaRemaining: "-5.1 亿", totalRequests: "2.3 万" });
-    const personal = generatePersonalWeeklySvg({ userName: "欧阳测试特别长姓名成员", dateRange: "月度小结 2026 年 10 月", quote: "功不求疾，但求有恒",
+    const personal = generatePersonalWeeklySvg({ userName: "欧阳测试特别长姓名成员", dateRange: "月度小结 2026 年 10 月", period: "MONTH", quote: "功不求疾，但求有恒",
       metrics: [ { label: "总请求次数", value: "3,229 次" }, { label: "月消耗 Token 总量", value: "3.9 亿" },
         { label: "日均使用量", value: "1257.1 万 /天" }, { label: "最晚请求时间", value: "10月31日 23:59" },
         { label: "额度截至10月31日", value: "1项超额，1项待核" }, ...quotaRows.map(row => ({ label: `${row.provider} · ${row.basis}`, value: row.detail })) ] });

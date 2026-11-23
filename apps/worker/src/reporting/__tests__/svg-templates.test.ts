@@ -38,7 +38,7 @@ describe("SVG Templates & PNG Rendering Pipeline", () => {
     expect(svg).toContain('fill="#FFFFFF"'); // 纯白底色
     expect(svg).not.toContain('fill="#EEF2F6"');
     expect(svg).toContain("张三");
-    expect(svg).toContain("一周小结 9.7-9.11");
+    expect(svg).toMatch(/张三<tspan[^>]*>一周小结 9\.7-9\.11<\/tspan>/);
     expect(svg).toContain("功不求疾，但求有恒");
     expect(svg).toContain("总请求次数");
     expect(svg).toContain("32.9 万");
